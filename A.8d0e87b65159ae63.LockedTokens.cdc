@@ -28,6 +28,7 @@
 import FlowToken from 0x1654653399040a61
 import FungibleToken from 0xf233dcee88fe0abe
 import FlowIDTableStaking from 0x8624b52f9ddcd04a
+import FlowStorageFees from 0xe467b9dd11fa00df
 
 import StakingProxy from 0x62430cf28c26d095
 
@@ -290,8 +291,10 @@ pub contract LockedTokens {
         }
 
         /// Returns the locked account balance for this token holder.
+        /// Subtracts the minimum storage reservation from the value because that portion
+        /// of the locked balance is not available to use
         pub fun getLockedAccountBalance(): UFix64 {
-            return self.borrowTokenManager().getBalance()
+            return self.borrowTokenManager().getBalance() - FlowStorageFees.minimumStorageReservation
         }
 
         // Returns the unlocked limit for this token holder.
