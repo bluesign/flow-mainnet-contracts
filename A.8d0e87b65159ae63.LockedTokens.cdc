@@ -29,7 +29,6 @@ import FlowToken from 0x1654653399040a61
 import FungibleToken from 0xf233dcee88fe0abe
 import FlowIDTableStaking from 0x8624b52f9ddcd04a
 import FlowStorageFees from 0xe467b9dd11fa00df
-
 import StakingProxy from 0x62430cf28c26d095
 
 pub contract LockedTokens {
@@ -186,7 +185,7 @@ pub contract LockedTokens {
                 let stakingInfo = FlowIDTableStaking.NodeInfo(nodeID: nodeStaker.id)
 
                 assert(
-                    stakingInfo.tokensStaked + stakingInfo.totalTokensStaked + stakingInfo.tokensCommitted + stakingInfo.tokensUnstaking + stakingInfo.tokensUnstaked + stakingInfo.tokensRewarded == 0.0,
+                    stakingInfo.tokensStaked + stakingInfo.tokensCommitted + stakingInfo.tokensUnstaking + stakingInfo.tokensUnstaked + stakingInfo.tokensRewarded == 0.0,
                     message: "Cannot register a new node until all tokens from the previous node have been withdrawn"
                 )
 
@@ -257,7 +256,7 @@ pub contract LockedTokens {
 
         /// Capability that is used to access the LockedTokenManager
         /// in the shared account
-        access(self) var tokenManager: Capability<&LockedTokenManager>
+        access(account) var tokenManager: Capability<&LockedTokenManager>
 
         /// Used to perform staking actions if the user has signed up
         /// as a node operator
@@ -279,7 +278,7 @@ pub contract LockedTokens {
         }
 
         /// Utility function to borrow a reference to the LockedTokenManager object
-        access(self) fun borrowTokenManager(): &LockedTokenManager {
+        access(account) fun borrowTokenManager(): &LockedTokenManager {
             return self.tokenManager.borrow()!
         }
 
@@ -623,7 +622,7 @@ pub contract LockedTokens {
         }
 
         /// Get an accounts capability
-        pub fun getAccount(address: Address): Capability<&LockedTokenManager>? {
+        pub fun getAccount(address: Address): Capability<&LockedTokenManager{TokenAdmin}>? {
             return self.accounts[address]
         }
 
