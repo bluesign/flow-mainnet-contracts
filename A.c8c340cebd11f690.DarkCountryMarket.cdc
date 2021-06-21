@@ -248,7 +248,7 @@ pub contract DarkCountryMarket {
     //
     // NOTE: the function will be private in the initial release of the market smart contract
     // 
-    access(self) fun createSaleOffer (
+    pub fun createSaleOffer (
         sellerItemProvider: Capability<&DarkCountry.Collection{NonFungibleToken.Provider}>,
         itemID: UInt64,
         sellerPaymentReceiver: Capability<&FlowToken.Vault{FungibleToken.Receiver}>,
