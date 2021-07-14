@@ -3,6 +3,7 @@ import NonFungibleToken from 0x1d7e57aa55817448
 import Art from 0xd796ff17107bbff6
 import Content from 0xd796ff17107bbff6
 import Auction from 0xd796ff17107bbff6
+import Profile from 0xd796ff17107bbff6
 
 /*
  The main contract in the Versus auction system.
@@ -22,7 +23,6 @@ pub contract Versus {
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
     pub let CollectionPrivatePath: PrivatePath
-
 
     //counter for drops that is incremented every time there is a new versus drop made
     pub var totalDrops: UInt64
@@ -46,8 +46,6 @@ pub contract Versus {
 
    //A Drop in versus represents a single auction vs an editioned auction
     pub resource Drop {
-
-
 
         access(contract) let uniqueAuction: @Auction.AuctionItem
         access(contract) let editionAuctions: @Auction.AuctionCollection
@@ -255,7 +253,7 @@ pub contract Versus {
                 self.extendDropWith(UFix64(extendWith))
             }
 
-            let bidder=vaultCap.borrow()!.owner!.address
+            let bidder=vaultCap.address
             let currentBidForUser= self.currentBidForUser(auctionId: auctionId, address: bidder)
             let bidPrice = bidTokens.balance + currentBidForUser
 
@@ -394,7 +392,7 @@ pub contract Versus {
              minimumBidIncrement: UFix64, 
              minimumBidUniqueIncrement: UFix64,
              startTime: UFix64, 
-             startPrice: UFix64,  //TODO: seperate startPrice for unique and edition
+             startPrice: UFix64,  
              vaultCap: Capability<&{FungibleToken.Receiver}>,
              duration: UFix64,
              extensionOnLateBid:UFix64)
@@ -483,7 +481,7 @@ pub contract Versus {
                 extensionOnLateBid: extensionOnLateBid, 
                 contentId: contentId, 
                 contentCapability: contentCapability)
-            emit DropCreated(name: metadata.name, artist: metadata.artist,  editions: editions, owner: vaultCap.borrow()!.owner!.address, dropId: drop.dropID)
+            emit DropCreated(name: metadata.name, artist: metadata.artist,  editions: editions, owner: vaultCap.address, dropId: drop.dropID)
 
             let oldDrop <- self.drops[drop.dropID] <- drop
             destroy oldDrop
@@ -754,14 +752,26 @@ pub contract Versus {
           return Versus.account.borrow<&NonFungibleToken.Collection>(from: Art.CollectionStoragePath)!
         }
 
+        pub fun getDropCollection(): &Versus.DropCollection {
+          pre {
+            self.server != nil : "Your client has not been linked to the server"
+          }
+          return self.server!.borrow()!
+        }
+
+        pub fun getVersusProfile(): &Profile.User {
+          pre {
+            self.server != nil : "Your client has not been linked to the server"
+          }
+          return Versus.account.borrow<&Profile.User>(from: Profile.storagePath)!
+        }
+
     }
 
     //make it possible for a user that wants to be a versus admin to create the client
     pub fun createAdminClient(): @Admin {
         return <- create Admin()
     }
-    
-
 
     //initialize all the paths and create and link up the admin proxy
     //init is only executed on initial deployment
