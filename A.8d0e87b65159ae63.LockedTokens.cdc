@@ -225,6 +225,18 @@ pub contract LockedTokens {
             emit LockedAccountRegisteredAsDelegator(address: self.owner!.address, nodeID: nodeID)
         }
 
+        pub fun borrowNode(): &FlowIDTableStaking.NodeStaker? {
+            let nodeOpt <- self.nodeStaker <- nil
+            if let node <- nodeOpt {
+                let nodeRef = &node as? &FlowIDTableStaking.NodeStaker
+                self.nodeStaker <-! node
+                return nodeRef
+            } else {
+                self.nodeStaker <-! nodeOpt 
+                return nil
+            }
+        }
+
         pub fun removeNode(): @FlowIDTableStaking.NodeStaker? {
             let node <- self.nodeStaker <- nil
 
@@ -389,6 +401,18 @@ pub contract LockedTokens {
 
         access(self) fun nodeObjectExists(_ managerRef: &LockedTokenManager): Bool {
             return managerRef.nodeStaker != nil
+        }
+
+        /// Change node networking address
+        pub fun updateNetworkingAddress(_ newAddress: String) {
+            let tokenManagerRef = self.tokenManager.borrow()!
+
+            assert(
+                self.nodeObjectExists(tokenManagerRef),
+                message: "Cannot change networking address if there is no node object!"
+            )
+
+            tokenManagerRef.nodeStaker?.updateNetworkingAddress(newAddress)
         }
 
         /// Stakes new locked tokens
