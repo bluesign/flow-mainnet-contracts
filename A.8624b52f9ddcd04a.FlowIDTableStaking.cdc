@@ -29,6 +29,7 @@
 
 import FungibleToken from 0xf233dcee88fe0abe
 import FlowToken from 0x1654653399040a61
+import FlowFees from 0xf919ee77447b7497
 import Crypto
 
 pub contract FlowIDTableStaking {
@@ -36,6 +37,7 @@ pub contract FlowIDTableStaking {
     /****** ID Table and Staking Events ******/
 
     pub event NewEpoch(totalStaked: UFix64, totalRewardPayout: UFix64)
+    pub event EpochTotalRewardsPaid(total: UFix64, fromFees: UFix64, minted: UFix64, feesBurned: UFix64)
 
     /// Node Events
     pub event NewNodeCreated(nodeID: String, role: UInt8, amountCommitted: UFix64)
@@ -429,7 +431,11 @@ pub contract FlowIDTableStaking {
             // Borrow the node's record from the staking contract
             let nodeRecord = FlowIDTableStaking.borrowNodeRecord(self.id)
 
+            FlowIDTableStaking.updateClaimed(path: /storage/networkingAddressesClaimed, nodeRecord.networkingAddress, claimed: false)
+
             nodeRecord.networkingAddress = newAddress
+
+            FlowIDTableStaking.updateClaimed(path: /storage/networkingAddressesClaimed, newAddress, claimed: true)
 
             emit NetworkingAddressUpdated(nodeID: self.id, newAddress: newAddress)
         }
@@ -836,22 +842,52 @@ pub contract FlowIDTableStaking {
         /// based on the tokens that they have staked
         pub fun payRewards(_ rewardsBreakdownArray: [RewardsBreakdown]) {
 
-            let allNodeIDs = FlowIDTableStaking.getNodeIDs()
+            let totalRewards = FlowIDTableStaking.epochTokenPayout
+            let feeBalance = FlowFees.getFeeBalance()
+            var mintedRewards: UFix64 = 0.0
+            if feeBalance < totalRewards {
+                mintedRewards = totalRewards - feeBalance
+            }
 
-            let flowTokenMinter = FlowIDTableStaking.account.borrow<&FlowToken.Minter>(from: /storage/flowTokenMinter)
-                ?? panic("Could not borrow minter reference")
+            // Borrow the fee admin and withdraw all the fees that have been collected since the last rewards payment
+            let feeAdmin = FlowIDTableStaking.borrowFeesAdmin()
+            let rewardsVault <- feeAdmin.withdrawTokensFromFeeVault(amount: feeBalance)
+
+            // Mint the remaining FLOW for rewards
+            if mintedRewards > 0.0 {
+                let flowTokenMinter = FlowIDTableStaking.account.borrow<&FlowToken.Minter>(from: /storage/flowTokenMinter)
+                    ?? panic("Could not borrow minter reference")
+                rewardsVault.deposit(from: <-flowTokenMinter.mintTokens(amount: mintedRewards))
+            }
+
+            let allNodeIDs = FlowIDTableStaking.getNodeIDs()
 
             for rewardBreakdown in rewardsBreakdownArray {
                 let nodeRecord = FlowIDTableStaking.borrowNodeRecord(rewardBreakdown.nodeID)
-                nodeRecord.tokensRewarded.deposit(from: <-flowTokenMinter.mintTokens(amount: rewardBreakdown.nodeRewards))
-                emit RewardsPaid(nodeID: rewardBreakdown.nodeID, amount: rewardBreakdown.nodeRewards)
+                let nodeReward = rewardBreakdown.nodeRewards
+                
+                nodeRecord.tokensRewarded.deposit(from: <-rewardsVault.withdraw(amount: nodeReward))
+
+                emit RewardsPaid(nodeID: rewardBreakdown.nodeID, amount: nodeReward)
 
                 for delegator in rewardBreakdown.delegatorRewards.keys {
                     let delRecord = nodeRecord.borrowDelegatorRecord(delegator)
-                    delRecord.tokensRewarded.deposit(from: <-flowTokenMinter.mintTokens(amount: rewardBreakdown.delegatorRewards[delegator]!))
-                    emit DelegatorRewardsPaid(nodeID: rewardBreakdown.nodeID, delegatorID: delegator, amount: rewardBreakdown.delegatorRewards[delegator]!)
+                    let delegatorReward = rewardBreakdown.delegatorRewards[delegator]!
+                        
+                    delRecord.tokensRewarded.deposit(from: <-rewardsVault.withdraw(amount: delegatorReward))
+
+                    emit DelegatorRewardsPaid(nodeID: rewardBreakdown.nodeID, delegatorID: delegator, amount: delegatorReward)
                 }
             }
+
+            var fromFees = feeBalance
+            if feeBalance >= totalRewards {
+                fromFees = totalRewards
+            }
+            emit EpochTotalRewardsPaid(total: totalRewards, fromFees: fromFees, minted: mintedRewards, feesBurned: rewardsVault.balance)
+
+            // Destroy the remaining fees, even if there are some left
+            destroy rewardsVault
         }
 
         pub fun calculateRewards(): [RewardsBreakdown] {
@@ -1021,17 +1057,13 @@ pub contract FlowIDTableStaking {
         pub fun setClaimed() {
 
             let claimedNetAddressDictionary: {String: Bool} = {}
-            let claimedNetKeyDictionary: {String: Bool} = {}
-            let claimedStakingKeysDictionary: {String: Bool} = {}
 
             for nodeID in FlowIDTableStaking.nodes.keys {
                 claimedNetAddressDictionary[FlowIDTableStaking.nodes[nodeID]?.networkingAddress!] = true
-                claimedNetKeyDictionary[FlowIDTableStaking.nodes[nodeID]?.networkingKey!] = true
-                claimedStakingKeysDictionary[FlowIDTableStaking.nodes[nodeID]?.stakingKey!] = true
             }
+
+            let oldDictionary = FlowIDTableStaking.account.load<{String: Bool}>(from: /storage/networkingAddressesClaimed)
             FlowIDTableStaking.account.save(claimedNetAddressDictionary, to: /storage/networkingAddressesClaimed)
-            FlowIDTableStaking.account.save(claimedNetKeyDictionary, to: /storage/networkingKeysClaimed)
-            FlowIDTableStaking.account.save(claimedStakingKeysDictionary, to: /storage/stakingKeysClaimed)
         }
     }
 
@@ -1086,6 +1118,14 @@ pub contract FlowIDTableStaking {
                 "Specified node ID does not exist in the record"
         }
         return &FlowIDTableStaking.nodes[nodeID] as! &NodeRecord
+    }
+
+    /// borrow a reference to the `FlowFees` admin resource for paying rewards
+    access(account) fun borrowFeesAdmin(): &FlowFees.Administrator {
+        let feesAdmin = self.account.borrow<&FlowFees.Administrator>(from: /storage/flowFeesAdmin)
+            ?? panic("Could not borrow a reference to the FlowFees Admin object")
+
+        return feesAdmin
     }
 
     /// Updates a claimed boolean for a specific path to indicate that
@@ -1290,3 +1330,4 @@ pub contract FlowIDTableStaking {
         self.account.save(<-create Admin(), to: self.StakingAdminStoragePath)
     }
 }
+ 
