@@ -79,7 +79,6 @@ pub contract Collectible: NonFungibleToken {
 
     //Standard NFT collectionPublic interface that can also borrowArt as the correct type
     pub resource interface CollectionPublic {
-        pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT 
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT  
