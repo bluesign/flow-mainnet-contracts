@@ -79,6 +79,9 @@ pub contract Auction {
     pub event AddNFT(auctionID: UInt64, nftID: UInt64) 
     pub event BurnNFT(auctionID: UInt64, nftID: UInt64) 
     pub event SendNFT(auctionID: UInt64, nftID: UInt64, to: Address)   
+    pub event FailSendNFT(auctionID: UInt64, nftID: UInt64, to: Address) 
+    pub event SendBidTokens(auctionID: UInt64, amount: UFix64, to: Address)   
+    pub event FailSendBidTokens(auctionID: UInt64, amount: UFix64, to: Address) 
 
     // AuctionItem contains the Resources and metadata for a single auction
     pub resource AuctionItem {
@@ -90,7 +93,7 @@ pub contract Auction {
         priv var NFT: @Collectible.NFT?
 
         //This is the escrow vault that holds the tokens for the current largest bid
-        priv let bidVault: @FungibleToken.Vault
+        priv let bidVault: @FUSD.Vault
 
         //The id of this individual auction
         pub let auctionID: UInt64
@@ -123,10 +126,10 @@ pub contract Auction {
         priv var recipientCollectionCap: Capability<&{Collectible.CollectionPublic}>?
 
         //the capablity to send the escrow bidVault to if you are outbid
-        priv var recipientVaultCap: Capability<&{FungibleToken.Receiver}>?
+        priv var recipientVaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>?
 
         //the vault receive FUSD in case of the recipient of commissiona or the previous bidder are unreachable
-        priv let platformVaultCap: Capability<&{FungibleToken.Receiver}>
+        priv let platformVaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>
 
         //This action was cancelled
         priv var auctionCancelled: Bool
@@ -141,7 +144,7 @@ pub contract Auction {
             auctionLength: UFix64,         
             extendedLength: UFix64, 
             remainLengthToExtend: UFix64, 
-            platformVaultCap: Capability<&{FungibleToken.Receiver}>,         
+            platformVaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>,         
             editionCap: Capability<&{Edition.EditionCollectionPublic}>
         ) {
             Auction.totalAuctions = Auction.totalAuctions + (1 as UInt64)
@@ -165,20 +168,18 @@ pub contract Auction {
         }
 
         // sendNFT sends the NFT to the Collection belonging to the provided Capability
-        access(contract) fun sendNFT(_ capability: Capability<&{Collectible.CollectionPublic}>) {
-            if let collectionRef = capability.borrow() {
-                let nftId = self.NFT?.id!
+        priv fun sendNFT(_ capability: Capability<&{Collectible.CollectionPublic}>) {
+            let nftId = self.NFT?.id!
+            if let collectionRef = capability.borrow() {                
                 let NFT <- self.NFT <- nil
                 collectionRef.deposit(token: <-NFT!)
                 emit SendNFT(auctionID: self.auctionID, nftID: nftId, to: collectionRef.owner!.address)  
                 return
-            }     
-            
-            // This NFT will be burned if the recipien storage is unavaliable
-            self.burnNFT()
+            }    
+            emit FailSendNFT(auctionID: self.auctionID, nftID: nftId, to: self.recipientVaultCap!.borrow()!.owner!.address)
         }
 
-        access(contract) fun burnNFT() {   
+        priv fun burnNFT() {   
             
             if(self.NFT == nil) { 
                 return
@@ -194,23 +195,27 @@ pub contract Auction {
         }
         
         // sendBidTokens sends the bid tokens to the previous bidder
-        access(contract) fun sendBidTokens(_ capability: Capability<&{FungibleToken.Receiver}>) {
+        priv fun sendBidTokens(_ capability: Capability<&FUSD.Vault{FungibleToken.Receiver}>) {
             // borrow a reference to the prevous bidder's vault
             if let vaultRef = capability.borrow() {
-                let bidVaultRef = &self.bidVault as &FungibleToken.Vault
-
+                let bidVaultRef = &self.bidVault as &FUSD.Vault
+                let balance = bidVaultRef.balance
                 if(bidVaultRef.balance > 0.0) {
-                    vaultRef.deposit(from: <- bidVaultRef.withdraw(amount: bidVaultRef.balance))
+                    vaultRef.deposit(from: <- bidVaultRef.withdraw(amount: balance))
                 }
+
+                emit SendBidTokens(auctionID: self.auctionID, amount: balance, to: vaultRef.owner!.address)
                 return
             }
 
             //  platform vault get money in case the previous bidder vault is unreachable
             if let ownerRef = self.platformVaultCap.borrow() {
-                let bidVaultRef = &self.bidVault as &FungibleToken.Vault
+                let bidVaultRef = &self.bidVault as &FUSD.Vault
+                let balance = bidVaultRef.balance
                 if(bidVaultRef.balance > 0.0) {
-                    ownerRef.deposit(from: <-bidVaultRef.withdraw(amount: bidVaultRef.balance))
+                    ownerRef.deposit(from: <-bidVaultRef.withdraw(amount: balance))
                 }
+                emit FailSendBidTokens(auctionID: self.auctionID, amount: balance, to: ownerRef.owner!.address)
                 return
             }
         }
@@ -240,7 +245,7 @@ pub contract Auction {
 
                     let account = getAccount(key) 
 
-                    let vaultCap = account.getCapability<&{FungibleToken.Receiver}>(/public/fusdReceiver)    
+                    let vaultCap = account.getCapability<&FUSD.Vault{FungibleToken.Receiver}>(/public/fusdReceiver)    
 
                     if (vaultCap.check()) {
                         let vault = vaultCap.borrow()!
@@ -351,7 +356,7 @@ pub contract Auction {
         }
 
         // This method should probably use preconditions more
-        pub fun placeBid(bidTokens: @FungibleToken.Vault, vaultCap: Capability<&{FungibleToken.Receiver}>, collectionCap: Capability<&{Collectible.CollectionPublic}>) {
+        pub fun placeBid(bidTokens: @FUSD.Vault, vaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>, collectionCap: Capability<&{Collectible.CollectionPublic}>) {
 
             pre {
                 vaultCap.check() : "Fungible token storage is not initialized on account"
@@ -454,34 +459,35 @@ pub contract Auction {
             emit AddNFT(auctionID: self.auctionID, nftID: nftID) 
         }
 
+        pub fun reclaimSendNFT(collectionCap: Capability<&{Collectible.CollectionPublic}>)  {
+
+            pre {
+                self.auctionCompleted : "The auction has not been settled yet"
+                self.NFT != nil: "NFT in auction does not exist"      
+            }
+
+            self.sendNFT(collectionCap)         
+        }
+
         destroy() {
             log("destroy auction")
                        
-            // if there's a bidder...
+            // if there's a bidder, therefore minumum one bid
             if let vaultCap = self.recipientVaultCap {
                 // ...send the bid tokens back to the bidder
                 self.sendBidTokens(vaultCap)
             }
+
+            self.burnNFT()
 
             destroy self.NFT
             destroy self.bidVault
         }
     }    
 
-    // AuctionPublic is a resource interface that restricts users to
+    // AuctionCollectionPublic is a resource interface that restricts users to
     // retreiving the auction price list and placing bids
-    pub resource interface AuctionPublic {
-
-        pub fun createAuction(
-            minimumBidIncrement: UFix64, 
-            auctionLength: UFix64,           
-            extendedLength: UFix64,  
-            remainLengthToExtend: UFix64,
-            auctionStartTime: UFix64,
-            startPrice: UFix64, 
-            platformVaultCap: Capability<&{FungibleToken.Receiver}>,         
-            editionCap: Capability<&{Edition.EditionCollectionPublic}>
-        ): UInt64
+    pub resource interface AuctionCollectionPublic {
 
         pub fun getAuctionStatuses(): {UInt64: AuctionStatus}
         pub fun getAuctionStatus(_ id:UInt64): AuctionStatus?
@@ -489,15 +495,15 @@ pub contract Auction {
      
         pub fun placeBid(
             id: UInt64, 
-            bidTokens: @FungibleToken.Vault, 
-            vaultCap: Capability<&{FungibleToken.Receiver}>, 
+            bidTokens: @FUSD.Vault, 
+            vaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>, 
             collectionCap: Capability<&{Collectible.CollectionPublic}>
         )
     }
 
     // AuctionCollection contains a dictionary of AuctionItems and provides
     // methods for manipulating the AuctionItems
-    pub resource AuctionCollection: AuctionPublic {
+    pub resource AuctionCollection: AuctionCollectionPublic {
 
         // Auction Items
         access(account) var auctionItems: @{UInt64: AuctionItem}       
@@ -519,7 +525,7 @@ pub contract Auction {
             remainLengthToExtend: UFix64,
             auctionStartTime: UFix64,
             startPrice: UFix64,           
-            platformVaultCap: Capability<&{FungibleToken.Receiver}>,         
+            platformVaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>,         
             editionCap: Capability<&{Edition.EditionCollectionPublic}>
         ): UInt64 {
 
@@ -618,7 +624,7 @@ pub contract Auction {
 
         // placeBid sends the bidder's tokens to the bid vault and updates the
         // currentPrice of the current auction item
-        pub fun placeBid(id: UInt64, bidTokens: @FungibleToken.Vault, vaultCap: Capability<&{FungibleToken.Receiver}>, collectionCap: Capability<&{Collectible.CollectionPublic}>) {
+        pub fun placeBid(id: UInt64, bidTokens: @FUSD.Vault, vaultCap: Capability<&FUSD.Vault{FungibleToken.Receiver}>, collectionCap: Capability<&{Collectible.CollectionPublic}>) {
             pre {
                 self.auctionItems[id] != nil:
                     "Auction does not exist in this drop"
@@ -643,6 +649,14 @@ pub contract Auction {
             itemRef.addNFT(NFT: <- NFT)
         }
 
+        pub fun reclaimSendNFT(id: UInt64, collectionCap: Capability<&{Collectible.CollectionPublic}>) {
+            pre {
+                self.auctionItems[id] != nil: "Auction does not exist"
+            }
+            let itemRef = &self.auctionItems[id] as &AuctionItem           
+            itemRef.reclaimSendNFT(collectionCap: collectionCap)   
+        }
+
         destroy() {
             log("destroy auction collection")
             // destroy the empty resources
@@ -651,7 +665,7 @@ pub contract Auction {
     }
 
     // createAuctionCollection returns a new AuctionCollection resource to the caller
-    pub fun createAuctionCollection(): @AuctionCollection {
+    priv fun createAuctionCollection(): @AuctionCollection {
         let auctionCollection <- create AuctionCollection()
     
         return <- auctionCollection
@@ -659,7 +673,11 @@ pub contract Auction {
 
     init() {
         self.totalAuctions = (0 as UInt64)
-        self.CollectionPublicPath = /public/xtinglesAuction
-        self.CollectionStoragePath = /storage/xtinglesAuction
+        self.CollectionPublicPath = /public/NFTXtinglesBloctoAuction
+        self.CollectionStoragePath = /storage/NFTXtinglesBloctoAuction
+
+        let sale <- Auction.createAuctionCollection()
+        self.account.save(<-sale, to:Auction.CollectionStoragePath)         
+        self.account.link<&{Auction.AuctionCollectionPublic}>(Auction.CollectionPublicPath, target:Auction.CollectionStoragePath)
     }   
 }
