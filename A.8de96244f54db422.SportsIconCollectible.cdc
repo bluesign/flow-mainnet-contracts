@@ -332,11 +332,11 @@ pub contract SportsIconCollectible : NonFungibleToken {
         pub fun deposit(token: @NonFungibleToken.NFT) {
             let token <- token as! @SportsIconCollectible.NFT
 
-            let uuid: UInt64 = token.uuid
+            let id: UInt64 = token.id
 
-            let oldToken <- self.ownedNFTs[uuid] <- token
-            
-            emit Deposit(id: self.uuid, to: self.owner?.address)
+            let oldToken <- self.ownedNFTs[id] <- token
+
+            emit Deposit(id: id, to: self.owner?.address)
 
             destroy oldToken
         }
