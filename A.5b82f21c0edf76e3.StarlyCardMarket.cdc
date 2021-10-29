@@ -180,7 +180,8 @@ pub contract StarlyCardMarket {
         //
         destroy() {
             // Whether the sale completed or not, publicize that it is being withdrawn.
-            emit SaleOfferFinished(itemID: self.itemID, sellerAddress: self.owner?.address!)
+            // NB: not possible to get owner address anymore, see https://discord.com/channels/613813861610684416/621847426201944074/900329343597821952
+            // emit SaleOfferFinished(itemID: self.itemID, sellerAddress: self.owner?.address!)
         }
 
         // initializer
