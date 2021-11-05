@@ -1,8 +1,10 @@
-// DisruptArt.io NFT Auction Token Contract
-// Owner  : DisruptionNowMedia (www.disruptionnow.com)
-// Author : www.BLAZE.ws
-// Version: 0.0.1
-//
+// DisruptArt NFT Marketplace
+// Auction smart contract
+// NFT Marketplace : www.disrupt.art
+// Owner           : Disrupt Art, INC.
+// Developer       : www.blaze.ws
+// Version         : 0.0.1
+// Blockchain      : Flow www.onFlow.org
 
 import FungibleToken from 0xf233dcee88fe0abe
 import DisruptArt from 0xcd946ef9b13804c6
@@ -404,7 +406,7 @@ pub contract DisruptArtAuction {
             
             let tokenID = bidtoken.id
 
-            let resale = (bidtoken.creator == bidtoken.owner?.address) ? false : true
+            let resale = (bidtoken.creator == self.owner?.address) ? false : true
 
             let creator = bidtoken.creator 
 
@@ -539,3 +541,4 @@ pub contract DisruptArtAuction {
         self.auctionPublicPath= /public/DisruptArtAuction
     }   
 }
+ 
