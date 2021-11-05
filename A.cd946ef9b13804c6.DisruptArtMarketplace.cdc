@@ -1,5 +1,6 @@
-// DisruptArt Marketplace Smart Contract
-// NFT Marketplace : www.DisruptArt.io
+// DisruptArt NFT Marketplace
+// Marketplace smart contract
+// NFT Marketplace : www.disrupt.art
 // Owner           : Disrupt Art, INC.
 // Developer       : www.blaze.ws
 // Version         : 0.0.4
