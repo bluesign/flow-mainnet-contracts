@@ -3,7 +3,7 @@
 // NFT Marketplace : www.disrupt.art
 // Owner           : Disrupt Art, INC.
 // Developer       : www.blaze.ws
-// Version         : 0.0.4
+// Version         : 0.0.5
 // Blockchain      : Flow www.onFlow.org
 
 
@@ -131,9 +131,9 @@ pub contract DisruptArtMarketplace {
 
         self.creators[id] = token.creator
 
-        self.seller[id] = token.owner?.address
+        self.seller[id] = self.owner?.address
 
-        self.resale[id] = (token.creator == token.owner?.address) ? false : true
+        self.resale[id] = (token.creator == self.owner?.address) ? false : true
 
         // Put NFT into the forSale dictionary
         let oldToken <- self.forSale[id] <- token
