@@ -4,6 +4,7 @@ import GarmentNFT from 0xfc91de5e6566cc7c
 import MaterialNFT from 0xfc91de5e6566cc7c
 import FBRC from 0xfc91de5e6566cc7c
 
+
 pub contract ItemNFT: NonFungibleToken {
 
     // -----------------------------------------------------------------------
@@ -120,7 +121,8 @@ pub contract ItemNFT: NonFungibleToken {
         init(itemDataID: UInt32) {
             pre {
                 //Only one Item with 'ItemDataID' can be minted 
-                ItemNFT.numberMintedPerItem[itemDataID] == ItemNFT.numberItemDataMintable - 1 as UInt32: "ItemNFT with itemDataID already minted"
+                Int(ItemNFT.numberMintedPerItem[itemDataID]!) < Int(ItemNFT.numberItemDataMintable): 
+                "ItemNFT with itemDataID already minted"
             }
             
             self.itemDataID = itemDataID
@@ -617,4 +619,3 @@ pub contract ItemNFT: NonFungibleToken {
         emit ContractInitialized()
     }
 }
-
