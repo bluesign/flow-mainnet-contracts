@@ -325,7 +325,7 @@ pub contract GooberXContract : NonFungibleToken {
 
       // Iterate all keys because regular index, contains not possible
       for key in self.ownedNFTs.keys {
-        if (it >= beginIndex && it <= endIndex) {
+        if (it >= beginIndex && it < endIndex) {
           let el = &self.ownedNFTs[key] as auth &NonFungibleToken.NFT
           let goober = el as! &GooberXContract.NFT
           goobers.insert(key: goober.id, goober.data)
