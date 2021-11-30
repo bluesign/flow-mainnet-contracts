@@ -1,7 +1,7 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import FUSD from 0x3c5959b568896393
-import StarlyCard from 0x5b82f21c0edf76e3
+import StarlyCard from 0x5b82f21c0edf76e3   
 
 pub contract StarlyCardMarket {
 
@@ -15,6 +15,42 @@ pub contract StarlyCardMarket {
         }
     }
 
+    pub fun checkSaleCutReceiver(saleCutReceiver: StarlyCardMarket.SaleCutReceiver): Bool {
+        return saleCutReceiver.receiver.borrow() != nil
+    }
+
+    pub fun checkSaleCutReceivers(saleCutReceivers: [StarlyCardMarket.SaleCutReceiver]): Bool {
+        for saleCutReceiver in saleCutReceivers {
+            if (saleCutReceiver.receiver.borrow() == nil) {
+                return false
+            }
+        }
+        return true
+    }
+
+    pub struct SaleCutReceiverV2 {
+        pub let receiver: Capability<&{FungibleToken.Receiver}>
+        pub let percent: UFix64
+
+        init(receiver: Capability<&{FungibleToken.Receiver}>, percent: UFix64) {
+            self.receiver = receiver
+            self.percent = percent
+        }
+    }
+
+    pub fun checkSaleCutReceiverV2(saleCutReceiver: StarlyCardMarket.SaleCutReceiverV2): Bool {
+        return saleCutReceiver.receiver.borrow() != nil
+    }
+
+    pub fun checkSaleCutReceiversV2(saleCutReceivers: [StarlyCardMarket.SaleCutReceiverV2]): Bool {
+        for saleCutReceiver in saleCutReceivers {
+            if (saleCutReceiver.receiver.borrow() == nil) {
+                return false
+            }
+        }
+        return true
+    }
+
     pub struct SaleCut {
         pub let address: Address
         pub let amount: UFix64
@@ -25,19 +61,6 @@ pub contract StarlyCardMarket {
             self.amount = amount
             self.percent = percent
         }
-    }
-
-    pub fun checkSaleCutReceiver(saleCutReceiver: StarlyCardMarket.SaleCutReceiver): Bool {
-        return saleCutReceiver.receiver.borrow() != nil
-    }
-
-    pub fun checkSaleCutReceivers(saleCutReceivers: [StarlyCardMarket.SaleCutReceiver]): Bool {
-        for saleCutReceiver in saleCutReceivers {
-            if (saleCutReceiver.receiver.borrow() != nil) {
-                return false
-            }
-        }
-        return true
     }
 
     // SaleOffer events.
