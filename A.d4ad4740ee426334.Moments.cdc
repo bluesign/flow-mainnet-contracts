@@ -453,7 +453,7 @@ pub contract Moments: NonFungibleToken {
             let serialNumber = UInt64(contentEdition.momentIDs.length + 1)
 
             // check that we're not blowing the minting cap for this edition
-            assert(serialNumber < set.rarityCaps[contentEdition.rarity]!, message: "The cap for that rarity has already been minted for that Moment.")
+            assert(serialNumber <= set.rarityCaps[contentEdition.rarity]!, message: "The cap for that rarity has already been minted for that Moment.")
 
             // Mint the new moment
             let newMoment: @NFT <- create NFT(contentID: contentID,
