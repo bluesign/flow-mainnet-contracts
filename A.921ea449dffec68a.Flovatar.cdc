@@ -1,9 +1,9 @@
 import FungibleToken from 0xf233dcee88fe0abe
-import FlowToken from 0x1654653399040a61
 import NonFungibleToken from 0x1d7e57aa55817448
+import FlowToken from 0x1654653399040a61
 import FlovatarComponentTemplate from 0x921ea449dffec68a
 import FlovatarComponent from 0x921ea449dffec68a
-import FlovatarPack from 0x921ea449dffec68a 
+import FlovatarPack from 0x921ea449dffec68a
 
 /*
 
@@ -730,6 +730,12 @@ pub contract Flovatar: NonFungibleToken {
         if(mouthTemplate.rarity == "legendary"){ legendaryCount = legendaryCount + 1 }
         if(clothingTemplate.rarity == "legendary"){ legendaryCount = legendaryCount + 1 }
 
+
+        if(facialHairTemplate != nil){
+            if(facialHairTemplate?.rarity == "rare"){ rareCount = rareCount + 1}
+            if(facialHairTemplate?.rarity == "epic"){ epicCount = epicCount + 1}
+            if(facialHairTemplate?.rarity == "legendary"){ legendaryCount = legendaryCount + 1}
+        }
 
         if(Int(rareCount) != rareBoost.length){
             panic("The rare boosts are not equal the ones needed")
