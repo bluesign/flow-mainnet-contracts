@@ -31,6 +31,8 @@ pub contract GooberXContract : NonFungibleToken {
   pub event Deposit(id: UInt64, to: Address?)
   // Event to be eitted whenever a new NFT is minted
   pub event Minted(id: UInt64, uri: String, price: UFix64)
+  // Event to be eitted whenever a new NFT is minted
+  pub event Airdropped(id: UInt64)
 
   // Collection Paths
   //
@@ -173,6 +175,28 @@ pub contract GooberXContract : NonFungibleToken {
                       price: price))
     }
 
+    // Replaces Goobers in global pool
+    // This is used to exchange existing Goober Pool 
+    //
+    pub fun replaceGooberInPool(
+      uri: String, 
+      metadata: {String: AnyStruct}
+      address: Address,
+      price: UFix64,
+      index: Int) {
+      pre {
+        uri.length > 0 : "Could not create Goober: uri is required."
+        index >= 0 : "Index is out of bounds"
+        GooberXContract.gooberPool.length > index : "Index is out of bounds."
+      }
+      
+      GooberXContract.gooberPool[index] = GooberStruct(
+        gooberID: 0 as UInt64, 
+        uri: uri, 
+        metadata: metadata,
+        price: price)
+    }
+
     // removeGooberFromPool
     // removes a goober from the pool using a index paramter
     //
@@ -198,6 +222,30 @@ pub contract GooberXContract : NonFungibleToken {
       
       emit Minted(id: GooberXContract.totalSupply, uri: gooberFromPool!.uri, price: gooberFromPool!.price)
     }
+
+    // adminMintAirDropNFT
+    // Mints a new NFT with a new ID and airdrops the Goober to a Recipient
+    //
+    pub fun adminMintAirDropNFT(
+        uri: String, 
+        metadata: {String: AnyStruct}
+        address: Address,
+        price: UFix64,
+        recipient: &{NonFungibleToken.CollectionPublic}) {
+      pre {
+        uri.length > 0 : "Could not create Goober: uri is required."
+      }
+      // GooberStruct initializing
+      let goober : GooberStruct = GooberStruct(
+        gooberID: 0 as UInt64, 
+        uri: uri, 
+        metadata: metadata,
+        price: price)
+      recipient.deposit(token: <-create GooberXContract.NFT(goober: goober))
+      
+      emit Minted(id: GooberXContract.totalSupply, uri: goober!.uri, price: goober!.price)
+      emit Airdropped(id: GooberXContract.totalSupply)
+    }   
 
 
     // createGiveaway
