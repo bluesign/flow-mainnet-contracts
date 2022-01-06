@@ -397,7 +397,7 @@ pub contract NftEggsStore {
                 depositRef.deposit(token: <-nft)
 
                 emit ListingCompleted(
-                    storefrontAddress: self.owner?.address!,
+                    storefrontAddress: self.owner?.address,
                     listingResourceID: self.uuid,
                     storefrontResourceID: self.details.storefrontID,
                     purchased: self.details.purchased,
