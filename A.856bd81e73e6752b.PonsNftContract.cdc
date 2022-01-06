@@ -109,7 +109,7 @@ pub contract PonsNftContract {
 
 
 	/* API for creating new PonsCollection */
-	access(account) fun createEmptyPonsCollection () : @PonsNftContractInterface.Collection {
+	pub fun createEmptyPonsCollection () : @PonsNftContractInterface.Collection {
 		return <- PonsNftContract .implementation .createEmptyPonsCollection () }
 
 
