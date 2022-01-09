@@ -7,7 +7,7 @@
 **/
 
 import NonFungibleToken from 0x1d7e57aa55817448
-import SoundlinksDID from 0x8b935cd43003d4b2 
+import SoundlinksDID from 0x602e888f32abc278 
 
 pub contract Metaya: NonFungibleToken {
 
