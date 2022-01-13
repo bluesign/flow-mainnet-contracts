@@ -31,8 +31,10 @@ pub contract GooberXContract : NonFungibleToken {
   pub event Deposit(id: UInt64, to: Address?)
   // Event to be eitted whenever a new NFT is minted
   pub event Minted(id: UInt64, uri: String, price: UFix64)
-  // Event to be eitted whenever a new NFT is minted
+  // Event to be emitted whenever a new NFT is minted
   pub event Airdropped(id: UInt64)
+  // Event to be emitted whenever a Goober is named differently
+  pub event NamedGoober(id: UInt64, name: String)
 
   // Collection Paths
   //
@@ -452,6 +454,37 @@ pub contract GooberXContract : NonFungibleToken {
     GooberXContract.giveaways.remove(key: giveawayKey)
 
     emit Minted(id: GooberXContract.totalSupply, uri: goober!.uri, price: goober!.price)
+  }
+
+  // nameYourGoober
+  // Give your Goober a name
+  pub fun nameYourGoober(newName: String, gooberID: UInt64, collection: &GooberXContract.Collection, paymentVault: @FungibleToken.Vault) {
+    pre {
+      paymentVault.balance >= UFix64(5) : "Could not mint goober: payment balance insufficient."
+      paymentVault.isInstance(Type<@FUSD.Vault>()): "payment vault is not requested fungible token"
+      newName.length <= 20 : "Cannot give the Goober a name which is longer than 20 characters"
+    }
+
+    // pay
+    let gooberContractAccount: PublicAccount = getAccount(GooberXContract.account.address)
+    let gooberContractReceiver: Capability<&{FungibleToken.Receiver}> = gooberContractAccount.getCapability<&FUSD.Vault{FungibleToken.Receiver}>(/public/fusdReceiver)!
+    let borrowGooberContractReceiver = gooberContractReceiver.borrow()!
+    borrowGooberContractReceiver.deposit(from: <- paymentVault.withdraw(amount: paymentVault.balance))
+
+    // name Goober
+    let token <- collection.withdraw(withdrawID: gooberID) as! @GooberXContract.NFT
+    token.data.metadata.insert(key: "name", newName)
+
+    // update Goober information in contract
+    self.mintedGoobers[self.mintedGoobersIndex[token.data.gooberID]!] = token.data
+
+    // Deposit updated NFT
+    collection.deposit(token: <- token)
+
+    // emit Naming Event
+    emit NamedGoober(id: gooberID, name: newName)
+
+    destroy paymentVault
   }
 
   // getGoober
