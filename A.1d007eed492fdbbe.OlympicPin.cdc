@@ -40,7 +40,7 @@ pub contract OlympicPin : NonFungibleToken {
     pub event PieceDestroyed(id: UInt64)
 
     // -----------------------------------------------------------------------
-    // OlimpicPin contract-level fields.
+    // OlympicPin contract-level fields.
     // These contain actual values that are stored in the smart contract.
     // -----------------------------------------------------------------------
 
@@ -87,8 +87,6 @@ pub contract OlympicPin : NonFungibleToken {
             
             self.pinId = OlympicPin.nextPinId
             self.metadata = metadata
-            OlympicPin.nextPinId = OlympicPin.nextPinId + UInt32(1)
-            emit PinCreated(id: self.pinId, metadata: metadata)
         }
     }
 
@@ -115,11 +113,6 @@ pub contract OlympicPin : NonFungibleToken {
             self.setId = OlympicPin.nextSetId
             self.name = name
             self.series = OlympicPin.currentSeries
-
-            // Increment the setId so that it isn't used again
-            OlympicPin.nextSetId = OlympicPin.nextSetId + UInt32(1)
-
-            emit SetCreated(setId: self.setId, series: self.series, name: name)
         }
     }
 
@@ -150,12 +143,12 @@ pub contract OlympicPin : NonFungibleToken {
         // Array of pins that are a part of this set.
         // When a Pin is added to the set, its Id gets appended here.
         // The Id does not get removed from this array when a Pin is retired.
-        pub var pins: [UInt32]
+        access(contract) var pins: [UInt32]
 
         // Map of Pin Ids that Indicates if a Pin in this Set can be minted.
         // When a Pin is added to a Set, it is mapped to false (not retired).
         // When a Pin is retired, this is set to true and cannot be changed.
-        pub var retired: {UInt32: Bool}
+        access(contract) var retired: {UInt32: Bool}
 
         // Indicates if the Set is currently locked.
         // When a Set is created, it is unlocked 
@@ -171,7 +164,7 @@ pub contract OlympicPin : NonFungibleToken {
         // Mapping of Pin Ids that indicates the number of Pieces
         // that have been minted for specific pins in this Set.
         // When a Piece is minted, this value is stored in the Piece to
-        pub var numberMintedPerPin: {UInt32: UInt32}
+        access(contract) var numberMintedPerPin: {UInt32: UInt32}
 
         init(name: String) {
             self.setId = OlympicPin.nextSetId
@@ -309,6 +302,18 @@ pub contract OlympicPin : NonFungibleToken {
 
             return <-newCollection
         }
+
+        pub fun getPins(): [UInt32] {
+            return self.pins
+        }
+
+        pub fun getRetired(): {UInt32: Bool} {
+            return self.retired
+        }
+
+        pub fun getNumMintedPerPlay(): {UInt32: UInt32} {
+            return self.numberMintedPerPin
+        }
     }
 
     pub struct PieceData {
@@ -346,7 +351,7 @@ pub contract OlympicPin : NonFungibleToken {
         }
 
         // If the Piece is destroyed, emit an event to indicate
-        // to outside ovbservers that it has been destroyed
+        // to outside observers that it has been destroyed
         destroy() {
             emit PieceDestroyed(id: self.id)
         }
@@ -365,6 +370,10 @@ pub contract OlympicPin : NonFungibleToken {
             var newPin = Pin(metadata: metadata)
             let newId = newPin.pinId
 
+            // Increment nextPinId
+            OlympicPin.nextPinId = OlympicPin.nextPinId + UInt32(1)
+            emit PinCreated(id: newId, metadata: metadata)
+
             // Store it in the contract storage
             OlympicPin.pins[newId] = newPin
             return newId
@@ -377,13 +386,19 @@ pub contract OlympicPin : NonFungibleToken {
         //
         // Returns: the Id of the new SetData object
         //
-        pub fun createSet(name: String) {
+        pub fun createSet(name: String): UInt32 {
 
             // Create the new Set
             var newSet <- create Set(name: name)
+            let newId = newSet.setId
+
+            // Increment the setId
+            OlympicPin.nextSetId = OlympicPin.nextSetId + UInt32(1)
+            emit SetCreated(setId: newId, series: OlympicPin.currentSeries, name: name)
 
             // Store it in the sets mapping field
-            OlympicPin.sets[newSet.setId] <-! newSet
+            OlympicPin.sets[newId] <-! newSet
+            return newId
         }
 
         // borrowSet returns a reference to a set in the OlympicPin
@@ -658,15 +673,8 @@ pub contract OlympicPin : NonFungibleToken {
     //
     // Returns: Boolean indicating if the edition is retired or not
     pub fun isEditionRetired(setId: UInt32, pinId: UInt32): Bool? {
-        // Don't force a revert if the set or Pin Id is invalid
-        // Remove the set from the dictionary to get its field
-        if let setToRead <- OlympicPin.sets.remove(key: setId) {
-
-            // See if the Pin is retired from this Set
-            let retired = setToRead.retired[pinId]
-
-            // Put the Set back in the contract storage
-            OlympicPin.sets[setId] <-! setToRead
+        if let retired = OlympicPin.sets[setId]?.retired {
+            let retired = retired[pinId]
 
             // Return the retired status
             return retired
@@ -699,19 +707,10 @@ pub contract OlympicPin : NonFungibleToken {
     // Returns: The total number of NFTs 
     //          that have been minted from an edition
     pub fun getNumPiecesInEdition(setId: UInt32, pinId: UInt32): UInt32? {
-        // Don't force a revert if the Set or Pin Id is invalid
-        // Remove the Set from the dictionary to get its field
-        if let setToRead <- OlympicPin.sets.remove(key: setId) {
-
-            // Read the numMintedPerPin
-            let amount = setToRead.numberMintedPerPin[pinId]
-
-            // Put the Set back into the Sets dictionary
-            OlympicPin.sets[setId] <-! setToRead
-
+        if let numberMintedPerPin = OlympicPin.sets[setId]?.numberMintedPerPin {
+            let amount = numberMintedPerPin[pinId]
             return amount
         } else {
-            // If the set wasn't found return nil
             return nil
         }
     }
