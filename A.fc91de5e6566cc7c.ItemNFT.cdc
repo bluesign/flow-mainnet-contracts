@@ -122,7 +122,7 @@ pub contract ItemNFT: NonFungibleToken {
             pre {
                 //Only one Item with 'ItemDataID' can be minted 
                 Int(ItemNFT.numberMintedPerItem[itemDataID]!) < Int(ItemNFT.numberItemDataMintable): 
-                "ItemNFT with itemDataID already minted"
+                "maximum number of ItemNFT with itemDataID minted"
             }
             
             self.itemDataID = itemDataID
@@ -193,7 +193,7 @@ pub contract ItemNFT: NonFungibleToken {
         }
 
         //Make Item considered dead. Deposit garment and material to respective vaults
-        pub fun split(garmentCap: Capability<&{GarmentNFT.GarmentCollectionPublic}>, materialCap: Capability<&{MaterialNFT.MaterialCollectionPublic}>) {
+        access(contract) fun split(garmentCap: Capability<&{GarmentNFT.GarmentCollectionPublic}>, materialCap: Capability<&{MaterialNFT.MaterialCollectionPublic}>) {
             pre {
                 !self.isDead: 
                 "Cannot split. Item is dead"
@@ -237,7 +237,7 @@ pub contract ItemNFT: NonFungibleToken {
         }
 
         // change name of item nft
-        pub fun changeName(name: String) {
+        access(contract) fun changeName(name: String) {
             pre {
                 !self.isDead: 
                 "Cannot change garment name. Item is dead"
@@ -322,6 +322,26 @@ pub contract ItemNFT: NonFungibleToken {
             self.ownedNFTs <- {}
         }
 
+        // change name of item nft
+        pub fun changeName(id: UInt64, name: String) {
+            let token <- self.ownedNFTs.remove(key: id)
+                ?? panic("Cannot withdraw: Item does not exist in the collection")
+            
+            let item <- token as! @ItemNFT.NFT
+            item.changeName(name: name)
+
+            self.ownedNFTs[id] <-! item
+        }
+
+        pub fun split(id: UInt64, garmentCap: Capability<&{GarmentNFT.GarmentCollectionPublic}>, materialCap: Capability<&{MaterialNFT.MaterialCollectionPublic}>){
+            let token <- self.ownedNFTs.remove(key: id)
+                ?? panic("Cannot withdraw: Item does not exist in the collection")
+            
+            let item <- token as! @ItemNFT.NFT
+            item.split(garmentCap: garmentCap, materialCap: materialCap)
+
+            self.ownedNFTs[id] <-! item
+        }
         // withdraw removes an Item from the Collection and moves it to the caller
         //
         // Parameters: withdrawID: The ID of the NFT 
@@ -606,6 +626,8 @@ pub contract ItemNFT: NonFungibleToken {
         self.CollectionPublicPath = /public/ItemCollection20
         self.CollectionStoragePath = /storage/ItemCollection20
         self.AdminStoragePath = /storage/ItemAdmin20
+
+
 
         // Put a new Collection in storage
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
