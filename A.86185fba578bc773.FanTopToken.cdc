@@ -1,4 +1,5 @@
 import NonFungibleToken from 0x1d7e57aa55817448
+import FanTopSerial from 0x86185fba578bc773 
 
 pub contract FanTopToken: NonFungibleToken {
     pub var totalSupply: UInt64
@@ -302,6 +303,7 @@ pub contract FanTopToken: NonFungibleToken {
             itemVersion == FanTopToken.items[itemId]!.version : "That itemVersion did not match the latest version"
             !FanTopToken.items[itemId]!.isFulfilled(): "Fulfilled items cannot be mint"
             FanTopToken.items[itemId]!.active: "Only active items can be mint"
+            FanTopSerial.hasBox(itemId: itemId) == false: "Items with box cannot be mint without serial number"
         }
         post {
             FanTopToken.totalSupply == before(FanTopToken.totalSupply) + 1: "totalSupply must be incremented"
@@ -310,6 +312,46 @@ pub contract FanTopToken: NonFungibleToken {
         }
 
         let serialNumber = FanTopToken.items[itemId]!.countUp()
+
+        let data = NFTData(
+            serialNumber: serialNumber,
+            itemId: itemId,
+            itemVersion: itemVersion,
+            metadata: metadata
+        )
+
+        return <- create NFT(refId: refId, data: data)
+    }
+
+    access(account) fun mintTokenWithSerialNumber(
+        refId: String,
+        itemId: String,
+        itemVersion: UInt32,
+        metadata: { String: String },
+        serialNumber: UInt32
+    ): @NFT {
+        pre {
+            FanTopToken.items.containsKey(itemId) != nil: "That itemId does not exist"
+            itemVersion == FanTopToken.items[itemId]!.version : "That itemVersion did not match the latest version"
+            !FanTopToken.items[itemId]!.isFulfilled(): "Fulfilled items cannot be mint"
+            FanTopToken.items[itemId]!.active: "Only active items can be mint"
+        }
+        post {
+            FanTopToken.totalSupply == before(FanTopToken.totalSupply) + 1: "totalSupply must be incremented"
+            FanTopToken.items[itemId]!.mintedCount == before(FanTopToken.items[itemId])!.mintedCount + 1: "mintedCount must be incremented"
+            FanTopToken.items[itemId]!.isVersionLocked(): "item must be locked once mint"
+        }
+
+        if !FanTopSerial.hasBox(itemId: itemId) {
+            let item = self.items[itemId]!
+            let box = FanTopSerial.Box(size: item.limit, pickTo: item.mintedCount)
+            FanTopSerial.putBox(box, itemId: itemId)
+        }
+
+        let boxRef = FanTopSerial.getBoxRef(itemId: itemId)!
+        boxRef.pick(serialNumber)
+
+        FanTopToken.items[itemId]!.countUp()
 
         let data = NFTData(
             serialNumber: serialNumber,
