@@ -1,5 +1,6 @@
 import FanTopToken from 0x86185fba578bc773
 import FanTopMarket from 0x86185fba578bc773
+import FanTopSerial from 0x86185fba578bc773
 import Signature from 0x86185fba578bc773
 
 pub contract FanTopPermissionV2a {
@@ -93,6 +94,11 @@ pub contract FanTopPermissionV2a {
             FanTopToken.updateActive(itemId: itemId, active: active)
         }
 
+        pub fun truncateSerialBox(itemId: String, limit: Int) {
+            let boxRef = FanTopSerial.getBoxRef(itemId: itemId) ?? panic("Boxes that do not exist cannot be truncated")
+            boxRef.truncate(limit: limit)
+        }
+
         priv init() {
             self.role = "operator"
         }
@@ -103,6 +109,15 @@ pub contract FanTopPermissionV2a {
 
         pub fun mintToken(refId: String, itemId: String, itemVersion: UInt32, metadata: { String: String }): @FanTopToken.NFT {
             return <- FanTopToken.mintToken(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata)
+        }
+
+        pub fun mintTokenWithSerialNumber(refId: String, itemId: String, itemVersion: UInt32, metadata: { String: String }, serialNumber: UInt32): @FanTopToken.NFT {
+            return <- FanTopToken.mintTokenWithSerialNumber(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata, serialNumber: serialNumber)
+        }
+
+        pub fun truncateSerialBox(itemId: String, limit: Int) {
+            let boxRef = FanTopSerial.getBoxRef(itemId: itemId) ?? panic("Boxes that do not exist cannot be truncated")
+            boxRef.truncate(limit: limit)
         }
 
         priv init() {
@@ -328,6 +343,6 @@ pub contract FanTopPermissionV2a {
             self.account.address: { "owner": true }
         }
 
-        self.account.save<@Owner>(<- create Owner(), to: self.ownerStoragePath)
+        // self.account.save<@Owner>(<- create Owner(), to: self.ownerStoragePath)
     }
 }
