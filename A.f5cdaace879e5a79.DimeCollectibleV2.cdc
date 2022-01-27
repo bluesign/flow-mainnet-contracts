@@ -83,6 +83,10 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 			self.history.append(newEntry)
 		}
 
+		pub fun getCreators(): [Address] {
+			return self.creators
+		}
+
 		pub fun getHistory(): [[AnyStruct]] {
 			return self.history
 		}
@@ -91,16 +95,20 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 			return self.previousHistory
 		}
 
+		pub fun getRoyalties(): Royalties {
+			return self.creatorRoyalties
+		}
+
 		pub fun hasHiddenContent(): Bool {
 			return self.hiddenContent != nil
 		}
 
 		pub fun setDefaults(vault: Capability<&FUSD.Vault{FungibleToken.Receiver}>) {
-			// self.creators = [self.creator]
-			// let recipients: {Address: RoyaltiesRecipient} = {}
-			// recipients[self.creator] = RoyaltiesRecipient(vault: vault, allotment: 0.01)
-			// self.creatorRoyalties = Royalties(recipients: recipients)
-			// self.creationTime = getCurrentBlock().timestamp
+			self.creators = [self.creator]
+			let recipients: {Address: RoyaltiesRecipient} = {}
+			recipients[self.creator] = RoyaltiesRecipient(vault: vault, allotment: 0.01)
+			self.creatorRoyalties = Royalties(recipients: recipients)
+			self.creationTime = getCurrentBlock().timestamp
 			self.previousHistory = []
 		}
 	}
@@ -256,9 +264,9 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 
 		// Create a Minter resource and save it to storage.
 		// Create a public link so all users can use the same global one
-		// let minter <- create NFTMinter()
-		// self.account.save(<- minter, to: self.MinterStoragePath)
-		// self.account.link<&NFTMinter>(self.MinterPublicPath, target: self.MinterStoragePath)
+		let minter <- create NFTMinter()
+		self.account.save(<- minter, to: self.MinterStoragePath)
+		self.account.link<&NFTMinter>(self.MinterPublicPath, target: self.MinterStoragePath)
 
 		emit ContractInitialized()
 	}
