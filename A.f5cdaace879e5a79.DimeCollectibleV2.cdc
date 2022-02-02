@@ -47,20 +47,20 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 		pub let creator: Address
 		// The token's original creators. If there is only one creator, this is
 		// simply length 1
-		access(self) var creators: [Address]
+		access(self) let creators: [Address]
 		// The url corresponding to the token's content
 		pub let content: String
 		// The url corresponding to the token's hidden content
 		pub let hiddenContent: String?
 		// Is the token tradeable, or is it locked to its current owner?
-		pub var tradeable: Bool
+		pub let tradeable: Bool
 		// A chronological list of the owners of the token
 		access(self) var history: [[AnyStruct]]
 		// A list of owners/prices of the associated physical item before it was minted on Flow
-		access(self) var previousHistory: [[AnyStruct]]
+		access(self) let previousHistory: [[AnyStruct]]
 		// The fraction of each secondary sale taken as royalties for anyone listed
 		// in this dictionary
-		access(self) var creatorRoyalties: Royalties
+		access(self) let creatorRoyalties: Royalties
 		// When this item was created
 		pub var creationTime: UFix64
 
@@ -101,15 +101,6 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 
 		pub fun hasHiddenContent(): Bool {
 			return self.hiddenContent != nil
-		}
-
-		pub fun setDefaults(vault: Capability<&FUSD.Vault{FungibleToken.Receiver}>) {
-			self.creators = [self.creator]
-			let recipients: {Address: RoyaltiesRecipient} = {}
-			recipients[self.creator] = RoyaltiesRecipient(vault: vault, allotment: 0.01)
-			self.creatorRoyalties = Royalties(recipients: recipients)
-			self.creationTime = getCurrentBlock().timestamp
-			self.previousHistory = []
 		}
 	}
 
@@ -183,13 +174,6 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 			}
 		}
 
-		pub fun setDefaults(vault: Capability<&FUSD.Vault{FungibleToken.Receiver}>) {
-			for id in self.ownedNFTs.keys {
-				let ref = self.borrowCollectible(id: id)
-				ref!.setDefaults(vault: vault)
-			}
-		}
-
 		destroy() {
 			destroy self.ownedNFTs
 		}
@@ -221,7 +205,7 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 
 			for tokenId in tokenIds {
 				assert(!DimeCollectibleV2.mintedTokens.contains(tokenId),
-					message: "A token with that ID already exists")
+					message: "A token with id ".concat(tokenId.toString()).concat(" already exists"))
 
 				DimeCollectibleV2.mintedTokens.append(tokenId)
 
@@ -253,10 +237,10 @@ pub contract DimeCollectibleV2: NonFungibleToken {
 
 	init() {
 		// Set our named paths
-		self.CollectionStoragePath = /storage/DimeCollection
-		self.CollectionPublicPath = /public/DimeCollection
-		self.MinterStoragePath = /storage/DimeMinter
-		self.MinterPublicPath = /public/DimeMinter
+		self.CollectionStoragePath = /storage/DimeCollectionV2
+		self.CollectionPublicPath = /public/DimeCollectionV2
+		self.MinterStoragePath = /storage/DimeMinterV2
+		self.MinterPublicPath = /public/DimeMinterV2
 
 		// Initialize the total supply
 		self.totalSupply = 0
