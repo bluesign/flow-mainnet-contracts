@@ -1,7 +1,7 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import FUSD from 0x3c5959b568896393
-import IrVoucher from 0x276a7cc9316712af
+import IrVoucher from 0x276a7cc9316712af 
 
 // The IN|RIFT Contract
 //
@@ -525,34 +525,7 @@ pub contract IrNFT: NonFungibleToken {
             self.publicID = item.publicID
             self.name = item.name
             self.supply = item.supply
-
-            // Find Item Rarity
-            var itemRarity: IrNFT.IrRarity? = nil
-            var matchedMaxSupply: UInt64 = 0
-
-            for rarity in IrNFT.rarityMaxSupply.keys {
-                let rarityMaxSupply = IrNFT.rarityMaxSupply[rarity]!
-
-                if rarityMaxSupply < item.supply {
-                    // Supply is more than the maximum of this rarity
-                    continue
-                } 
-
-                if itemRarity != nil 
-                && matchedMaxSupply < rarityMaxSupply {
-                    // We already matched a rarity with lower max supply
-                    // So we do not want to override that! 
-                    // (dictionaries are not orderes)
-                    continue
-                }
-
-                itemRarity = rarity
-                matchedMaxSupply = rarityMaxSupply
-            }
-
-            // Use matched Item Rarity or Fallback
-            self.rarity = itemRarity ?? IrNFT.rarityDefault
-
+            self.rarity = IrNFT.getItemRarity(id: id)
             self.utilities = item.utilities
             self.version = item.version
             self.assets = item.assets
@@ -686,7 +659,7 @@ pub contract IrNFT: NonFungibleToken {
         }
     }
 
-    // Get the publicly available data for a Item by ID
+    // Get the publicly available data for an Item by ID
     //
     pub fun getItemData(id: UInt32): IrNFT.IrItemData {
         pre {
@@ -694,6 +667,43 @@ pub contract IrNFT: NonFungibleToken {
         }
 
         return IrNFT.IrItemData(id: id)
+    }
+
+    // Get the rarity for an Item by ID
+    //
+    pub fun getItemRarity(id: UInt32): IrNFT.IrRarity {
+        pre {
+            IrNFT.items[id] != nil: "Cannot borrow item, no such ID"
+        }
+
+        let item = &IrNFT.items[id] as &IrNFT.IrItem
+
+        // Find Item Rarity
+        var itemRarity: IrNFT.IrRarity? = nil
+        var matchedMaxSupply: UInt64 = 0
+
+        for rarity in IrNFT.rarityMaxSupply.keys {
+            let rarityMaxSupply = IrNFT.rarityMaxSupply[rarity]!
+
+            if rarityMaxSupply < item.supply {
+                // Supply is more than the maximum of this rarity
+                continue
+            } 
+
+            if itemRarity != nil
+            && matchedMaxSupply < rarityMaxSupply {
+                // We already matched a rarity with lower max supply
+                // So we do not want to override that! 
+                // (dictionaries are not orderes)
+                continue
+            }
+
+            itemRarity = rarity
+            matchedMaxSupply = rarityMaxSupply
+        }
+
+        // Use matched Item Rarity or Fallback
+        return itemRarity ?? IrNFT.rarityDefault
     }
 
     //------------------------------------------------------------
