@@ -92,7 +92,10 @@ pub contract PonsNftContract_v1 : PonsNftContractInterface, NonFungibleToken {
 			destroy self .ponsCertification } }
 
 	/* The concrete Pons Collection resource. Striaghtforward implementation of the PonsCollection, Provider, Receiver, and Collection interfaces */
-	pub resource Collection : PonsNftContractInterface.PonsCollection, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+	pub resource Collection :
+		PonsNftContractInterface.PonsCollection, PonsNftContractInterface.PonsNftReceiver,
+		NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic
+	{
 
 		/* Ensures the authenticity of this PonsCollection; requirement from PonsCollection */
 		pub let ponsCertification : @PonsCertificationContract.PonsCertification
