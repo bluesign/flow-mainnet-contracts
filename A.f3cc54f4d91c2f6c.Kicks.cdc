@@ -1,6 +1,6 @@
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 import NFTLX from 0xf3cc54f4d91c2f6c
-import TopShot from 0x0b2a3299cc857e29
 
 /**
     # Index of Contents
@@ -28,13 +28,13 @@ import TopShot from 0x0b2a3299cc857e29
 
     1. High Importance items, typically types and functions of great importance, 
     are marked as:
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // {{ Name }}
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
     2. Medium Importance items, typically sections which implement a set of functionalities, 
     are marked as:
-    // ---------------  {{ Name + Purpose}}  --------------- \\
+    // ───────────────  {{ Name + Purpose}}  ─────────────── \\
     A couple Purposes used in the project are:
     - Getters
     - Initializers and Destructor
@@ -42,10 +42,10 @@ import TopShot from 0x0b2a3299cc857e29
     - {{ Interface }} Conformance
     - Transfering Functions
     NOTE: Always structure with 15 dashes (-), followed by 2 space, then name, 2 spaces, and 15 dashes
-    EXAMPLE: // ---------------  NFT Initializers and Destructor  --------------- \\
+    EXAMPLE: // ───────────────  NFT Initializers and Destructor  ─────────────── \\
 
     3. Lesser importance items are marked as:
-    // -----  {{ Name }}  -----
+    // ─────  {{ Name }}  ─────
 
     ## Other Tags Used
     All documentation for types and functions use:
@@ -72,9 +72,9 @@ import TopShot from 0x0b2a3299cc857e29
 */
 pub contract Kicks: NonFungibleToken {
 
-    // -----------------------------------------------------------------------
-    // Contract Events
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
+    // Contract Event
+    // ───────────────────────────────────────────────────────────────────────
 
     pub event ContractInitialized ()
     pub event SetCreated          (id: UInt32)
@@ -84,38 +84,35 @@ pub contract Kicks: NonFungibleToken {
     pub event Withdraw            (id: UInt64, from: Address?)
     pub event Deposit             (id: UInt64, to: Address?)
 
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // Named Paths
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
     pub let SneakerSetsPrivatePath: PrivatePath
     pub let CollectionStoragePath:  StoragePath
     pub let CollectionPublicPath:   PublicPath
     pub let MinterStoragePath:      StoragePath
 
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // Contract Fields
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
-    // -----  Supply Fields  -----
+    // ─────  Supply Fields  ─────
+
     pub var totalSupply: UInt64
     pub var currentBlueprint: UInt32
 
-    // -----  Resource Collection Fields  -----
+    // ─────  Resource Collection Fields  ─────
 
-    // NOTE: all collection types (arrays and dictionaries) are marked with 
-    // limited read access. This is because public fields for collections
-    // can be overwritten publicly - a security vulnerability if left public
-    // LINK: https://docs.onflow.org/cadence/anti-patterns/#array-or-dictionary-fields-should-be-private
     access(account) var setsCapability: Capability<auth &{UInt32: {NFTLX.ISet}}>
     access(account) var setIDs: [UInt32]
     access(account) var blueprints: @{UInt32: Blueprint}
 
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // Core Composite Type Definitions
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
-    // ---------------  SneakerSet Resource  --------------- \\
+    // ───────────────  SneakerSet Resource  ─────────────── \\
 
     /** SneakerSet
 
@@ -128,7 +125,7 @@ pub contract Kicks: NonFungibleToken {
     */
     pub resource SneakerSet: NFTLX.ISet {
 
-        // -----  ISet Conformance  -----
+        // ─────  ISet Conformance  ─────
         pub let id: UInt32
         pub var name: String
         pub var URI: String // NOTE: URI are IPFS CID to a directory which will have a metadata.json, headerImage.jpg, 
@@ -136,7 +133,7 @@ pub contract Kicks: NonFungibleToken {
         // Array of sneaker blueprint indexes in the Kicks project 
         access(account) var blueprintIDs: [UInt32]
 
-        // ---------------  SneakerSet Getters  --------------- \\
+        // ───────────────  SneakerSet Getters  ─────────────── \\
 
         pub fun getIDs(): [UInt32] {
             return self.blueprintIDs
@@ -162,12 +159,12 @@ pub contract Kicks: NonFungibleToken {
         pub fun getTotalSupply(): UInt32 {
             var sum: UInt32 = 0
             for blueprint in self.getClasses() {
-                sum = blueprint.numberMinted
+                sum = sum + blueprint.numberMinted
             }
             return sum
         }
 
-        // ---------------  SneakerSet Content Modifiers  --------------- \\
+        // ───────────────  SneakerSet Content Modifiers  ─────────────── \\
 
         access(contract) fun addBlueprint(blueprintID id: UInt32) {
             pre {
@@ -200,7 +197,7 @@ pub contract Kicks: NonFungibleToken {
             self.name = newName
         }
 
-        // -----  SneakerSet Initializers and Destructor  -----
+        // ─────  SneakerSet Initializers and Destructor  ─────
 
         init(id: UInt32, name: String, URI: String) {
             self.id = id
@@ -218,7 +215,7 @@ pub contract Kicks: NonFungibleToken {
         }
     }
 
-    // ---------------  Blueprint Resource  --------------- \\
+    // ───────────────  Blueprint Resource  ─────────────── \\
 
     /** Blueprint
     
@@ -238,9 +235,7 @@ pub contract Kicks: NonFungibleToken {
         access(contract) var metadata: {String: AnyStruct}
         access(contract) var nftIDs: [UInt32]
 
-        // QUESTION: Should a shoe's min size and max size be stored here?
-
-        // -----  Blueprint Getters  -----
+        // ─────  Blueprint Getters  ─────
 
         pub fun getIDs(): [UInt32] {
             return self.nftIDs
@@ -254,7 +249,7 @@ pub contract Kicks: NonFungibleToken {
             return self.metadata
         }
 
-        // -----  Blueprint Modifiers  -----
+        // ─────  Blueprint Modifiers  ─────
 
         access(contract) fun nftAdded(nftID: UInt32) {
             self.nftIDs.append(nftID)
@@ -281,7 +276,7 @@ pub contract Kicks: NonFungibleToken {
             }
         }
 
-        access(contract) fun updateURI(_ newURI: String) {
+        access(contract) fun updateURI(_ newURI: String, media: {String: AnyStruct}) {
             self.URI = newURI
         }
 
@@ -289,22 +284,22 @@ pub contract Kicks: NonFungibleToken {
             self.name = newName
         }
 
-        // -----  Blueprint Initializers and Destructor  -----
+        // ─────  Blueprint Initializers and Destructor  ─────
 
-        init(id: UInt32, name: String, URI: String, maxSupply: UInt32?) {
+        init(id: UInt32, name: String, URI: String, metadata: {String: AnyStruct}, maxSupply: UInt32?) {
             self.id = id
             self.URI = URI
             self.name = name
             self.numberMinted = 0
             self.maxSupply = maxSupply
-            self.metadata = {}
+            self.metadata = metadata
             self.nftIDs = []
 
             emit BlueprintCreated(id: id)
         }
     }
 
-    // ---------------  NFT Resource  --------------- \\
+    // ───────────────  NFT Resource  ─────────────── \\
 
     /** SneakerAttributeKeys 
     
@@ -337,11 +332,11 @@ pub contract Kicks: NonFungibleToken {
         in an NFT is defined above in the SneakerAttributes enumeration; namely, whether it has been
         redeemed, and the size of the Sneaker
     */
-    pub resource NFT: NonFungibleToken.INFT, NFTLX.ILXNFT {
-        // -----  INFT Conformance  -----
+    pub resource NFT: NonFungibleToken.INFT, NFTLX.ILXNFT, MetadataViews.Resolver {
+        // ─────  INFT Conformance  ─────
         pub let id: UInt64
 
-        // -----  ILXNFT Conformance  -----
+        // ─────  ILXNFT Conformance  ─────
         pub let setID: UInt32
         pub let classID: UInt32 // aka, blueprintID
         pub let instanceID: UInt32
@@ -350,7 +345,7 @@ pub contract Kicks: NonFungibleToken {
 
         access(contract) var metadata: {String: AnyStruct}
 
-        // ---------------  NFT Modifiers  --------------- \\
+        // ───────────────  NFT Modifiers  ─────────────── \\
 
         /** setSize
 
@@ -371,7 +366,7 @@ pub contract Kicks: NonFungibleToken {
                 size <= 15.0 : "Size cannot be greater than 15. If you do have size feet over size 15, well..."
             }
             post {
-                (self.metadata[Kicks.SneakerAttribute.size] as! String) != nil : "Sneaker's metadata did not update correctly"
+                (self.metadata[Kicks.SneakerAttribute.size] as! String?) != nil : "Sneaker's metadata did not update correctly"
             }
             
             let isHalfSize = (size % 1.0) == 0.5
@@ -394,29 +389,119 @@ pub contract Kicks: NonFungibleToken {
         */
         access(account) fun redeemSneaker() { 
             pre {
-                (self.metadata[Kicks.SneakerAttribute.redeemed] as! Bool) != true : "Sneaker has already been redeemed"
+                (self.metadata[Kicks.SneakerAttribute.redeemed] as! Bool?) != true : "Sneaker has already been redeemed"
             }
             post {
-                (self.metadata[Kicks.SneakerAttribute.redeemed] as! Bool) == true : "Sneaker's metadata did not update correctly"
+                (self.metadata[Kicks.SneakerAttribute.redeemed] as! Bool?) == true : "Sneaker's metadata did not update correctly"
             }
             self.metadata.insert(key: Kicks.SneakerAttribute.redeemed, true)
         }
 
-        // -----  NFT Getters  -----
+        // ─────  NFT Getters  ─────
 
         pub fun getMetadata(): {String: AnyStruct} {
+            let blueprintMetadata = self.getBlueprint().getMetadata()
+            var aggregateMetadata: {String: AnyStruct} = self.metadata
+            for key in blueprintMetadata.keys {
+                if let value = blueprintMetadata[key] {
+                    aggregateMetadata.insert(key: key, value)
+                }
+            }
+            return aggregateMetadata
+        }
+
+        pub fun getNFTMetadata(): {String: AnyStruct} {
             return self.metadata
         }
 
         pub fun getBlueprint(): &Blueprint {
-            return Kicks.getBlueprint(withID: self.classID) as? &Blueprint ?? panic("Could not return parent blueprint")
+            return Kicks.getBlueprint(withID: self.classID) ?? panic("Could not return parent blueprint")
         }
 
         pub fun borrow(): &NFT {
             return &self as &NFT
         }
 
-        // -----  NFT Initializers and Destructor  -----
+        // ─────  NFT Metadata Views  ─────
+
+        pub fun name(): String {
+            let name = self.getBlueprint().name
+            return name
+        }
+
+        pub fun description(): String {
+            let metadata = self.getBlueprint().getMetadata()
+            var description: String = ""
+            if metadata.containsKey("description") {
+                if let classDescription = metadata["description"]! as? String {
+                    description = classDescription.concat(" #").concat(self.instanceID.toString())
+                }
+            } else {
+                description = self.getBlueprint().name.concat(" #").concat(self.instanceID.toString()).concat(" (of ").concat(self.getBlueprint().numberMinted.toString()).concat(")")
+                if let set = Kicks.getSneakerSet(withID: self.setID) {
+                    description = description.concat(" in the ").concat(set.name).concat(" collection")
+                }
+            }
+            return description
+        }
+
+        pub fun defaultImage(): String? {
+            let metadata = self.getMetadata()
+            if let image = metadata["image"] {
+                return image as? String
+            } else {
+                return nil
+            }
+        }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<{String: {MetadataViews.File}}>(),
+                Type<String>(),
+                Type<[String; 2]>(),
+                Type<[UInt32; 3]>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    if !self.getMetadata().containsKey("image") { return nil }
+                    if let imageURL = self.getMetadata()["image"]! as? String {
+                        return MetadataViews.Display(
+                            name: self.name(),
+                            description: self.description(),
+                            thumbnail: MetadataViews.HTTPFile(url: imageURL)
+                        )
+                    }
+                case Type<String>():
+                    return self.name()
+                case Type<[String; 2]>():
+                    let nameAndDescription: [String; 2] = [self.name(), self.description()]
+                    return nameAndDescription
+                case Type<[UInt32; 3]>():
+                    let nftLocation: [UInt32; 3] = [self.setID, self.classID, self.instanceID]
+                    return nftLocation
+                case Type<{String: {MetadataViews.File}}>():
+                    let metadata = self.getMetadata()
+                    if !metadata.containsKey("mediaTypes") { return nil }
+                    if let supportedMedia = metadata["mediaTypes"]! as? [String] {
+                        var media: {String: {MetadataViews.File}} = {}
+                        for mediaType in supportedMedia {
+                            if !metadata.containsKey(mediaType) { return nil }
+                            if let mediaURI = metadata[mediaType]! as? String {
+                                media.insert(key: mediaType, MetadataViews.HTTPFile(url: mediaURI))
+                            }
+                        }
+                        return media
+                    }
+            }
+
+            return nil
+        }
+
+        // ─────  NFT Initializers and Destructor  ─────
 
         init(instanceID: UInt32, classID: UInt32, setID: UInt32, taggedNFT: @NonFungibleToken.NFT?) {
             pre {
@@ -430,24 +515,11 @@ pub contract Kicks: NonFungibleToken {
             // Assign unique id
             self.id = Kicks.totalSupply
 
-            // If there's a tagged NFT provided as input, see if it is a TopShot moment and if it is, store it's data in the metadata field.
-            var fillerResource: @NonFungibleToken.NFT? <- nil // NOTE: Workaround resource because unwrapping moves NFT resource and Cadence interpretter does not exhaustively check assignment, this temporary resource is used. Happy for suggestions on how to remove this
-            var topshotMomentData: TopShot.MomentData? = nil
-            if let unwrappedNFT <- taggedNFT {
-                if unwrappedNFT.isInstance(Type<@TopShot.NFT>()) {
-                    topshotMomentData = ((&unwrappedNFT as! auth &{NonFungibleToken.INFT}) as! &TopShot.NFT).data
-                }
-                fillerResource <-! unwrappedNFT
-            } else {
-                fillerResource <-! taggedNFT
-            }
-
             // Set the tagged NFT and create metadata. All fields set from hereon
-            self.taggedNFT <- fillerResource
+            self.taggedNFT <- taggedNFT
             self.metadata = { 
                 Kicks.SneakerAttribute.redeemed: false,
-                Kicks.SneakerAttribute.size: nil,
-                Kicks.SneakerAttribute.taggedTopShot: topshotMomentData
+                Kicks.SneakerAttribute.size: nil
             }
 
             // Lastly, increase total supply and notify the flowverse of the freshest sneaker out there
@@ -466,16 +538,37 @@ pub contract Kicks: NonFungibleToken {
 
         /** setMetadata
 
-            Used solely by contract owner to set any metadata fields on an NFT. With great power, comes great responsibility.
-
-            QUESTION: Should likely add some authentication for this...
+            Used solely by admin to set any metadata fields on an NFT. With great power, comes great responsibility.
         */
         access(account) fun setMetadata(key: String, value: AnyStruct) { 
             self.metadata.insert(key: key, value)
         }
     }
 
-    // ---------------  NFT Collection Resource  --------------- \\
+    // ───────────────  NFT Collection Resource  ─────────────── \\
+
+    /** KicksCollectionPublic
+
+        A public interface extending the standard NFT Collection with type information specific
+        to Kicks NFTs.
+    */
+    pub resource interface KicksCollectionPublic {
+        // ─────  NonFungibleToken CollectionPublic Conformance  ─────
+        pub fun deposit(token: @NonFungibleToken.NFT)
+        pub fun getIDs(): [UInt64]
+        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
+        // ─────  MetadataViews ResolverCollection Conformance  ─────
+        pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver}
+        // ─────  KicksCollectionPublic  ─────
+        pub fun batchDeposit(tokens: @NonFungibleToken.Collection)
+        pub fun getSetIDs(): [UInt32]
+        pub fun getClassIDs(): [[UInt32; 2]]
+        pub fun borrowSneaker(id: UInt64): &Kicks.NFT? {
+            post {
+                (result == nil) || (result?.id == id) : "Returned Sneaker's ID does not match expected ID"
+            }
+        }
+    }
 
     /** Collection
 
@@ -483,12 +576,14 @@ pub contract Kicks: NonFungibleToken {
         with NFTs a user owns. The name is required to be Collection as per the NFT standard interface, though
         NFT Collection is how we refer to it to be more specific.
     */
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: KicksCollectionPublic,
+        NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, 
+        MetadataViews.ResolverCollection {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
-        // ---------------  NFT Collection Transfering Functions  --------------- \\
+        // ───────────────  NFT Collection Transfering Functions  ─────────────── \\
 
         // withdraw removes an NFT from the collection and moves it to the caller
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
@@ -497,6 +592,15 @@ pub contract Kicks: NonFungibleToken {
             emit Withdraw(id: token.id, from: self.owner?.address)
 
             return <-token
+        }
+
+        // batchWithdraw removes multiple Sneaker NFTs as a collection
+        pub fun batchWithdraw(ids: [UInt64]): @NonFungibleToken.Collection {
+            var batchCollection <- create Collection()
+            for id in ids {
+                batchCollection.deposit(token: <-self.withdraw(withdrawID: id))
+            }
+            return <-batchCollection
         }
 
         // deposit takes a NFT and adds it to the collections dictionary
@@ -514,11 +618,44 @@ pub contract Kicks: NonFungibleToken {
             destroy oldToken
         }
 
-        // ---------------  NFT Collection Getters  --------------- \\
+        // batchDeposit takes another NFT Collection of Kicks and deposits
+        // each item into current collection
+        pub fun batchDeposit(tokens: @NonFungibleToken.Collection) {
+            for key in tokens.getIDs() {
+                self.deposit(token: <-tokens.withdraw(withdrawID: key))
+            }
+            destroy tokens
+        }
+
+        // ───────────────  NFT Collection Getters  ─────────────── \\
 
         // getIDs returns an array of the IDs that are in the collection
         pub fun getIDs(): [UInt64] {
             return self.ownedNFTs.keys
+        }
+
+        // getSetIDs returns all unique NFTLX set IDs the collection holds
+        pub fun getSetIDs(): [UInt32] {
+            var setIDs: [UInt32] = []
+            for id in self.ownedNFTs.keys {
+                if let sneaker = self.borrowSneaker(id: id) {
+                    if !setIDs.contains(sneaker.setID) {
+                        setIDs.append(sneaker.setID)
+                    }
+                }
+            }
+            return  setIDs
+        }
+
+        // getClassIDs returns all NFTLX set and class IDs the collection holds.
+        pub fun getClassIDs(): [[UInt32; 2]] {
+            var classIDs: [[UInt32; 2]] = []
+            for id in self.ownedNFTs.keys {
+                if let sneaker = self.borrowSneaker(id: id) {
+                    classIDs.append([sneaker.setID, sneaker.classID])
+                }
+            }
+            return  classIDs
         }
 
         // borrowNFT gets a reference to an NFT in the collection
@@ -531,10 +668,16 @@ pub contract Kicks: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         pub fun borrowSneaker(id: UInt64): &Kicks.NFT? {
             let ref = &self.ownedNFTs[id] as? auth &NonFungibleToken.NFT
-            return  ref as! &Kicks.NFT
+            return ref as? &Kicks.NFT
         }
 
-        // ---------------  NFT Modifiers  --------------- \\
+        // ─────  MetadataViews ResolverCollection Conformance  ─────
+
+        pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
+            return self.borrowSneaker(id: id) ?? panic("Could not borrow sneaker")
+        }
+
+        // ───────────────  NFT Modifiers  ─────────────── \\
 
         pub fun redeemSneaker(id: UInt64) {
             pre {
@@ -542,8 +685,6 @@ pub contract Kicks: NonFungibleToken {
             }
             let sneaker = self.borrowSneaker(id: id) ?? panic("Unable to get sneaker")
             sneaker.redeemSneaker()
-            let hasBeenRedeemed = sneaker.getMetadata()[Kicks.SneakerAttribute.redeemed] as! Bool
-            assert(hasBeenRedeemed, message: "Sneaker was not able to be redeemed.")
         }
 
         pub fun setSize(id: UInt64, size: UFix64) {
@@ -554,7 +695,7 @@ pub contract Kicks: NonFungibleToken {
             sneaker.setSize(size)
         }
 
-        // -----  NFT Collection Initializers and Destructor  -----
+        // ─────  NFT Collection Initializers and Destructor  ─────
 
         init () {
             self.ownedNFTs <- {}
@@ -565,11 +706,11 @@ pub contract Kicks: NonFungibleToken {
         }
     }
 
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // Priveleged Type Definitions
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
-    // ---------------  Minter Resource  --------------- \\
+    // ───────────────  Minter Resource  ─────────────── \\
     
     /** Minter
 
@@ -578,7 +719,7 @@ pub contract Kicks: NonFungibleToken {
     */
     pub resource Minter {
         
-        // ---------------  Minting Functions  --------------- \\
+        // ───────────────  Minting Functions  ─────────────── \\
 
         /** mintSneakerSet
 
@@ -620,8 +761,8 @@ pub contract Kicks: NonFungibleToken {
                  being minted on chain. Can be modified later via Minter's 
                  updateBlueprintURI function.
         */
-        pub fun mintBlueprint(name: String, URI: String, maxSupply: UInt32?) {
-            let newBlueprint <- create Blueprint(id: Kicks.currentBlueprint, name: name, URI: URI, maxSupply: maxSupply)
+        pub fun mintBlueprint(name: String, URI: String, metadata: {String: AnyStruct}, maxSupply: UInt32?) {
+            let newBlueprint <- create Blueprint(id: Kicks.currentBlueprint, name: name, URI: URI, metadata: metadata, maxSupply: maxSupply)
 
             let old <- Kicks.blueprints.insert(key: Kicks.currentBlueprint, <-newBlueprint)
 
@@ -662,7 +803,53 @@ pub contract Kicks: NonFungibleToken {
             destroy old
         }
 
-        // ---------------  Set Organizing Functions  --------------- \\
+        /** mintBatchNFT
+
+            Creates a new collection of Kicks sneaker from a blueprint and deposits to recipient.
+
+            NOTE: Does not support taggedNFTs in minting.
+        */
+        pub fun mintBatchNFT(recipient: &{Kicks.KicksCollectionPublic}, blueprintID: UInt32, setID: UInt32, quantity: Int) {
+            pre {
+                Kicks.blueprints.containsKey(blueprintID) : "Blueprint does not exist"
+                Kicks.getBlueprint(withID: blueprintID)!.numberMinted < (Kicks.getBlueprint(withID: blueprintID)!.maxSupply ?? UInt32.max) : "Blueprint has reached max supply. Cannot mint further instances."
+            }
+
+            // Retrieve blueprint resource to modify its fields
+            var blueprint <- Kicks.blueprints.remove(key: blueprintID) ?? panic("Unable to retrieve parent blueprint")
+
+            // Create a collection to transfer NFTs afterwards
+            var transitoryCollection <- Kicks.createEmptyCollection()
+
+            // Repeat mint process
+            var i = 0
+            while i < quantity {
+                let newID = blueprint.numberMinted
+
+                // create a new NFT
+                var newNFT <- create NFT(instanceID: newID, classID: blueprintID, setID: setID, taggedNFT: nil)
+
+                // Update blueprint's information
+                blueprint.nftAdded(nftID: newID)
+
+                // Deposit to transitoryCollection
+                transitoryCollection.deposit(token: <-newNFT)
+
+                // Increment counter
+                i = i + 1
+            }
+
+            // deposit it in the recipient's account using their reference
+            recipient.batchDeposit(tokens: <-transitoryCollection)
+
+            // Place blueprint back into set
+            let old <- Kicks.blueprints.insert(key: blueprintID, <- blueprint)
+
+            assert(old == nil, message: "Unexpectedly found existing blueprint at newly minted ID. Forcibly assigning currentBlueprint may be required to resolve.")
+            destroy old
+        }
+
+        // ───────────────  Set Organizing Functions  ─────────────── \\
 
         pub fun addBlueprintToSet(blueprintID: UInt32, setID: UInt32) {
             var set = Kicks.getSneakerSet(withID: setID) ?? panic("Could not load set")
@@ -674,7 +861,7 @@ pub contract Kicks: NonFungibleToken {
             set.removeBlueprint(blueprintID: blueprintID)
         }
 
-        // ---------------  State Modifying Functions  --------------- \\
+        // ───────────────  State Modifying Functions  ─────────────── \\
 
         pub fun updateSetURI(setID: UInt32, newURI: String) {
             let set = Kicks.getSneakerSet(withID: setID) ?? panic("Unable to retrieve set with given ID")
@@ -686,12 +873,12 @@ pub contract Kicks: NonFungibleToken {
             set.updateName(newName)
         }
 
-        pub fun updateBlueprintURI(blueprintID: UInt32, newURI: String) {
+        pub fun updateBlueprintURI(blueprintID: UInt32, newURI: String, media: {String: AnyStruct}) {
             pre {
                 Kicks.blueprints.containsKey(blueprintID) : "Blueprint with given ID does not exist"
             }
             var blueprint <- Kicks.blueprints.remove(key: blueprintID) ?? panic("Unable to retrieve blueprint with given ID")
-            blueprint.updateURI(newURI)
+            blueprint.updateURI(newURI, media: media)
             let old <- Kicks.blueprints[blueprintID] <- blueprint
             destroy old
         }
@@ -706,6 +893,26 @@ pub contract Kicks: NonFungibleToken {
             destroy old
         }
 
+        pub fun addMetadataFieldsToBlueprint(withID blueprintID: UInt32, metadata: {String: AnyStruct}) {
+            var blueprint <- Kicks.blueprints.remove(key: blueprintID) ?? panic("Unable to retrieve blueprint with given ID")
+            for key in metadata.keys {
+                if let value = metadata[key] {
+                    blueprint.metadata.insert(key: key, value)
+                }
+            }
+            let old <- Kicks.blueprints[blueprintID] <- blueprint
+            destroy old
+        }
+
+        pub fun removeMetadataFieldsFromBlueprint(withID blueprintID: UInt32, fields: [String]) {
+            var blueprint <- Kicks.blueprints.remove(key: blueprintID) ?? panic("Unable to retrieve blueprint with given ID")
+            for key in fields {
+                blueprint.metadata.remove(key: key)
+            }
+            let old <- Kicks.blueprints[blueprintID] <- blueprint
+            destroy old
+        }
+
         /** forceSetNFTMetadata
 
             For use only if needed. Allows admin to forcibly set the metadata from an
@@ -716,9 +923,9 @@ pub contract Kicks: NonFungibleToken {
         }
     }
 
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // Universal Getters
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
     pub fun getBlueprints(): [&Blueprint] {
         var blueprints: [&Blueprint] = []
@@ -736,25 +943,22 @@ pub contract Kicks: NonFungibleToken {
         return self.blueprints[id]?.numberMinted
     }
 
-    // ---------------  Internal Getters  --------------- \\
-
-    access(account) fun getSneakerSet(withID id: UInt32): &SneakerSet? {
+    pub fun getSneakerSet(withID id: UInt32): &SneakerSet? {
         pre {
             self.setIDs.contains(id) : "Set with ID is not a Sneaker Set"
             self.setsCapability.check() : "Sets Capability is not valid"
         }
         let sets = self.setsCapability.borrow() ?? panic("Unable to load sets from capability")
         let set = &sets[id] as auth &{NFTLX.ISet}
-        let sneakerSet = set as? &SneakerSet
-        return sneakerSet
+        return set as? &SneakerSet
     }
 
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
     // Initializers and Setup Functions
-    // -----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
     // public function that anyone can call to create a new empty collection
-    pub fun createEmptyCollection(): @NonFungibleToken.Collection {
+    pub fun createEmptyCollection(): @Kicks.Collection {
         return <- create Collection()
     }
 
@@ -781,7 +985,6 @@ pub contract Kicks: NonFungibleToken {
         // Load NFTLX Admin then create upload rights, create a Minter resource and save it to storage
         if let oldAdmin <- self.account.load<@Minter>(from: self.MinterStoragePath) { 
             // NOTE: In event contract is deleted from network, the expected type @Minter will not exist, meaning this will fail.
-            // QUESTION: How to fix above?
             destroy oldAdmin
         }
         let minter <- create Minter()
@@ -791,3 +994,4 @@ pub contract Kicks: NonFungibleToken {
         emit ContractInitialized()
     }
 }
+ 
