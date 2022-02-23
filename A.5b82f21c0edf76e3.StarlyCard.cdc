@@ -1,12 +1,10 @@
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+import StarlyMetadata from 0x5b82f21c0edf76e3
+import StarlyMetadataViews from 0x5b82f21c0edf76e3
 
-// StarlyCard
-// NFT cards for Starly!
-//
 pub contract StarlyCard: NonFungibleToken {
 
-    // Events
-    //
     pub event ContractInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
@@ -14,8 +12,6 @@ pub contract StarlyCard: NonFungibleToken {
     pub event Burned(id: UInt64, starlyID: String)
     pub event MinterCreated()
 
-    // Named Paths
-    //
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
     pub let AdminStoragePath: StoragePath
@@ -25,26 +21,27 @@ pub contract StarlyCard: NonFungibleToken {
 
     // totalSupply
     // The total number of StarlyCard that have been minted
-    //
     pub var totalSupply: UInt64
 
-    // NFT
-    // A Starly Card as an NFT
-    //
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
         pub let id: UInt64
         pub let starlyID: String
 
-        // initializer
         init(initID: UInt64, initStarlyID: String) {
             self.id = initID
             self.starlyID = initStarlyID
         }
 
-        // destructor
-        //
         destroy () {
             emit Burned(id: self.id, starlyID: self.starlyID)
+        }
+
+        pub fun getViews(): [Type] {
+            return StarlyMetadata.getViews()
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            return StarlyMetadata.resolveView(starlyID: self.starlyID, view: view)
         }
     }
 
@@ -55,6 +52,7 @@ pub contract StarlyCard: NonFungibleToken {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
+        pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} // from MetadataViews
         pub fun borrowStarlyCard(id: UInt64): &StarlyCard.NFT? {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
@@ -65,63 +63,43 @@ pub contract StarlyCard: NonFungibleToken {
         }
     }
 
-    // Collection
-    // A collection of StarlyCard NFTs owned by an account
-    //
-    pub resource Collection: StarlyCardCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
-        // dictionary of NFT conforming tokens
-        // NFT is a resource type with an `UInt64` ID field
-        //
+    pub resource Collection:
+        NonFungibleToken.Provider,
+        NonFungibleToken.Receiver,
+        NonFungibleToken.CollectionPublic,
+        MetadataViews.ResolverCollection,
+        StarlyCardCollectionPublic {
+
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
-        // withdraw
-        // Removes an NFT from the collection and moves it to the caller
-        //
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
             let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
-
             emit Withdraw(id: token.id, from: self.owner?.address)
-
             return <-token
         }
 
-        // deposit
-        // Takes a NFT and adds it to the collections dictionary
-        // and adds the ID to the id array
-        //
         pub fun deposit(token: @NonFungibleToken.NFT) {
             let token <- token as! @StarlyCard.NFT
-
             let id: UInt64 = token.id
-
-            // add the new token to the dictionary which removes the old one
             let oldToken <- self.ownedNFTs[id] <- token
-
             emit Deposit(id: id, to: self.owner?.address)
-
             destroy oldToken
         }
 
-        // getIDs
-        // Returns an array of the IDs that are in the collection
-        //
         pub fun getIDs(): [UInt64] {
             return self.ownedNFTs.keys
         }
 
-        // borrowNFT
-        // Gets a reference to an NFT in the collection
-        // so that the caller can read its metadata and call its methods
-        //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
             return &self.ownedNFTs[id] as &NonFungibleToken.NFT
         }
 
-        // borrowStarlyCard
-        // Gets a reference to an NFT in the collection as a StarlyCard,
-        // exposing all of its fields (including the starlyID).
-        // This is safe as there are no functions that can be called on the StarlyCard.
-        //
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let card = nft as! &StarlyCard.NFT
+            return card as &AnyResource{MetadataViews.Resolver}
+        }
+
         pub fun borrowStarlyCard(id: UInt64): &StarlyCard.NFT? {
             if self.ownedNFTs[id] != nil {
                 let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
@@ -131,13 +109,10 @@ pub contract StarlyCard: NonFungibleToken {
             }
         }
 
-        // destructor
         destroy() {
             destroy self.ownedNFTs
         }
 
-        // initializer
-        //
         init () {
             self.ownedNFTs <- {}
         }
@@ -170,21 +145,21 @@ pub contract StarlyCard: NonFungibleToken {
     // Resource that an admin or something similar would own to be
     // able to mint new NFTs
     //
-	pub resource NFTMinter {
+    pub resource NFTMinter {
 
-		// mintNFT
+        // mintNFT
         // Mints a new NFT with a new ID
-		// and deposit it in the recipients collection using their collection reference
+        // and deposit it in the recipients collection using their collection reference
         //
-		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, starlyID: String) {
+        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, starlyID: String) {
             emit Minted(id: StarlyCard.totalSupply, starlyID: starlyID)
 
-			// deposit it in the recipient's account using their reference
-			recipient.deposit(token: <-create StarlyCard.NFT(initID: StarlyCard.totalSupply, initStarlyID: starlyID))
+            // deposit it in the recipient's account using their reference
+            recipient.deposit(token: <-create StarlyCard.NFT(initID: StarlyCard.totalSupply, initStarlyID: starlyID))
 
             StarlyCard.totalSupply = StarlyCard.totalSupply + (1 as UInt64)
-		}
-	}
+        }
+    }
 
     pub resource interface MinterProxyPublic {
         pub fun setMinterCapability(capability: Capability<&NFTMinter>)
@@ -237,7 +212,7 @@ pub contract StarlyCard: NonFungibleToken {
 
     // initializer
     //
-	init() {
+    init() {
         // Set our named paths
         self.CollectionStoragePath = /storage/starlyCardCollection
         self.CollectionPublicPath = /public/starlyCardCollection
@@ -255,5 +230,5 @@ pub contract StarlyCard: NonFungibleToken {
         self.account.save(<-minter, to: self.MinterStoragePath)
 
         emit ContractInitialized()
-	}
+    }
 }
