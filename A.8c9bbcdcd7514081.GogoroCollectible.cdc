@@ -235,12 +235,23 @@ pub contract GogoroCollectible: NonFungibleToken {
         // Mints a new NFT with a new ID
         // and deposit it in the recipients collection using their collection reference
         //
-        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, itemID: UInt64) {
+        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, itemID: UInt64, codeHash: String?) {
+            pre {
+                codeHash == nil || !GogoroCollectible.checkCodeHashUsed(codeHash: codeHash!): "duplicated codeHash"
+            }
+
             emit Minted(id: GogoroCollectible.totalSupply)
 
             // deposit it in the recipient's account using their reference
             recipient.deposit(token: <-create GogoroCollectible.NFT(initID: GogoroCollectible.totalSupply, itemID: itemID))
             GogoroCollectible.totalSupply = GogoroCollectible.totalSupply + (1 as UInt64)
+
+            // if minter passed in codeHash, register it to dictionary
+            if let checkedCodeHash = codeHash {
+                let redeemedCodes = GogoroCollectible.account.load<{String: Bool}>(from: /storage/redeemedCodes)!
+                redeemedCodes[checkedCodeHash] = true
+                GogoroCollectible.account.save<{String: Bool}>(redeemedCodes, to: /storage/redeemedCodes)
+            }
         }
 
         // batchMintNFT
@@ -253,7 +264,8 @@ pub contract GogoroCollectible: NonFungibleToken {
             while index < count {
                 self.mintNFT(
                     recipient: recipient,
-                    itemID: itemID
+                    itemID: itemID,
+                    codeHash: nil
                 )
 
                 index = index + 1
@@ -307,6 +319,14 @@ pub contract GogoroCollectible: NonFungibleToken {
     //
     pub fun getMetadata(itemID: UInt64): Metadata? {
         return GogoroCollectible.itemMetadata[itemID]
+    }
+
+    // checkCodeHashUsed
+    // Check if a codeHash has been registered
+    //
+    pub fun checkCodeHashUsed(codeHash: String): Bool {
+        var redeemedCodes = GogoroCollectible.account.copy<{String: Bool}>(from: /storage/redeemedCodes)!
+        return redeemedCodes[codeHash] ?? false
     }
 
     // initializer
