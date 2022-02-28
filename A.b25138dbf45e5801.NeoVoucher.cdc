@@ -432,6 +432,7 @@ pub contract NeoVoucher: NonFungibleToken {
 
 			if !recipient.check() {
 				emit NotValidCollection(address:recipient.address)
+				return
 			}
 			let source = NeoVoucher.account.borrow<&NeoVoucher.Collection>(from: NeoVoucher.CollectionStoragePath) ?? panic("Could not borrow a reference to the owner's voucher")
 
