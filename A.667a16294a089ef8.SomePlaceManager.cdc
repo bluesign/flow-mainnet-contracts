@@ -3,8 +3,6 @@
     
     Exposes all functionality for an administrator of SomePlace to
     make creations and modifications pertaining to SomePlace Collectibles
-    
-    author: zay.codes
 */
 
 import FungibleToken from 0xf233dcee88fe0abe
