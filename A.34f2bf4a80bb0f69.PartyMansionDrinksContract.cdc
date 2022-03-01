@@ -888,7 +888,7 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
 
         // pay the barkeeper
         let partyMansionDrinkContractAccount: PublicAccount = getAccount(PartyMansionDrinksContract.account.address)
-        let partyMansionDrinkContractReceiver: Capability<&{FungibleToken.Receiver}> = partyMansionDrinkContractAccount.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowReceiver)!
+        let partyMansionDrinkContractReceiver: Capability<&{FungibleToken.Receiver}> = partyMansionDrinkContractAccount.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver)!
         let borrowPartyMansionDrinkContractReceiver = partyMansionDrinkContractReceiver.borrow()!
         borrowPartyMansionDrinkContractReceiver.deposit(from: <- paymentVault.withdraw(amount: paymentVault.balance))
 
