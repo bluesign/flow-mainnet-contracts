@@ -3,8 +3,6 @@
     
     Some Place Collectibles are available as part of "sets", each with
     a fixed edition count.
-
-    author: zay.codes
 */
 
 import NonFungibleToken from 0x1d7e57aa55817448
@@ -265,8 +263,8 @@ pub contract SomePlaceCollectible : NonFungibleToken {
 
         init(setID: UInt64, editionNumber: UInt64) {
             pre {
-                !SomePlaceCollectible.collectibleData.containsKey(setID) || !SomePlaceCollectible.collectibleData[setID]!.containsKey(editionNumber) : "This set and edition combination already exists"
                 SomePlaceCollectible.setData.containsKey(setID) : "Invalid Set ID"
+                SomePlaceCollectible.collectibleData[setID]![editionNumber] == nil || SomePlaceCollectible.collectibleData[setID]![editionNumber]!.getNftID() == nil : "This edition already exists"
                 editionNumber > 0 && editionNumber <= SomePlaceCollectible.setData[setID]!.getMaxNumberOfEditions() : "Edition number is too high"
             }
             // Update unique set
@@ -438,7 +436,8 @@ pub contract SomePlaceCollectible : NonFungibleToken {
     access(account) fun mintSequentialEditionNFT(setID: UInt64): @SomePlaceCollectible.NFT {
         // Find first valid edition number
         var curEditionNumber = self.setData[setID]!.getSequentialMintMin()
-        while (SomePlaceCollectible.collectibleData[setID]!.containsKey(curEditionNumber)) {
+        while (SomePlaceCollectible.collectibleData[setID]![curEditionNumber] != nil &&
+               SomePlaceCollectible.collectibleData[setID]![curEditionNumber]!.getNftID() != nil) {
             curEditionNumber = curEditionNumber + 1
         }
         self.setData[setID]!.setSequentialMintMin(newMintMin: curEditionNumber)
