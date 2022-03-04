@@ -1,3 +1,4 @@
+// NonFungibleToken - MAINNET
 import NonFungibleToken from 0x1d7e57aa55817448
 
 // VictoryNFTCollectionItem
@@ -14,9 +15,9 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
     pub event HashUpdated(id: UInt64)
     pub event MetaUpdated(id: UInt64)
     pub event Geolocated(id: UInt64)
-    pub event BundleCreated(id: UInt64)
-    pub event BundleRemoved(id: UInt64)
-    pub event AllBundlesRemoved()
+    pub event BundleCreated(owner: Address, id: UInt64)
+    pub event BundleRemoved(owner: Address, id: UInt64)
+    pub event AllBundlesRemoved(owner: Address)
 
     // Named Paths
     //
@@ -47,23 +48,15 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
         pub let issueNum: UInt32
         // How many tokens were issued
         pub let maxIssueNum: UInt32
-        // these values can be changed with authorization and are used to 
-        // connect to off-chain elements of the Victory Collection ecosystem
         // The token's content hash
-        pub(set) var contentHash: UInt256
-        // The token's metadata URL
-        pub(set) var metaURL: String
-        // The token's geolocation URL
-        pub(set) var geoURL: String
+        pub let contentHash: UInt256
 
         // initializer
         //
         init(initOwner: Address, initID: UInt64, 
                 initTypeID: UInt64, initBrandID: UInt64, initDropID: UInt64,
                 initHash: UInt256, 
-                initIssueNum: UInt32, initMaxIssueNum: UInt32, 
-                initURL: String,
-                initGeoURL: String) {
+                initIssueNum: UInt32, initMaxIssueNum: UInt32) {
             self.originalOwner = initOwner
             self.id = initID
             self.typeID = initTypeID
@@ -72,8 +65,6 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
             self.contentHash = initHash
             self.issueNum = initIssueNum
             self.maxIssueNum = initMaxIssueNum
-            self.metaURL = initURL
-            self.geoURL = initGeoURL
         }
 
         pub set 
@@ -84,15 +75,9 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
     // the details of VictoryNFTCollectionItem in the Collection.
     pub resource interface VictoryNFTCollectionItemCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
-        pub fun setMetadataURL(id: UInt64, locationRef: String)
-        pub fun geoLocate(id: UInt64, locationRef: String)
-        pub fun updateHash(id: UInt64, contentHash: UInt256)
         pub fun getIDs(): [UInt64]
         pub fun getBundleIDs(bundleID: UInt64): [UInt64]
         pub fun getNextBundleID(): UInt64
-        pub fun createBundle(itemIDs: [UInt64]): UInt64
-        pub fun removeBundle(bundleID: UInt64)
-        pub fun removeAllBundles()
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
         pub fun isNFTForSale(id: UInt64): Bool
         pub fun borrowVictoryItem(id: UInt64): &VictoryNFTCollectionItem.NFT? {
@@ -105,10 +90,17 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
         }
     }
 
+    // The interface that users can use to manage their own bundles for sale
+    pub resource interface VictoryNFTCollectionItemBundle {
+        pub fun createBundle(itemIDs: [UInt64]): UInt64
+        pub fun removeBundle(bundleID: UInt64)
+        pub fun removeAllBundles()
+    }
+
     // Collection
     // A collection of Victory Collection NFTs owned by an account
     //
-    pub resource Collection: VictoryNFTCollectionItemCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: VictoryNFTCollectionItemCollectionPublic, VictoryNFTCollectionItemBundle, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
         //
@@ -130,7 +122,7 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
             for key in self.bundles.keys {
                 if self.bundles[key]!.contains(withdrawID) {
                     self.bundles.remove(key: key)
-                    emit BundleRemoved(id: key)
+                    emit BundleRemoved(owner: self.owner?.address!, id: key)
                     break
                 }
             }
@@ -156,43 +148,6 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
 
             destroy oldToken
         }
-
-        // setMetadataURL
-        // Updates the metadata URL of an NFT
-        //
-        pub fun setMetadataURL(id: UInt64, locationRef: String) {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                var token = ref as! &VictoryNFTCollectionItem.NFT
-                token.metaURL = locationRef
-                emit MetaUpdated(id: id)
-            }
-        }
-
-        // geoLocate
-        // Updates the geo-location URL of an NFT
-        //
-        pub fun geoLocate(id: UInt64, locationRef: String) {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                var token = ref as! &VictoryNFTCollectionItem.NFT
-                token.geoURL = locationRef
-                emit Geolocated(id: id)
-            }
-        }
-
-        // updateHash
-        // Updates the content hash of an NFT
-        //
-        pub fun updateHash(id: UInt64, contentHash: UInt256) {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                var token = ref as! &VictoryNFTCollectionItem.NFT
-                token.contentHash = contentHash
-                emit HashUpdated(id: id)
-            }
-        }
-
 
         // getIDs
         // Returns an array of the IDs that are in the collection
@@ -254,18 +209,16 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
         // Returns the id of the bundle
         pub fun createBundle(itemIDs: [UInt64]): UInt64 {
             var bundle:[UInt64] = []
-            var i: Int = 0
-            while i < itemIDs.length {
-                if (self.isNFTForSale(id: itemIDs[i])) {
+            for id in itemIDs {
+                if (self.isNFTForSale(id: id)) {
                     panic("Item is already part of a bundle!")
                 }
-                bundle.append(itemIDs[i])
-                i = i + 1
+                bundle.append(id)
             }
             let id = self.nextBundleID
             self.bundles[id] = bundle
             self.nextBundleID = self.nextBundleID + (1 as UInt64)
-            emit BundleCreated(id: id)
+            emit BundleCreated(owner: self.owner?.address!, id: id)
             return id
         }
 
@@ -275,7 +228,7 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
             for key in self.bundles.keys {
                 if key == bundleID {
                     self.bundles.remove(key: bundleID)
-                    emit BundleRemoved(id: bundleID)
+                    emit BundleRemoved(owner: self.owner?.address!, id: bundleID)
                     return
                 }
             }
@@ -287,7 +240,7 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
         // Note: nextBundleID is *not* set to 0 to avoid unexpected collision
         pub fun removeAllBundles() {
             self.bundles = {}
-            emit AllBundlesRemoved()
+            emit AllBundlesRemoved(owner: self.owner?.address!)
         }
 
         // destructor
@@ -327,9 +280,10 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
                         brandID: UInt64, 
                         dropID: UInt64,
                         contentHash: UInt256, 
+                        startIssueNum: UInt32, 
                         maxIssueNum: UInt32, 
-                        metaURL: String, 
-                        geoURL: String) {
+                        totalIssueNum: UInt32) 
+        {
             var i: UInt32 = 0;
 
             while i < maxIssueNum {
@@ -342,10 +296,8 @@ pub contract VictoryNFTCollectionItem: NonFungibleToken {
                                                                 initBrandID: brandID,
                                                                 initDropID: dropID,
                                                                 initHash:contentHash,
-                                                                initIssueNum:i, 
-                                                                initMaxIssueNum: maxIssueNum, 
-                                                                initURL:metaURL, 
-                                                                initGeoURL:geoURL))
+                                                                initIssueNum:i + startIssueNum, 
+                                                                initMaxIssueNum: totalIssueNum))
 
                 VictoryNFTCollectionItem.totalSupply = VictoryNFTCollectionItem.totalSupply + (1 as UInt64)
 
