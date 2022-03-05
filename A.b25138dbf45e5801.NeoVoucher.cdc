@@ -395,7 +395,7 @@ pub contract NeoVoucher: NonFungibleToken {
 		let member <- members.withdraw(withdrawID: rewardID) as! @NeoMember.NFT
 
 		if fullVoucher{
-			member.addAchievement(NeoMotorcycle.Achievement(name: "OG Neofester", description:"This member NFT was obtained from a full voucher during the initial drop and has paid access to NEOFest for 3 years"))
+			member.addAchievement(NeoMotorcycle.Achievement(name: "OG Neo-fester", description:"OG Neo-Fester - In racing it’s all about being first. You’re one of the first people to ever gain access to Neo-Fest and that won’t be forgotten. With at least 3 years of entry you’re certain to never miss out on the NeoVerse's biggest in-person event year after year. It’s going to be truly unforgettable!"))
 		}
 		receiver.deposit(token: <-member)
 
