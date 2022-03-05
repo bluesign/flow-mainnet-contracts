@@ -5,7 +5,8 @@ Code inspired from https://github.com/JambbTeam/flow-nft-vouchers
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import FlowToken from 0x1654653399040a61
-//import NeoMember from "./NeoMember.cdc"
+import NeoMember from 0xb25138dbf45e5801
+import NeoMotorcycle from 0xb25138dbf45e5801
 import MetadataViews from 0x1d7e57aa55817448
 import Clock from 0xb25138dbf45e5801
 import Debug from 0xb25138dbf45e5801
@@ -98,12 +99,11 @@ pub contract NeoVoucher: NonFungibleToken {
 
 		let voucher=collection.borrowNeoVoucher(id:voucherID)!
 
-		let whitelistAddresses = ["0x467032bcf4403f79"]
+	let whitelistAddresses=["0xd2080c06c8b93c0d","0x5a16175a09403578","0x31b734c8bbe5aaf3","0xb006f153b1a53923","0x85561f8d3bb5ed83","0xa0b1b3d713449442","0x36ef378785835e55","0xd4175c85b913863c","0x478af2b5f727e631","0xe1d5954d03ccb02d","0x93fe10481d5622b9","0x196c1869b10635b1","0x63c213f549fa5d82","0x549802c4c6edbd04","0x36f060ab83303d5a","0x5f662af6efe4a273","0xf9e05616ccd4831a","0x857057e5336d7dcb","0x914d806bff9f23d0","0x451459400329a010","0x832fd1359b50835f","0x3fd034c13156a6ce","0xfa3a0fb4819829cc","0x51664caf2b7550ef","0x6935ca1cc29608cc","0x197dc8d4db60e3a7","0x3e30f7cb2559be1e","0x90ffa96425ec2e08","0xea0dd3503ce7b827","0x423eb1ea3cf14f82","0x46ace569ff52bd67","0xe24b9226f4fc1ffa","0xa1bf3abeb7619193","0x66585205af7746e5","0x59935060d6a1cda","0x1e69c35662dfb96b","0x5f60fb9ce5ec6bfb","0x5fc4cbc0a52fce41","0x3a7a2af28d43354b","0xa7b4f0f556f7989e","0xc8c7eeec9b78e7fb","0x5ddd1e0585edacfe","0x59d06d22a958fb1c","0xf1e0feb1216b5368","0x7f785e9ddaf68333","0x26657b3e6a7e47b6","0x73fba796d89d0595","0xb8023f7992b2858d","0x6b75d62f17e48230","0x368b4f175831543a","0x5a8585572de1d85e","0x5d2fb230463fa6b","0x9627d55ad751fdf3","0xb5413e1c4dc81b05","0x42921f1da9563ce4","0x5159075e4cd4324c","0x2c479c5c9eb30f","0x33c221718d0b93ca","0xef43af4dcc9214b6","0x81f897e8b5dc9f9","0x7d3610ad2540cef1","0xb7ffae8d70d85dda","0x1155112f813ac64d","0x74a06f8b337a77da","0x2c3122964f50851d","0x8f6bf7a919bf4edb","0x886f3aeaf848c535","0xb759fca4b2aa2f13","0xc861a006412c1cc5","0xb1f5bbebfd57a833","0x12f6eaad8e737997","0x938e01c508336ef8","0x1bdb509d15f75f37","0x3358c97ffb850b8b","0xb72631b47237f4a4","0x42ec365ab5f89312","0x8630fa754bf11151","0x2a0eccae942667be","0xc7927f3291a48a5b","0x8628996576f79e0a","0x16ae8f1cbfceaa9e","0x746e3935e2426b77", "0xbceff658ef27516e", "0x6304124e48e9bbd9", "0xa4a7037a19f7bf06", "0xc6f1a47ac4b70d33", "0xb1f5bbebfd57a833", "0x92b86f833d10b222", "0xf485bc7c3d368579", "0x9627d55ad751fdf3", "0x345f3c44cc602464", "0xc861a006412c1cc5", "0x36f060ab83303d5a", "0xb1f5bbebfd57a833", "0x4d558e936031655d", "0xc749e848698d0725"]
 
 		var time= voucher.getMetadata().timestamp
 		if whitelistAddresses.contains(collection.owner!.address.toString()) {
-			//5th march 8am UTC
-			time=1646470800.0
+			time=1646510400.0
 		}
 
 		let timestamp=Clock.time()
@@ -146,6 +146,11 @@ pub contract NeoVoucher: NonFungibleToken {
 
 		access(contract) fun setTypeId(_ id: UInt64) {
 			self.typeID=id
+		}
+
+
+		pub fun getTypeID() :UInt64 {
+			return self.typeID
 		}
 
 		// Expose metadata of this NeoVoucher type
@@ -354,18 +359,20 @@ pub contract NeoVoucher: NonFungibleToken {
 		NeoVoucher.metadata[typeID] = metadata
 	}
 
-	/*
 	// consume
 	// consumes a NeoVoucher from the Redeemed Collection by destroying it
 	// NOTE: it is expected the consumer also rewards the redeemer their due
 	//          in the case of this repository, an NFT is included in the consume transaction
 	access(account)  fun consume(voucherID: UInt64, rewardID:UInt64) {
 
-
 		// grab the voucher from the redeemed collection
 		let redeemedCollection = NeoVoucher.account.borrow<&NeoVoucher.Collection>(from: NeoVoucher.RedeemedCollectionStoragePath)!
-		let voucher <- redeemedCollection.withdraw(withdrawID: voucherID)
+		let voucher <- redeemedCollection.withdraw(withdrawID: voucherID) as! @NeoVoucher.NFT
 
+		var fullVoucher=false
+		if voucher.getTypeID() == 2 {
+			fullVoucher=true
+		}
 		// discard the empty collection and the voucher
 		destroy voucher
 
@@ -385,12 +392,14 @@ pub contract NeoVoucher: NonFungibleToken {
 		let memberRef= members.borrow(rewardID)
 
 		emit Consumed(voucherId:voucherID,  address: redeemer, memberId:rewardID, teamId:memberRef.getTeamId(), role: memberRef.role, edition: memberRef.edition, maxEdition: memberRef.maxEdition, name: memberRef.name)
-		let member <- members.withdraw(withdrawID: rewardID)
+		let member <- members.withdraw(withdrawID: rewardID) as! @NeoMember.NFT
+
+		if fullVoucher{
+			member.addAchievement(NeoMotorcycle.Achievement(name: "OG Neofester", description:"This member NFT was obtained from a full voucher during the initial drop and has paid access to NEOFest for 3 years"))
+		}
 		receiver.deposit(token: <-member)
 
 	}
-
-	*/
 
 	// fetch
 	// Get a reference to a NeoVoucher from an account's Collection, if available.
