@@ -10,6 +10,7 @@ import NonFungibleToken from 0x1d7e57aa55817448
 import SomePlaceCollectible from 0x667a16294a089ef8
 import FlowToken from 0x1654653399040a61
 import FUSD from 0x3c5959b568896393
+import SomePlacePrimarySaleHelper from 0x667a16294a089ef8
 
 pub contract SomePlaceManager {
     pub let ManagerStoragePath: StoragePath
@@ -113,7 +114,7 @@ pub contract SomePlaceManager {
         // Mint many editions of NFTs
         pub fun batchMintSequentialEditionNFTs(setID: UInt64, quantity: UInt32): @SomePlaceCollectible.Collection {
             pre {
-                quantity >= 1 && quantity <= 5 : "May only mint between 1 and 5 collectibles at a single time."
+                quantity >= 1 && quantity <= 10 : "May only mint between 1 and 10 collectibles at a single time."
             }
             let collection <- SomePlaceCollectible.createEmptyCollection() as! @SomePlaceCollectible.Collection
             var counter: UInt32 = 0
@@ -135,7 +136,7 @@ pub contract SomePlaceManager {
         access(self) fun mintNftFromPublicSale(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault,
                     price: UFix64, paymentReceiver: Capability<&{FungibleToken.Receiver}>): @SomePlaceCollectible.Collection {
             pre {
-                quantity >= 1 && quantity <= 10 : "May only mint between 1 and 10 collectibles at a time"
+                quantity >= 1 && quantity <= 2 : "May only mint between 1 and 2 collectibles at a time"
                 SomePlaceCollectible.getMetadataForSetID(setID: setID) != nil :
                     "SetID does not exist"
                 SomePlaceCollectible.getMetadataForSetID(setID: setID)!.isPublicSaleActive() :
@@ -151,7 +152,8 @@ pub contract SomePlaceManager {
             let uuids: [UInt64] = []
             let collection <- SomePlaceCollectible.createEmptyCollection() as! @SomePlaceCollectible.Collection
             while (counter < quantity) {
-                let collectible <- self.mintSequentialEditionNFT(setID: setID)
+                let collectible <- SomePlacePrimarySaleHelper.retrieveAvailableNFT()
+                assert(SomePlaceCollectible.getCollectibleDataForNftByUUID(uuid: collectible.uuid)!.getSetID() == setID)
                 uuids.append(collectible.uuid)
                 collection.deposit(token: <-collectible)
                 counter = counter + UInt32(1)
