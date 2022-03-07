@@ -187,10 +187,17 @@ pub contract ARTIFACTPack: NonFungibleToken {
     }
   }
   
+  pub resource interface CollectionPublic {
+    pub fun deposit(token: @NonFungibleToken.NFT) 
+    pub fun getIDs(): [UInt64]
+    pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT 
+    pub fun borrow(id: UInt64): &ARTIFACTPack.NFT?
+  }
+
   // Collection is a resource that every user who owns Pack NFTs 
   // will store in their account to manage their Pack NFTS
   //
-  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection { 
+  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectionPublic, MetadataViews.ResolverCollection { 
         
     // Dictionary of Pack NFT conforming tokens
     // Pack NFT is a resource type with a UInt64 ID field
@@ -206,7 +213,7 @@ pub contract ARTIFACTPack: NonFungibleToken {
     // Paramters: owner: The Pack NFT owner
     // Paramters: collection: The NFTs collection
     //
-    pub fun openPack(packID: UInt64, owner: Address, collection: &{NonFungibleToken.CollectionPublic}) {
+    pub fun openPack(packID: UInt64, owner: Address, collection: &{ARTIFACT.CollectionPublic}) {
       let packRef = &self.ownedNFTs[packID] as auth &NonFungibleToken.NFT
       let pack = packRef as! &NFT
 
