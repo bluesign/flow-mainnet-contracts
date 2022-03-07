@@ -176,10 +176,17 @@ pub contract ARTIFACT: NonFungibleToken {
     }
   }
 
+  pub resource interface CollectionPublic {
+    pub fun deposit(token: @NonFungibleToken.NFT) 
+    pub fun getIDs(): [UInt64]
+    pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT 
+    pub fun borrow(id: UInt64): &ARTIFACT.NFT?
+  }
+
   // Collection is a resource that every user who owns NFTs 
   // will store in their account to manage their NFTS
   //
-  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection { 
+  pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectionPublic, MetadataViews.ResolverCollection { 
     
     // Dictionary of NFTs conforming tokens
     // NFT is a resource type with a UInt64 ID field
