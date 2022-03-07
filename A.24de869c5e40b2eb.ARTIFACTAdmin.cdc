@@ -163,7 +163,7 @@ pub contract ARTIFACTAdmin: Interfaces {
       let nft : @ARTIFACT.NFT <- self.mintNFT(templateId: templateId, packID: 0, owner: self.owner?.address!)
 
       let collectionRef = getAccount(self.owner?.address!).getCapability(ARTIFACT.collectionPublicPath)
-        .borrow<&{NonFungibleToken.CollectionPublic}>()
+        .borrow<&{ARTIFACT.CollectionPublic}>()
         ?? panic("Could not get public collection reference")
 
       collectionRef.deposit(token: <- nft)
