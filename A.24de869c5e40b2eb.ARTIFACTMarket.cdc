@@ -141,9 +141,9 @@ pub contract ARTIFACTMarket {
     // The interface that a user can publish a capability to their sale
     // to allow others to access their sale
     pub resource interface ManagerPublic {
-       pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{NonFungibleToken.CollectionPublic}, userCollection: &ARTIFACT.Collection{NonFungibleToken.CollectionPublic}, quantity: UInt64)
+       pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{ARTIFACTPack.CollectionPublic}, userCollection: &ARTIFACT.Collection{ARTIFACT.CollectionPublic}, quantity: UInt64)
 
-       pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{NonFungibleToken.CollectionPublic}, userCollection: &ARTIFACT.Collection{NonFungibleToken.CollectionPublic}, quantity: UInt64)
+       pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{ARTIFACTPack.CollectionPublic}, userCollection: &ARTIFACT.Collection{ARTIFACT.CollectionPublic}, quantity: UInt64)
 
         pub fun getIDs(): [UInt64]
 
@@ -279,7 +279,7 @@ pub contract ARTIFACTMarket {
         /// Parameters: userCollection: The nft collection 
         /// Parameters: quantity: Quantity of pack to buy
         ///
-        pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{NonFungibleToken.CollectionPublic}, userCollection: &ARTIFACT.Collection{NonFungibleToken.CollectionPublic}, quantity: UInt64) {
+        pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{ARTIFACTPack.CollectionPublic}, userCollection: &ARTIFACT.Collection{ARTIFACT.CollectionPublic}, quantity: UInt64) {
             pre {
                 !self.listings[listingID]!.isPreSale : "sale is not available"
             }
@@ -298,7 +298,7 @@ pub contract ARTIFACTMarket {
         /// Parameters: userCollection: The nft collection 
         /// Parameters: quantity: Quantity of pack to buy
         ///
-        pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{NonFungibleToken.CollectionPublic}, userCollection: &ARTIFACT.Collection{NonFungibleToken.CollectionPublic}, quantity: UInt64) {
+        pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{ARTIFACTPack.CollectionPublic}, userCollection: &ARTIFACT.Collection{ARTIFACT.CollectionPublic}, quantity: UInt64) {
             pre {
                 self.listings[listingID]!.isPreSale : "sale is not available"
                 self.listings[listingID]!.whitelist.contains(userPackCollection.owner!.address) :"sale available for users in whitelist"
@@ -317,7 +317,7 @@ pub contract ARTIFACTMarket {
             self.purchaseListing(listingID: listingID, buyTokens: buyTokens, databaseID: databaseID, owner: owner, userPackCollection: userPackCollection, userCollection: userCollection, quantity: quantity)
         }
 
-        access(self) fun purchaseListing(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{NonFungibleToken.CollectionPublic}, userCollection: &ARTIFACT.Collection{NonFungibleToken.CollectionPublic}, quantity: UInt64){
+        access(self) fun purchaseListing(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPack.Collection{ARTIFACTPack.CollectionPublic}, userCollection: &ARTIFACT.Collection{ARTIFACT.CollectionPublic}, quantity: UInt64){
             pre {
                 quantity <= 6 : "Max quantity is 6"
                 self.listings.containsKey(listingID) : "listingID not found"
@@ -507,10 +507,10 @@ pub contract ARTIFACTMarket {
 
         self.nextListingID = 1
         
-        if(self.account.borrow<&{NonFungibleToken.CollectionPublic}>(from: ARTIFACTPack.collectionStoragePath) == nil) {
+        if(self.account.borrow<&{ARTIFACTPack.CollectionPublic}>(from: ARTIFACTPack.collectionStoragePath) == nil) {
             let collection <- ARTIFACTPack.createEmptyCollection() as! @ARTIFACTPack.Collection 
             self.account.save<@ARTIFACTPack.Collection>(<- collection, to: ARTIFACTPack.collectionStoragePath)
-            self.account.link<&{NonFungibleToken.CollectionPublic}>(ARTIFACTPack.collectionPublicPath, target: ARTIFACTPack.collectionStoragePath)
+            self.account.link<&{ARTIFACTPack.CollectionPublic}>(ARTIFACTPack.collectionPublicPath, target: ARTIFACTPack.collectionStoragePath)
         }
 
         if(self.account.borrow<&{ARTIFACTMarket.ManagerPublic}>(from: ARTIFACTMarket.marketStoragePath) == nil) {
