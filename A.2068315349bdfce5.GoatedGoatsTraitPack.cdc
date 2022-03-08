@@ -81,7 +81,7 @@ pub contract GoatedGoatsTraitPack: NonFungibleToken {
                         ipfsImage = MetadataViews.IPFSFile(cid: self.getMetadata()["thumbnailCID"]!, path: self.getMetadata()["thumbnailPath"])
                     }
                     return MetadataViews.Display(
-                        name: self.getMetadata()["name"] ?? "No name set",
+                        name: self.getMetadata()["name"] ?? "Goated Goat Trait Pack ".concat(self.id.toString()),
                         description: self.getMetadata()["description"] ?? "No description set",
                         thumbnail: ipfsImage
                     )
