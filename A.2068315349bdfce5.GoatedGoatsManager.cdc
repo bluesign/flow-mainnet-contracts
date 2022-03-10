@@ -413,9 +413,6 @@ pub contract GoatedGoatsManager {
             assert(unequippedTraits.length == traitSlotsToUnequip.length, message: "Was not able to unequip all traits.")
         }
 
-        // Validate can equip new traits and there are enough slots.
-        assert(newGoatInstance.traits.length + traitsToEquip.length <= Int(newGoatInstance.getTraitSlots()!), message: "Equipped more traits than this goat supports.")
-
         // Equip the traits provided onto the new goat
         // If there are still traits on the goat swap them out and return them.
         if (traitsToEquip.length > 0) {
@@ -435,6 +432,9 @@ pub contract GoatedGoatsManager {
             assert(traitsToEquip.length == 0, message: "Was not able to equip all traits.")
         }
         destroy traitsToEquip
+
+        // Validate didn't equip too many traits.
+        assert(newGoatInstance.traits.length <= Int(newGoatInstance.getTraitSlots()!), message: "Equipped more traits than this goat supports.")
 
         // Send event to the BE that will update the Goats image.
         emit UpdateGoatTraits(id: newGoatInstance.id, goatID: newGoatInstance.goatID, address: address);
