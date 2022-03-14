@@ -23,7 +23,21 @@
     Enjoy!
 */
 
+// import NonFungibleToken from "./NonFungibleToken.cdc"
+// import MetadataViews from "./MetadataViews.cdc"
+
+// for tests
+// import NonFungibleToken from NonFungibleToken
+// import MetadataViews from MetadataViews
+
+// for testnet
+// import NonFungibleToken from 0x631e88ae7f1d7c20
+// import MetadataViews from 0x631e88ae7f1d7c20
+
+// for mainnet
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+
 
 pub contract MintStoreItem: NonFungibleToken {
 
@@ -36,6 +50,9 @@ pub contract MintStoreItem: NonFungibleToken {
 
     // Emitted when a new Edition struct is created
     pub event EditionCreated(id: UInt32, name: String, printingLimit: UInt32?)
+
+    // Emitted when Edition Metadata is updated
+    pub event EditionMetadaUpdated(editionID: UInt32)
 
     // Emitted when a new Merchant is created
     pub event MerchantCreated(merchantID: UInt32, name: String)
@@ -281,7 +298,7 @@ pub contract MintStoreItem: NonFungibleToken {
 
     // The resource that represents the Item NFTs
     //
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 
         // Global unique item ID
         pub let id: UInt64
@@ -306,6 +323,30 @@ pub contract MintStoreItem: NonFungibleToken {
 
             
             emit ItemMinted(itemID: self.id, merchantID: merchantID, editionID: editionID, editionNumber: editionNumber)
+        }
+
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>()
+            ]
+        }
+
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    let edition = EditionData(editionID: self.data.editionID);
+                    return MetadataViews.Display(
+                        name: edition.name,
+                        description: edition.metadata["description"] ?? "",
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: edition.metadata["thumbnail"] ?? ""
+                        )
+                    )
+            }
+
+            return nil
         }
 
 
@@ -370,6 +411,62 @@ pub contract MintStoreItem: NonFungibleToken {
             // Get a reference to the Edition and return it
             return &MintStoreItem.editions[editionID] as &Edition
         }
+
+        // updateEditionMetadata returns a reference to an edition in the MintStoreItem
+        // contract so that the admin can call methods on it
+        //
+        // Parameters: 
+        // editionID: The ID of the Edition that you want to update
+        //
+        // updates: a dictionary of key - values that is requested to be appended
+        //
+        // suffix: If the metadata already contains an attribute with a given key, this value should still be kept 
+        // for posteriority. Therefore, the old value to be replaced will be stored in a metadata entry with key = key+suffix. 
+        // This can offer some reassurance to the NFT owner that the metadata will never disappear.
+        // 
+        // Returns: the EditionID
+        //
+        pub fun updateEditionMetadata(editionID: UInt32, updates: {String:String}, suffix: String): UInt32 {
+            pre {
+                MintStoreItem.editions[editionID] != nil: "Cannot borrow Edition: it does not exist"
+            }
+
+            let edition = self.borrowEdition(editionID: editionID)
+
+            // prevalidation 
+            // if metadata[key] exists and metadata[key+suffix] exists, we have a clash.
+            for key in updates.keys {
+
+                let newKey = key.concat(suffix)
+
+                if edition.metadata[key] != nil && edition.metadata[newKey]!=nil {
+                    var errorMsg = "attributes "
+                    errorMsg = errorMsg.concat(key).concat(" and ").concat(newKey).concat(" are already defined")
+                    panic(errorMsg)
+                }
+                    
+
+            }
+
+            // execution
+            for key in updates.keys {
+
+                let newKey = key.concat(suffix)
+
+                if edition.metadata[key] != nil {
+                    edition.metadata[newKey] = edition.metadata[key]    
+                }
+                edition.metadata[key] = updates[key]
+                
+            }
+
+
+            emit EditionMetadaUpdated(editionID: editionID)
+            
+            // Return the EditionID and return it
+            return editionID
+        }
+
 
         pub fun createMerchant(merchantName: String): UInt32 {
 
@@ -658,3 +755,5 @@ pub contract MintStoreItem: NonFungibleToken {
 
 
 }
+    
+
