@@ -1,8 +1,7 @@
-// Copyright flowtyNFT Inc all rights reserved
-
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
-import FUSD from 0x3c5959b568896393
+
+import FlowtyUtils from 0x5c57f79c6694797f
 
 // Flowty
 //
@@ -90,7 +89,8 @@ pub contract Flowty {
         term: UFix64,
         enabledAutoRepayment: Bool,
         royaltyRate: UFix64,
-        expiresAfter: UFix64
+        expiresAfter: UFix64,
+        paymentTokenType: Type
     )
 
     // ListingCompleted
@@ -396,8 +396,9 @@ pub contract Flowty {
         access(contract) let nftPublicCollectionCapability: Capability<&AnyResource{NonFungibleToken.CollectionPublic}>
 
 
-        // A capability allowing this resource to withdraw FUSD from borrower account.
+        // A capability allowing this resource to withdraw `FungibleToken`s from borrower account.
         // This capability allows loan repayment if there is system downtime, which will prevent NFT losing.
+        // NOTE: This variable cannot be renamed but it can allow any FungibleToken.
         access(contract) let fusdProviderCapability: Capability<&{FungibleToken.Provider}>?
 
         // borrowNFT
@@ -470,9 +471,10 @@ pub contract Flowty {
             // Funding fee
             let fundingFeeAmount = self.details.amount * self.details.interestRate * Flowty.FundingFee
             let fundingFee <- payment.withdraw(amount: fundingFeeAmount)
-            let flowtyFusdReceiver = Flowty.account.borrow<&FUSD.Vault{FungibleToken.Receiver}>(from: Flowty.FusdVaultStoragePath)
-                ?? panic("Missing or mis-typed FUSD Reveiver")
-            flowtyFusdReceiver.deposit(from: <-fundingFee)
+            let feeTokenPath = Flowty.TokenPaths[self.details.paymentVaultType.identifier]!
+            let flowtyFeeReceiver = Flowty.account.getCapability<&AnyResource{FungibleToken.Receiver}>(feeTokenPath)!.borrow()
+                ?? panic("Missing or mis-typed FungibleToken Reveiver")
+            flowtyFeeReceiver.deposit(from: <-fundingFee)
 
             // Royalty
             // Deposit royalty amount 
@@ -1169,15 +1171,20 @@ pub contract Flowty {
             paymentVaultType: Type,
             paymentCuts: [PaymentCut],
             expiresAfter: UFix64
-            
          ): UInt64 {
              pre {
-                 // make sure that the payment is in FUSD
-                payment.isInstance(Type<@FUSD.Vault>()): "payment vault is not requested fungible token"
+                // We don't allow all tokens to be used as payment. Check that the provided one is supported.
+                FlowtyUtils.isTokenSupported(type: paymentVaultType): "provided payment type is not supported"
                 // make sure that the FUSD vault has at least the listing fee
                 payment.balance == Flowty.ListingFee: "payment vault does not contain requested listing fee amount"
                 // ensure that this nft type is supported
                 Flowty.SupportedCollections[nftType.identifier] == nil: "nftType is not supported"
+                // check that the repayment token type is the same as the payment token if repayment is not nil
+                fusdProviderCapability == nil || fusdProviderCapability!.borrow()!.isInstance(paymentVaultType): "repayment vault type and payment vault type do not match"
+                // There are no listing fees right now so this will ensure that no one attempts to send any
+                payment.balance == 0.0: "no listing fee required"
+                // make sure the payment type is the same as paymentVaultType
+                payment.getType() == paymentVaultType: "payment type and paymentVaultType do not match"
             }
 
             let listing <- create Listing(
@@ -1205,10 +1212,10 @@ pub contract Flowty {
             destroy oldListing
 
             // Listing fee
-            let listingFee <- payment.withdraw(amount: Flowty.ListingFee)
-            let flowtyFusdReceiver = Flowty.account.borrow<&FUSD.Vault{FungibleToken.Receiver}>(from: Flowty.FusdVaultStoragePath)
-                ?? panic("Missing or mis-typed FUSD Reveiver")
-            flowtyFusdReceiver.deposit(from: <-listingFee)
+            // let listingFee <- payment.withdraw(amount: Flowty.ListingFee)
+            // let flowtyFusdReceiver = Flowty.account.borrow<&FUSD.Vault{FungibleToken.Receiver}>(from: Flowty.FusdVaultStoragePath)
+            //     ?? panic("Missing or mis-typed FUSD Reveiver")
+            // flowtyFusdReceiver.deposit(from: <-listingFee)
             destroy payment
 
             let enabledAutoRepayment = fusdProviderCapability != nil
@@ -1224,7 +1231,8 @@ pub contract Flowty {
                 term: term,
                 enabledAutoRepayment: enabledAutoRepayment,
                 royaltyRate: royaltyRate,
-                expiresAfter: expiration
+                expiresAfter: expiration,
+                paymentTokenType: paymentVaultType
             )
 
             return listingResourceID
