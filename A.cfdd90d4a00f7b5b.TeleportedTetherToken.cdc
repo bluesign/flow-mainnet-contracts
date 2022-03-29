@@ -157,6 +157,8 @@ pub contract TeleportedTetherToken: FungibleToken {
     pub fun teleportOut(from: @FungibleToken.Vault, to: [UInt8])
 
     pub fun depositAllowance(from: @Allowance)
+
+    pub fun getEthereumAdminAccount(): [UInt8]
   }
 
   pub resource interface TeleportControl {
@@ -274,6 +276,10 @@ pub contract TeleportedTetherToken: FungibleToken {
       self.allowedAmount = self.allowedAmount + from.balance
 
       destroy from
+    }
+
+    pub fun getEthereumAdminAccount(): [UInt8] {
+      return self.ethereumAdminAccount
     }
 
     init(allowedAmount: UFix64) {
