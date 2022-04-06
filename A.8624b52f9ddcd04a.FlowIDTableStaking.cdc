@@ -179,19 +179,9 @@ pub contract FlowIDTableStaking {
                 signatureAlgorithm: SignatureAlgorithm.BLS_BLS12_381
             )
 
-            assert(
-                stakeKey.isValid,
-                message: "Staking Key is invalid"
-            )
-
             let netKey = PublicKey(
                 publicKey: networkingKey.decodeHex(),
                 signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
-            )
-
-            assert(
-                netKey.isValid,
-                message: "Networking Key is invalid"
             )
 
             // TODO: Verify the provided Proof of Possession of the staking private key
@@ -1354,7 +1344,7 @@ pub contract FlowIDTableStaking {
     /// Returns the list of node IDs whose rewards will be reduced in the next payment
     pub fun getNonOperationalNodesList(): {String: UFix64} {
         return self.account.copy<{String: UFix64}>(from: /storage/idTableNonOperationalNodesList)
-            ?? panic("could not get approved list")
+            ?? panic("could not get non-operational node list")
     }
 
     /// Gets the minimum stake requirements for all the node types
