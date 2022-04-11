@@ -9,8 +9,11 @@ import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import FlowToken from 0x1654653399040a61
 import FUSD from 0x3c5959b568896393
+import IconsToken from 0x24efe89a9efa3c6f
+import DapperUtilityCoin from 0xead892083b3e2c6c
 import SportsIconBeneficiaries from 0x8de96244f54db422
 import SportsIconCollectible from 0x8de96244f54db422
+import SportsIconPrimarySalePrices from 0x8de96244f54db422
 
 pub contract SportsIconManager {
     pub let ManagerStoragePath: StoragePath
@@ -32,6 +35,8 @@ pub contract SportsIconManager {
     pub resource interface ManagerPublic {
         pub fun mintNftFromPublicSaleWithFUSD(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection
         pub fun mintNftFromPublicSaleWithFLOW(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection
+        pub fun mintNftForPrimarySaleWithICONS(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection
+        pub fun mintNftForPrimarySaleWithDUC(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection
     }
 
     pub resource Manager: ManagerPublic {
@@ -69,6 +74,24 @@ pub contract SportsIconManager {
             emit PublicSalePriceUpdated(setID: setID, fungibleTokenType: "FUSD", price: price)
         }
 
+        pub fun updateICONSPublicSalePrice(setID: UInt64, primarySaleListing: SportsIconPrimarySalePrices.PrimarySaleListing?) {
+            SportsIconPrimarySalePrices.updateSalePrice(setID: setID, currency: "ICONS", primarySaleListing: primarySaleListing)
+            var price: UFix64? = nil
+            if (primarySaleListing != nil) {
+                price = primarySaleListing!.totalPrice
+            }
+            emit PublicSalePriceUpdated(setID: setID, fungibleTokenType: "ICONS", price: price)
+        }
+
+        pub fun updateDUCPublicSalePrice(setID: UInt64, primarySaleListing: SportsIconPrimarySalePrices.PrimarySaleListing?) {
+            SportsIconPrimarySalePrices.updateSalePrice(setID: setID, currency: "DUC", primarySaleListing: primarySaleListing)
+            var price: UFix64? = nil
+            if (primarySaleListing != nil) {
+                price = primarySaleListing!.totalPrice
+            }
+            emit PublicSalePriceUpdated(setID: setID, fungibleTokenType: "DUC", price: price)
+        }
+
         pub fun updateEditionMetadata(setID: UInt64, editionNumber: UInt64, metadata: {String: String}) {
             SportsIconCollectible.updateEditionMetadata(setID: setID, editionNumber: editionNumber, metadata: metadata)
             emit EditionMetadataUpdated(setID: setID, editionNumber: editionNumber)
@@ -77,7 +100,7 @@ pub contract SportsIconManager {
         /*
             Modification of a set's public sale settings
         */
-        // fungibleTokenType is expected to be 'FLOW' or 'FUSD'
+        // fungibleTokenType is expected to be 'FLOW' or 'FUSD' or 'ICONS' or 'DUC'
         pub fun setAdminPaymentReceiver(fungibleTokenType: String, paymentReceiver: Capability<&{FungibleToken.Receiver}>) {
             SportsIconManager.setAdminPaymentReceiver(fungibleTokenType: fungibleTokenType, paymentReceiver: paymentReceiver)
         }
@@ -127,6 +150,7 @@ pub contract SportsIconManager {
             return <-SportsIconCollectible.mintNFT(setID: setID, editionNumber: editionNumber)
         }
 
+        // DEPRECATED - replaced by `mintNftForPrimarySale`
         // Allows direct minting of a NFT as part of a public sale.
         // This function takes in a vault that can be of multiple types of fungible tokens.
         // The proper fungible token is to be checked prior to this function call
@@ -138,6 +162,10 @@ pub contract SportsIconManager {
                     "SetID does not exist"
                 SportsIconCollectible.getMetadataForSetID(setID: setID)!.isPublicSaleActive() :
                     "Public minting is not currently allowed"
+                SportsIconCollectible.getMetadataForSetID(setID: setID)!.getFLOWPublicSalePrice() != nil ||
+                    SportsIconCollectible.getMetadataForSetID(setID: setID)!.getFUSDPublicSalePrice() != nil
+                    :
+                    "Public minting is not allowed without a price being set for this sale"
             }
             let totalPrice = price * UFix64(quantity)
 
@@ -162,9 +190,7 @@ pub contract SportsIconManager {
             return <-collection
         }
 
-        /*
-            Public functions
-        */
+        // DEPRECATED - replaced by `mintNftForPrimarySale` equivalents
         // Ensure that the passed in vault is FUSD, and pass the expected FUSD sale price for this set
         pub fun mintNftFromPublicSaleWithFUSD(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection {
             pre {
@@ -178,7 +204,7 @@ pub contract SportsIconManager {
                                         paymentReceiver: paymentReceiver)
         }
 
-        // Ensure that the passed in vault is a FLOW vault, and pass the expected FLOW sale price for this set
+        // DEPRECATED - replaced by `mintNftForPrimarySale` equivalents
         pub fun mintNftFromPublicSaleWithFLOW(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection {
             pre {
                 SportsIconCollectible.getMetadataForSetID(setID: setID)!.getFLOWPublicSalePrice() != nil :
@@ -190,15 +216,83 @@ pub contract SportsIconManager {
             return <-self.mintNftFromPublicSale(setID: setID, quantity: quantity, vault: <-flowVault, price: price,
                             paymentReceiver: paymentReceiver)
         }
+
+        access(self) fun mintNftForPrimarySale(setID: UInt64, quantity: UInt32, paymentVault: @FungibleToken.Vault,
+                    primarySaleListing: SportsIconPrimarySalePrices.PrimarySaleListing, paymentReceiver: Capability<&{FungibleToken.Receiver}>): @SportsIconCollectible.Collection {
+            pre {
+                quantity >= 1 && quantity <= 10 : "May only mint between 1 and 10 collectibles at a time"
+                SportsIconCollectible.getMetadataForSetID(setID: setID) != nil :
+                    "SetID does not exist"
+                SportsIconCollectible.getMetadataForSetID(setID: setID)!.isPublicSaleActive() :
+                    "Public minting is not currently allowed"
+            }
+            let totalPrice = primarySaleListing.totalPrice * UFix64(quantity)
+
+            // Ensure that the provided balance is equal to our expected price for the NFTs
+            assert(totalPrice == paymentVault.balance)
+
+            // Mint `quantity` number of NFTs from this drop to the collection
+            var counter = UInt32(0)
+            let uuids: [UInt64] = []
+            let collection <- SportsIconCollectible.createEmptyCollection() as! @SportsIconCollectible.Collection
+            while (counter < quantity) {
+                let collectible <- self.mintSequentialEditionNFT(setID: setID)
+                uuids.append(collectible.uuid)
+                collection.deposit(token: <-collectible)
+                counter = counter + UInt32(1)
+            }
+
+            let adminPaymentReceiver = paymentReceiver.borrow()!
+            var residualReceiver: &{FungibleToken.Receiver}? = adminPaymentReceiver
+            for cut in primarySaleListing.getSaleCuts() {
+                if let receiver = cut.receiver.borrow() {
+                   let paymentCut <- paymentVault.withdraw(amount: cut.amount)
+                    receiver.deposit(from: <-paymentCut)
+                    if (residualReceiver == nil) {
+                        residualReceiver = receiver
+                    }
+                }
+            }
+            residualReceiver!.deposit(from: <-paymentVault)
+            return <-collection
+        }
+
+        // Ensure that the passed in vault is a ICONS vault, and pass the expected ICONS sale price for this set
+        pub fun mintNftForPrimarySaleWithICONS(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection {
+            pre {
+                SportsIconPrimarySalePrices.getListing(setID: setID, currency: "ICONS") != nil :
+                    "Public sale price not set for this set"
+            }
+            let iconsVault <- vault as! @IconsToken.Vault
+            let primarySaleListing = SportsIconPrimarySalePrices.getListing(setID: setID, currency: "ICONS")!
+            let paymentReceiver = SportsIconManager.adminPaymentReceivers["ICONS"]!
+            return <-self.mintNftForPrimarySale(setID: setID, quantity: quantity, paymentVault: <-iconsVault, primarySaleListing: primarySaleListing,
+                            paymentReceiver: paymentReceiver)
+        }
+
+        // Ensure that the passed in vault is a DUC vault, and pass the expected DUC sale price for this set
+        pub fun mintNftForPrimarySaleWithDUC(setID: UInt64, quantity: UInt32, vault: @FungibleToken.Vault): @SportsIconCollectible.Collection {
+            pre {
+                SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC") != nil :
+                    "Public sale price not set for this set"
+            }
+            let ducVault <- vault as! @DapperUtilityCoin.Vault
+            let primarySaleListing = SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC")!
+            let paymentReceiver = SportsIconManager.adminPaymentReceivers["DUC"]!
+            return <-self.mintNftForPrimarySale(setID: setID, quantity: quantity, paymentVault: <-ducVault, primarySaleListing: primarySaleListing,
+                            paymentReceiver: paymentReceiver)
+        }
     }
 
     /* Mutating functions */
     access(contract) fun setAdminPaymentReceiver(fungibleTokenType: String, paymentReceiver: Capability<&{FungibleToken.Receiver}>) {
         pre {
-            fungibleTokenType == "FLOW" || fungibleTokenType == "FUSD" : "Must provide either flow or fusd as fungible token keys"
-            paymentReceiver.borrow() != nil : "Invalid payment receivier capability provided"
-            fungibleTokenType == "FLOW" && paymentReceiver.borrow()!.isInstance(Type<@FlowToken.Vault>()) : "Invalid flow token vault provided"
-            fungibleTokenType == "FUSD" && paymentReceiver.borrow()!.isInstance(Type<@FUSD.Vault>()) : "Invalid flow token vault provided"
+            fungibleTokenType == "FLOW" || fungibleTokenType == "FUSD" || fungibleTokenType == "ICONS" || fungibleTokenType == "DUC" : "Must provide either FLOW, FUSD, ICONS, or DUC as fungible token keys"
+            paymentReceiver.borrow() != nil : "Invalid payment receiver capability provided"
+            fungibleTokenType != "FLOW" || (fungibleTokenType == "FLOW" && paymentReceiver.borrow()!.isInstance(Type<@FlowToken.Vault>())) : "Invalid FLOW token vault provided"
+            fungibleTokenType != "FUSD" || (fungibleTokenType == "FUSD" && paymentReceiver.borrow()!.isInstance(Type<@FUSD.Vault>())) : "Invalid FUSD token vault provided"
+            fungibleTokenType != "ICONS" || (fungibleTokenType == "ICONS" && paymentReceiver.borrow()!.isInstance(Type<@IconsToken.Vault>())) : "Invalid ICONS token vault provided"
+            fungibleTokenType != "DUC" || (fungibleTokenType == "DUC" && paymentReceiver.borrow()!.isInstance(Type<@DapperUtilityCoin.Vault>())) : "Invalid DUC token vault provided"
         }
         self.adminPaymentReceivers[fungibleTokenType] = paymentReceiver
     }
