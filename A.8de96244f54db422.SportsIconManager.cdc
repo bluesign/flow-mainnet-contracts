@@ -14,6 +14,7 @@ import DapperUtilityCoin from 0xead892083b3e2c6c
 import SportsIconBeneficiaries from 0x8de96244f54db422
 import SportsIconCollectible from 0x8de96244f54db422
 import SportsIconPrimarySalePrices from 0x8de96244f54db422
+import TokenForwarding from 0xe544175ee0461c4b
 
 pub contract SportsIconManager {
     pub let ManagerStoragePath: StoragePath
@@ -292,7 +293,7 @@ pub contract SportsIconManager {
             fungibleTokenType != "FLOW" || (fungibleTokenType == "FLOW" && paymentReceiver.borrow()!.isInstance(Type<@FlowToken.Vault>())) : "Invalid FLOW token vault provided"
             fungibleTokenType != "FUSD" || (fungibleTokenType == "FUSD" && paymentReceiver.borrow()!.isInstance(Type<@FUSD.Vault>())) : "Invalid FUSD token vault provided"
             fungibleTokenType != "ICONS" || (fungibleTokenType == "ICONS" && paymentReceiver.borrow()!.isInstance(Type<@IconsToken.Vault>())) : "Invalid ICONS token vault provided"
-            fungibleTokenType != "DUC" || (fungibleTokenType == "DUC" && paymentReceiver.borrow()!.isInstance(Type<@DapperUtilityCoin.Vault>())) : "Invalid DUC token vault provided"
+            fungibleTokenType != "DUC" || (fungibleTokenType == "DUC" && (paymentReceiver.borrow()!.isInstance(Type<@DapperUtilityCoin.Vault>()) || paymentReceiver.borrow()!.isInstance(Type<@TokenForwarding.Forwarder>()))) : "Invalid DUC token vault provided"
         }
         self.adminPaymentReceivers[fungibleTokenType] = paymentReceiver
     }
