@@ -68,7 +68,7 @@ pub contract SportsIconNFTStorefront {
     // The listing has been resolved. It has either been purchased, or removed and destroyed.
     //
     pub event ListingCompleted(
-        storefrontAddress: Address,
+        storefrontAddress: Address?,
         listingResourceID: UInt64,
         storefrontResourceID: UInt64,
         nftType: Type,
@@ -300,7 +300,7 @@ pub contract SportsIconNFTStorefront {
             // If the listing is purchased, we regard it as completed here.
             // Otherwise we regard it as completed in the destructor.
             emit ListingCompleted(
-                storefrontAddress: self.owner?.address!,
+                storefrontAddress: self.owner?.address,
                 listingResourceID: self.uuid,
                 storefrontResourceID: self.details.storefrontID,
                 nftType: self.details.nftType,
@@ -323,7 +323,7 @@ pub contract SportsIconNFTStorefront {
             // If we change this destructor, revisit those functions.
             if !self.details.purchased {
                 emit ListingCompleted(
-                    storefrontAddress: self.owner?.address!,
+                    storefrontAddress: self.owner?.address,
                     listingResourceID: self.uuid,
                     storefrontResourceID: self.details.storefrontID,
                     nftType: self.details.nftType,
