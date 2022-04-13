@@ -44,14 +44,10 @@
 
 import FlowToken from 0x1654653399040a61
 import DarkCountry from 0xc8c340cebd11f690
+import DarkCountryStaking from 0xc8c340cebd11f690
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 
-// for tests only
-//import FlowToken from FlowToken
-//import DarkCountry from DarkCountry
-//import FungibleToken from FungibleToken
-//import NonFungibleToken from NonFungibleToken
 
 pub contract DarkCountryMarket {
     // SaleOffer events.
@@ -105,7 +101,7 @@ pub contract DarkCountryMarket {
     // The Admin resource manages the data.
     // Note: We do not make it as a resource that can be stored in user's storage
     // since the pre-order might be requested off chain
-    pub var preOrders: { Address: { UInt64 : UInt64 } }
+    access(account) var preOrders: { Address: { UInt64 : UInt64 } }
 
     // SaleOfferPublicView
     // An interface providing a read-only view of a SaleOffer
@@ -226,6 +222,12 @@ pub contract DarkCountryMarket {
             // borrow a reference to a specific NFT in the collection
             let nft = collectionBorrow.borrowDarkCountryNFT(id: itemID)
                 ?? panic("No such itemID in that collection")
+            
+            // make sure the NFT is not staked
+            if  DarkCountryStaking.stakedItems.containsKey(nft.owner?.address!) &&
+                DarkCountryStaking.stakedItems[nft.owner?.address!]!.contains(itemID) {
+                panic("Cannot withdraw: the NFT is staked.")
+            }
 
             self.itemTemplateID = nft.itemTemplateID
 
