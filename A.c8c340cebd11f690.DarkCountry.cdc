@@ -41,10 +41,10 @@
     and those cases need to be handled by the caller.
 */
 
-import NonFungibleToken from 0x1d7e57aa55817448
 
-// for tests only
-//import NonFungibleToken from NonFungibleToken
+import NonFungibleToken from 0x1d7e57aa55817448
+import DarkCountryStaking from 0xc8c340cebd11f690
+
 
 pub contract DarkCountry: NonFungibleToken {
 
@@ -88,8 +88,12 @@ pub contract DarkCountry: NonFungibleToken {
     //
     // In other words it can be considered as totalSupply of
     // NFTs of a certain type
-    pub var numberMintedPerItemTemplate: {UInt64: UInt64}
+    access(account) var numberMintedPerItemTemplate: {UInt64: UInt64}
 
+    pub fun getNumberMintedPerItemTemplate(paramItemTemplateID: UInt64): UInt64? {
+
+        return self.numberMintedPerItemTemplate[paramItemTemplateID]
+    }
     // Variable size dictionary of ItemTemplate structs
     access(self) var itemTemplates: {UInt64: ItemTemplate}
 
@@ -218,6 +222,12 @@ pub contract DarkCountry: NonFungibleToken {
         // Removes an NFT from the collection and moves it to the caller
         //
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
+            // make sure the NFT is not staked
+            if  DarkCountryStaking.stakedItems.containsKey(self.owner?.address!) &&
+                DarkCountryStaking.stakedItems[self.owner?.address!]!.contains(withdrawID) {
+                panic("Cannot withdraw: the NFT is staked.")
+            }
+
             let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
             emit Withdraw(id: token.id, from: self.owner?.address)
@@ -321,7 +331,6 @@ pub contract DarkCountry: NonFungibleToken {
 
             DarkCountry.numberMintedPerItemTemplate[itemTemplateID] = numOfItemTemplateNFTs + (1 as UInt64)
 		}
-
 
         // createItemTemplate creates a new ItemTemplate struct
         // and stores it in the itemTemplates dictionary in the DarkCountry smart contract
