@@ -136,17 +136,18 @@ pub contract Necryptolis: NonFungibleToken {
         return false;
     }
 
+    //check if it's colliding in all the neighbour sections
     pub fun isPlotColliding(xSection: Int32, ySection: Int32, left: Int32, top: Int32, width: UInt16, height: UInt16) : Bool {
         if(Necryptolis.isPlotCollidingInSection(xSection: xSection, ySection: ySection, left: left, top: top, width: width, height: height)){
             return true
         }
-        if((left % 1000) + Int32(width) > 1000 && Necryptolis.isPlotCollidingInSection(xSection: xSection + 1, ySection: ySection, left: left, top: top, width: width, height: height)){
+        if(Necryptolis.isPlotCollidingInSection(xSection: xSection + 1, ySection: ySection, left: left, top: top, width: width, height: height)){
             return true
         }
-        if((top % 1000) + Int32(height) > 1000 && Necryptolis.isPlotCollidingInSection(xSection: xSection, ySection: ySection + 1, left: left, top: top, width: width, height: height)){
+        if( Necryptolis.isPlotCollidingInSection(xSection: xSection, ySection: ySection + 1, left: left, top: top, width: width, height: height)){
             return true
         }
-        if((left % 1000) + Int32(width) > 1000 && (top % 1000) + Int32(height) > 1000 && Necryptolis.isPlotCollidingInSection(xSection: xSection + 1, ySection: ySection + 1, left: left, top: top, width: width, height: height)){
+        if(Necryptolis.isPlotCollidingInSection(xSection: xSection + 1, ySection: ySection + 1, left: left, top: top, width: width, height: height)){
             return true
         }
         if(Necryptolis.isPlotCollidingInSection(xSection: xSection - 1, ySection: ySection, left: left, top: top, width: width, height: height)){
@@ -156,6 +157,12 @@ pub contract Necryptolis: NonFungibleToken {
             return true
         }
         if(Necryptolis.isPlotCollidingInSection(xSection: xSection - 1, ySection: ySection - 1, left: left, top: top, width: width, height: height)){
+            return true
+        }
+        if(Necryptolis.isPlotCollidingInSection(xSection: xSection - 1, ySection: ySection + 1, left: left, top: top, width: width, height: height)){
+            return true
+        }
+        if(Necryptolis.isPlotCollidingInSection(xSection: xSection + 1, ySection: ySection - 1, left: left, top: top, width: width, height: height)){
             return true
         }
         
