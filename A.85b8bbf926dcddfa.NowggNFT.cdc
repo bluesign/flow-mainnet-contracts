@@ -10,6 +10,7 @@ pub contract NowggNFT: NonFungibleToken {
     pub event Minted(id: UInt64, typeId: String)
     pub event TypeRegistered(typeId: String)
     pub event TypeSoldOut(typeId: String)
+    pub event NftDestroyed(id: UInt64)
 
     // Named Paths
     pub let CollectionStoragePath: StoragePath
@@ -72,6 +73,10 @@ pub contract NowggNFT: NonFungibleToken {
         // getter for metadata
         pub fun getMetadata(): {String: AnyStruct} {
             return self.metadata
+        }
+
+        destroy() {
+            emit NftDestroyed(id: self.id)
         }
     }
 
