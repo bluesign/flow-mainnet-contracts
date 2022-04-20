@@ -235,12 +235,23 @@ pub contract YahooCollectible: NonFungibleToken {
         // Mints a new NFT with a new ID
         // and deposit it in the recipients collection using their collection reference
         //
-        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, itemID: UInt64) {
+        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, itemID: UInt64, codeHash: String?) {
+            pre {
+                codeHash == nil || !YahooCollectible.checkCodeHashUsed(codeHash: codeHash!): "duplicated codeHash"
+            }
+            
             emit Minted(id: YahooCollectible.totalSupply)
 
             // deposit it in the recipient's account using their reference
             recipient.deposit(token: <-create YahooCollectible.NFT(initID: YahooCollectible.totalSupply, itemID: itemID))
             YahooCollectible.totalSupply = YahooCollectible.totalSupply + (1 as UInt64)
+
+            // if minter passed in codeHash, register it to dictionary
+            if let checkedCodeHash = codeHash {
+                let redeemedCodes = YahooCollectible.account.load<{String: Bool}>(from: /storage/redeemedCodes)!
+                redeemedCodes[checkedCodeHash] = true
+                YahooCollectible.account.save<{String: Bool}>(redeemedCodes, to: /storage/redeemedCodes)
+            }
         }
 
         // batchMintNFT
@@ -253,7 +264,8 @@ pub contract YahooCollectible: NonFungibleToken {
             while index < count {
                 self.mintNFT(
                     recipient: recipient,
-                    itemID: itemID
+                    itemID: itemID,
+                    codeHash: nil
                 )
 
                 index = index + 1
@@ -307,6 +319,14 @@ pub contract YahooCollectible: NonFungibleToken {
     //
     pub fun getMetadata(itemID: UInt64): Metadata? {
         return YahooCollectible.itemMetadata[itemID]
+    }
+
+    // checkCodeHashUsed
+    // Check if a codeHash has been registered
+    //
+    pub fun checkCodeHashUsed(codeHash: String): Bool {
+        var redeemedCodes = YahooCollectible.account.copy<{String: Bool}>(from: /storage/redeemedCodes)!
+        return redeemedCodes[codeHash] ?? false
     }
 
     // initializer
