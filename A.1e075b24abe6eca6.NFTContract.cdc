@@ -104,7 +104,7 @@ pub contract NFTContract: NonFungibleToken {
         pub let schemaId: UInt64
         pub var maxSupply: UInt64
         pub var issuedSupply: UInt64
-        pub var immutableData: {String: AnyStruct}
+        access(contract) var immutableData: {String: AnyStruct}
 
         init(brandId: UInt64, schemaId: UInt64, maxSupply: UInt64, immutableData: {String: AnyStruct}) {
             pre {
@@ -183,6 +183,11 @@ pub contract NFTContract: NonFungibleToken {
             assert(isValidTemplate, message: "invalid template data. Error: ".concat(invalidKey))
         }
 
+        // a method to get ImmutableData field of Template
+        pub fun getImmutableData(): {String:AnyStruct} {
+            return self.immutableData
+        }
+
         // a method to increment issued supply for template
         access(contract) fun incrementIssuedSupply(): UInt64 {
             pre {
@@ -223,10 +228,29 @@ pub contract NFTContract: NonFungibleToken {
         }
     }
 
+    /** NFTContractCollectionPublic
+
+        A public interface extending the standard NFT Collection with type information specific
+        to NowWhere NFTs.
+    */
+    pub resource interface NFTContractCollectionPublic {
+        pub fun deposit(token: @NonFungibleToken.NFT)
+        pub fun getIDs(): [UInt64]
+        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
+        pub fun borrowNowWhereNFT(id: UInt64): &NFTContract.NFT? {
+            // If the result isn't nil, the id of the returned reference
+            // should be the same as the argument to the function
+            post {
+                (result == nil) || (result?.id == id):
+                    "Cannot borrow NFT reference: The ID of the returned reference is incorrect"
+            }
+        }
+    }
+
     // Collection is a resource that every user who owns NFTs 
     // will store in their account to manage their NFTS
     //
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: NFTContractCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
@@ -251,8 +275,22 @@ pub contract NFTContract: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            emit NFTBorrowed(id:id)
             return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+        }
+
+        // borrowNowWhereNFT returns a borrowed reference to a NFTContract
+        // so that the caller can read data and call methods from it.
+        //
+        // Parameters: id: The ID of the NFT to get the reference for
+        //
+        // Returns: A reference to the NFT
+        pub fun borrowNowWhereNFT(id: UInt64): &NFTContract.NFT? {
+            if self.ownedNFTs[id] != nil {
+                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                return ref as! &NFTContract.NFT
+            } else {
+                return nil
+            }
         }
 
         init() {
@@ -372,7 +410,7 @@ pub contract NFTContract: NonFungibleToken {
 
         //method to create new Template, only access by the verified user
         pub fun createTemplate(brandId: UInt64, schemaId: UInt64, maxSupply: UInt64, immutableData: {String: AnyStruct}) {
-            pre { 
+            pre {
                 // the transaction will instantly revert if 
                 // the capability has not been added
                 self.capability != nil: "I don't have the special capability :("
