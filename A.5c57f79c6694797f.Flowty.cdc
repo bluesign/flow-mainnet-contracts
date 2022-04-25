@@ -2,6 +2,7 @@ import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 
 import FlowtyUtils from 0x5c57f79c6694797f
+import CoatCheck from 0x5c57f79c6694797f
 
 // Flowty
 //
@@ -204,11 +205,11 @@ pub contract Flowty {
     pub var SuspendedFundingPeriod: UFix64
 
     // A dictionary for the Collection to royalty configuration.
-    access(contract) var Royalties: {String:Royalty}
-    access(contract) var TokenPaths: {String:PublicPath}
+    access(account) var Royalties: {String:Royalty}
+    access(account) var TokenPaths: {String:PublicPath}
 
     // The collections which are allowed to be used as collateral
-    access(contract) var SupportedCollections: {String:Bool}
+    access(account) var SupportedCollections: {String:Bool}
 
     // PaymentCut
     // A struct representing a recipient that must be sent a certain amount
@@ -753,19 +754,16 @@ pub contract Flowty {
             let NFT <- self.NFT <- nil
             let nftID = NFT?.id
 
-            self.ownerNFTCollection.borrow()!.deposit(token: <-NFT!)
-
-            self.lenderFungibleTokenReceiver.borrow()!.deposit(from: <-payment)
+            FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.ownerNFTCollection)
 
             let royaltyVault <- self.royaltyVault <- nil
-            self.lenderFungibleTokenReceiver.borrow()!.deposit(from: <-royaltyVault!)
+            let repaymentVault <- payment
+            repaymentVault.deposit(from: <-royaltyVault!)
 
-            let lenderVaultCap = self.lenderFungibleTokenReceiver.borrow()!
-            let lender = lenderVaultCap.owner!.address
+            FlowtyUtils.trySendFungibleTokenVault(vault: <-repaymentVault, receiver: self.lenderFungibleTokenReceiver)
 
-            let borrowerNFTCollectionCap = self.ownerNFTCollection.borrow()!
-            let borrower = borrowerNFTCollectionCap.owner!.address
-
+            let borrower = self.ownerNFTCollection.address
+            let lender = self.lenderFungibleTokenReceiver.address
             emit FundingRepaid(
                 fundingResourceID: self.uuid, 
                 listingResourceID: self.details.listingResourceID, 
@@ -795,18 +793,15 @@ pub contract Flowty {
             let borrowerVault = self.fusdProviderCapability!.borrow()!
             let payment <- borrowerVault.withdraw(amount: self.details.repaymentAmount)
 
-            self.ownerNFTCollection.borrow()!.deposit(token: <-NFT!)
-
-            self.lenderFungibleTokenReceiver.borrow()!.deposit(from: <-payment)
+            FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.ownerNFTCollection)
 
             let royaltyVault <- self.royaltyVault <- nil
-            self.lenderFungibleTokenReceiver.borrow()!.deposit(from: <-royaltyVault!)
+            let repaymentVault <- payment
+            repaymentVault.deposit(from: <-royaltyVault!)
 
-            let lenderVaultCap = self.lenderFungibleTokenReceiver.borrow()!
-            let lender = lenderVaultCap.owner!.address
-
-            let borrowerNFTCollectionCap = self.ownerNFTCollection.borrow()!
-            let borrower = borrowerNFTCollectionCap.owner!.address
+            FlowtyUtils.trySendFungibleTokenVault(vault: <-repaymentVault, receiver: self.lenderFungibleTokenReceiver)
+            let borrower = self.ownerNFTCollection.address
+            let lender = self.lenderFungibleTokenReceiver.address
 
             emit FundingRepaid(
                 fundingResourceID: self.uuid, 
@@ -834,23 +829,19 @@ pub contract Flowty {
             // Move NFT to the lender account
             let NFT <- self.NFT <- nil
             let nftID = NFT?.id
+            assert(nftID != nil, message: "NFT is already moved")
 
             let royalty = Flowty.getRoyalty(nftTypeIdentifier: self.getListingDetails().nftType.identifier)
             let royaltyTokenPath = Flowty.TokenPaths[self.details.paymentVaultType.identifier]!
-            let receiver = getAccount(royalty.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)!.borrow()!
-            
+            let receiverCap = getAccount(royalty.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)
+
             let royaltyVault <- self.royaltyVault <- nil
-            receiver.deposit(from: <-royaltyVault!)
 
-            assert(nftID != nil, message: "NFT is already moved")
+            FlowtyUtils.trySendFungibleTokenVault(vault: <-royaltyVault!, receiver: receiverCap)
+            FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.lenderNFTCollection)
 
-            self.lenderNFTCollection.borrow()!.deposit(token: <-NFT!)
-
-            let lenderVaultCap = self.lenderFungibleTokenReceiver.borrow()!
-            let lender = lenderVaultCap.owner!.address
-
-            let borrowerNFTCollectionCap = self.ownerNFTCollection.borrow()!
-            let borrower = borrowerNFTCollectionCap.owner!.address
+            let lender = self.lenderNFTCollection.address
+            let borrower = self.ownerNFTCollection.address
 
             emit FundingSettled(
                 fundingResourceID: self.uuid, 
@@ -969,7 +960,7 @@ pub contract Flowty {
         pub fun getFundingIDs(): [UInt64]
         pub fun borrowFunding(fundingResourceID: UInt64): &Funding{FundingPublic}?
         pub fun getAllowedCollections(): [String]
-   }
+    }
 
     // FlowtyStorefront
     // A resource that allows its owner to manage a list of Listings, and anyone to interact with them
@@ -982,7 +973,6 @@ pub contract Flowty {
         // insert
         // Create and publish a funding for an NFT.
         //
-
         access(contract) fun createFunding(
             flowtyStorefrontID: UInt64, 
             listingResourceID: UInt64,
@@ -1319,6 +1309,10 @@ pub contract Flowty {
 
     pub fun getRoyalty(nftTypeIdentifier: String): Royalty {
         return Flowty.Royalties[nftTypeIdentifier]!
+    }
+
+    pub fun getTokenPaths(): {String:PublicPath} {
+        return self.TokenPaths
     }
 
     // FlowtyAdmin
