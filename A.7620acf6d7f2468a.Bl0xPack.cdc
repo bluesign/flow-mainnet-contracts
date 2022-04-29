@@ -533,7 +533,6 @@ pub contract Bl0xPack: NonFungibleToken {
 		let digest = HashAlgorithm.SHA3_384.hash(string.utf8)
 		let digestAsString=String.encodeHex(digest)
 		if digestAsString != hash {
-			emit OpenDebug(packId:packId, message:string)
 			emit FulfilledError(packId:packId, address:receiver.address, reason: "The content of the pack was not verified with the hash provided at mint")
 			self.transferToDLQ(<- pack)
 			return
