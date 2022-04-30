@@ -14,6 +14,8 @@ pub contract Bl0xPack: NonFungibleToken {
 	pub event Deposit(id: UInt64, to: Address?)
 	pub event Minted(id: UInt64, typeId:UInt64)
 
+	pub event Requeued(packId: UInt64, address:Address)
+
 	pub event Opened(packId: UInt64, address:Address)
 	pub event Fulfilled(packId:UInt64, address:Address)
 	pub event PackReveal(packId:UInt64, address:Address, packTypeId:UInt64, rewardId:UInt64, nftName:String, nftImage:String, nftRarity:String)
@@ -149,6 +151,16 @@ pub contract Bl0xPack: NonFungibleToken {
 			self.typeId=id
 		}
 
+		access(contract) fun resetOpendBy() : Address {
+			if self.openedBy==nil {
+				panic("Pack is not opened")
+			}
+  		let cap = self.openedBy!
+
+			self.openedBy=nil
+			return cap.address
+		}
+
 		access(contract) fun setOpenedBy(_ cap:Capability<&{NonFungibleToken.Receiver}>) {
 			if self.openedBy!=nil {
 				panic("Pack has already been opened")
@@ -228,6 +240,17 @@ pub contract Bl0xPack: NonFungibleToken {
 				}
 			}
 			return nil
+		}
+
+		//this has to be called on the DLQ collection
+		pub fun requeue(packId:UInt64) {
+			let token <- self.withdraw(withdrawID: packId) as! @NFT
+
+			let address=token.resetOpendBy()
+			let cap=getAccount(address).getCapability<&Collection{NonFungibleToken.Receiver}>(Bl0xPack.CollectionPublicPath)
+			let receiver = cap.borrow()!
+			receiver.deposit(token: <- token)
+			emit Requeued(packId:packId, address: cap.address)
 		}
 
 		pub fun open(packId: UInt64, receiverCap: Capability<&{NonFungibleToken.Receiver}>) {
@@ -543,7 +566,7 @@ pub contract Bl0xPack: NonFungibleToken {
 		for reward in rewardIds {
 
 			let metadata=source.borrowViewResolver(id: reward).resolveView(Type<Bl0x.Metadata>())! as! Bl0x.Metadata
-			emit PackReveal(packId:packId, address:receiver.address, packTypeId: pack.getTypeID(), rewardId: reward, nftName:metadata.name, nftImage:metadata.thumbnail, nftRarity: metadata.rarity)
+			emit PackReveal(packId:packId, address:receiver.address, packTypeId: pack.getTypeID(), rewardId: reward, nftName:metadata.name, nftImage:metadata.image, nftRarity: metadata.rarity)
 			let token <- source.withdraw(withdrawID: reward)
 			target.deposit(token: <-token)
 		}
