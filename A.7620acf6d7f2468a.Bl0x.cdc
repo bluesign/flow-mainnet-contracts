@@ -113,9 +113,20 @@ pub contract Bl0x: NonFungibleToken {
 
 			let imageFile=MetadataViews.IPFSFile( url: self.rootHash, path: "thumbnail/".concat(self.serial.toString()).concat(".webp"))
 
+
 			var fullExtension=".png"
 			var fullMediaType="image/png"
-			if self.traits.containsKey("Module") {
+
+			let traits = self.traits
+			if self.serial == 885 {
+				traits.remove(key: "Module")
+			}
+
+			if self.serial == 855 {
+				traits["Module"] = 244
+			}
+
+			if traits.containsKey("Module") {
 				fullExtension=".gif"
 				fullMediaType="image/gif"
 			}
@@ -187,18 +198,38 @@ pub contract Bl0x: NonFungibleToken {
 		}
 
 		pub fun getAllTraitsMetadataAsArray() : [{String : String}] {
+			let traits = self.traits
+			if self.serial == 885 {
+				traits.remove(key: "Module")
+			}
+
+			if self.serial == 855 {
+				traits["Module"] = 244
+
+			}
 			var traitMetadata : [{String : String}] = []
-			for trait in self.traits.keys {
-				let traitId = self.traits[trait]!
+			for trait in traits.keys {
+				let traitId = traits[trait]!
+
 				traitMetadata.append(Bl0x.traits[traitId]!.metadata)
 			}
 			return traitMetadata
 		}
 
 		pub fun getAllTraitsMetadata() : {String : Trait} {
+
+			let traits = self.traits
+			if self.serial == 885 {
+				traits.remove(key: "Module")
+			}
+
+			if self.serial == 855 {
+				traits["Module"] = 244
+
+			}
 			var traitMetadata : {String : Trait} = {}
-			for trait in self.traits.keys {
-				let traitId = self.traits[trait]!
+			for trait in traits.keys {
+				let traitId = traits[trait]!
 				traitMetadata[trait] = Bl0x.traits[traitId]!
 			}
 			return traitMetadata
