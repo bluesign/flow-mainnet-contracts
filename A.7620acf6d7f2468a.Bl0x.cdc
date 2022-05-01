@@ -103,6 +103,7 @@ pub contract Bl0x: NonFungibleToken {
 			Type<MetadataViews.Display>(),
 			Type<MetadataViews.Media>(),
 			Type<MetadataViews.Royalties>(),
+			Type<MetadataViews.ExternalURL>(),
 			Type<Data>(),
 			Type<Metadata>()
 			]
@@ -132,7 +133,8 @@ pub contract Bl0x: NonFungibleToken {
 					description: description,
 					thumbnail: imageFile
 				)
-
+			case Type<MetadataViews.ExternalURL>():
+				return MetadataViews.ExternalURL("https://bl0x.xyz/collection/".concat(self.owner!.address.toString()).concat("/").concat(self.id.toString()))
 			case Type<MetadataViews.Royalties>():
 				return self.royalties.getRoyalties()
 
