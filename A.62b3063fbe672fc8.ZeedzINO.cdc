@@ -37,6 +37,7 @@ pub contract ZeedzINO: NonFungibleToken {
     pub event Minted(id: UInt64, name: String, description: String, typeID: UInt32, serialNumber: String, edition: UInt32, rarity: String)
     pub event Burned(id: UInt64, from: Address?)
     pub event Offset(id: UInt64, amount: UInt64)
+    pub event Redeemed(id: UInt64, message: String, from: Address?)
 
     //  Named Paths
     pub let CollectionStoragePath: StoragePath
@@ -118,6 +119,7 @@ pub contract ZeedzINO: NonFungibleToken {
     // 
     pub resource interface ZeedzCollectionPrivate {
         pub fun burn(burnID: UInt64)
+        pub fun redeem(redeemID: UInt64, message: String)
     }
 
     //
@@ -142,6 +144,17 @@ pub contract ZeedzINO: NonFungibleToken {
 
             destroy zeedle
             emit Burned(id: burnID, from: self.owner?.address)
+        }
+
+        pub fun redeem(redeemID: UInt64, message: String){
+            let token <- self.ownedNFTs.remove(key: redeemID) ?? panic("Not able to find specified NFT within the owner's collection")
+            let zeedle <- token as! @ZeedzINO.NFT
+
+            //  reduce numberOfMinterPerType
+            ZeedzINO.numberMintedPerType[zeedle.typeID] = ZeedzINO.numberMintedPerType[zeedle.typeID]! - (1 as UInt64)
+
+            destroy zeedle
+            emit Redeemed(id: redeemID, message: message, from: self.owner?.address)
         }
 
         pub fun deposit(token: @NonFungibleToken.NFT) {
