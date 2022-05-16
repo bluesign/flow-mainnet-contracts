@@ -5,6 +5,7 @@ import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import FlowToken from 0x1654653399040a61
 import MetadataViews from 0x1d7e57aa55817448
+import PartyMansionGiveawayContract from 0x34f2bf4a80bb0f69
                                                                                             
 //                               ..`                                                                  
 //                              +..o                                                                  
@@ -529,7 +530,19 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
             
             emit Minted(id: PartyMansionDrinksContract.totalSupply, title: drink!.title, description: drink!.description, cid: drink!.cid)
             emit Airdropped(id: PartyMansionDrinksContract.totalSupply)
-        }   
+        }
+
+        // retrievePoolDrink
+        //
+        // "Time to hydrate"
+        //
+        pub fun retrievePoolDrink(drinkType: DrinkType) : DrinkStruct{
+            pre {
+                PartyMansionDrinksContract.checkIfBarIsSoldOut(drinkType: drinkType) == false: "Bar is sold out"
+            }
+            let disposedDrink : DrinkStruct = PartyMansionDrinksContract.getDrinkFromStorage(drinkType: drinkType)
+            return disposedDrink
+        }
 
         // announceLastCall
         // Barkeeper shouts "Last Call"
@@ -899,6 +912,26 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
 
         // close the wallet
         destroy paymentVault
+    }
+
+    // retrieveFreeDrink
+    //
+    // “Alcohol may be man’s worst enemy, but the bible says love your enemy.”
+    //
+    pub fun retrieveFreeDrink(recipient: &{NonFungibleToken.CollectionPublic}, address: Address, giveawayCode: String, drinkType: DrinkType) {
+        pre {
+            PartyMansionDrinksContract.checkIfBarIsSoldOut(drinkType: drinkType) == false: "Bar is sold out"
+        }
+            
+        if (PartyMansionGiveawayContract.checkGiveawayCode(giveawayCode: giveawayCode) == false){
+            panic("Giveaway code not known.")
+        }
+
+        // deposit it in the recipient's account using their reference
+        let disposedDrink : DrinkStruct = PartyMansionDrinksContract.getDrinkFromStorage(drinkType: drinkType)
+        recipient.deposit(token: <-create PartyMansionDrinksContract.NFT(drink: disposedDrink!, address))
+        PartyMansionGiveawayContract.removeGiveawayCode(giveawayCode: giveawayCode)
+        emit Minted(id: PartyMansionDrinksContract.totalSupply, title: disposedDrink!.title, description: disposedDrink!.description, cid: disposedDrink!.cid)
     }
 
     //                                                 -:.                                                
