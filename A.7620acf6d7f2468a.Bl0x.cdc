@@ -147,7 +147,7 @@ pub contract Bl0x: NonFungibleToken {
 			case Type<MetadataViews.ExternalURL>():
 				return MetadataViews.ExternalURL("https://bl0x.xyz/collection/".concat(self.owner!.address.toString()).concat("/").concat(self.id.toString()))
 			case Type<MetadataViews.Royalties>():
-				return self.royalties.getRoyalties()
+				return self.royalties
 
 			case Type<MetadataViews.Media>():
 				return fullMedia
