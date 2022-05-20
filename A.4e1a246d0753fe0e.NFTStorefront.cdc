@@ -364,9 +364,7 @@ pub contract NFTStorefront {
                 )
             }
 
-            // get NFT ID randomly
-            let indexNFTID = unsafeRandom() % UInt64(self.details.nftID.length)
-            let nftId = self.details.nftID.remove(at:indexNFTID)
+            let nftId = self.details.nftID.remove(at: 0)
         
             // Fetch the token to return to the purchaser.
             let nft <-self.nftProviderCapability.borrow()!.withdraw(withdrawID: nftId)
