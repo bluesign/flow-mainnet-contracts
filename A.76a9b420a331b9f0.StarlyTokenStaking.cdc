@@ -80,6 +80,13 @@ pub contract StarlyTokenStaking: NonFungibleToken {
     pub let MinterStoragePath: StoragePath
     pub let BurnerStoragePath: StoragePath
 
+    pub enum Tier: UInt8 {
+        pub case NoTier
+        pub case Silver
+        pub case Gold
+        pub case Platinum
+    }
+
     pub resource interface StakePublic {
         pub fun getPrincipal(): UFix64
         pub fun getStakeTimestamp(): UFix64
@@ -155,7 +162,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
             return [
                 Type<MetadataViews.Display>(),
                 Type<StakeMetadataView>()
-            ];
+            ]
         }
 
         pub fun resolveView(_ view: Type): AnyStruct? {
@@ -180,7 +187,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
                         canUnstake: self.canUnstake(),
                         unstakingFees: self.getUnstakingFees())
             }
-            return nil;
+            return nil
         }
 
         pub fun getPrincipal(): UFix64 {
@@ -269,7 +276,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
                 k: k)
             let principalAmount = stake.principalVault.balance
             StarlyTokenStaking.totalSupply = StarlyTokenStaking.totalSupply + (1 as UInt64)
-            StarlyTokenStaking.totalPrincipalStaked = StarlyTokenStaking.totalPrincipalStaked + principalAmount;
+            StarlyTokenStaking.totalPrincipalStaked = StarlyTokenStaking.totalPrincipalStaked + principalAmount
             emit TokensStaked(
                 id: stake.id,
                 address: address,
@@ -329,7 +336,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
                 let penalty = unstakingFees - interestAmount
                 interestVaultRef.deposit(from: <-vault.withdraw(amount: penalty))
             }
-            StarlyTokenStaking.totalPrincipalStaked = StarlyTokenStaking.totalPrincipalStaked - principalAmount;
+            StarlyTokenStaking.totalPrincipalStaked = StarlyTokenStaking.totalPrincipalStaked - principalAmount
             emit TokensUnstaked(
                 id: stake.id,
                 address: address,
@@ -347,7 +354,8 @@ pub contract StarlyTokenStaking: NonFungibleToken {
 
     pub resource interface CollectionPublic {
         pub fun borrowStakePublic(id: UInt64): &StarlyTokenStaking.NFT{StarlyTokenStaking.StakePublic, NonFungibleToken.INFT}
-
+        pub fun getStakedAmount(): UFix64
+        pub fun getStakingTier(): Tier
         // admin has to have the ability to refund stake
         access(contract) fun refund(id: UInt64, k: UFix64)
     }
@@ -393,6 +401,30 @@ pub contract StarlyTokenStaking: NonFungibleToken {
 
         pub fun getIDs(): [UInt64] {
             return self.ownedNFTs.keys
+        }
+
+        pub fun getStakedAmount(): UFix64 {
+            var sum: UFix64 = 0.0
+            for nftId in self.ownedNFTs.keys {
+                let nft = &self.ownedNFTs[nftId] as auth &NonFungibleToken.NFT
+                let stake = nft as! &StarlyTokenStaking.NFT
+                sum = sum + stake.getAccumulatedAmount()
+            }
+            return sum
+        }
+
+        pub fun getStakingTier(): Tier {
+            var sum = self.getStakedAmount()
+
+            if sum >= 50000.0 {
+                return Tier.Platinum
+            } else if sum >= 10000.0 {
+                return Tier.Gold
+            } else if sum >= 1000.0 {
+                return Tier.Silver
+            } else {
+                return Tier.NoTier
+            }
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
