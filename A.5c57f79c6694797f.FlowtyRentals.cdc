@@ -3,6 +3,7 @@ import NonFungibleToken from 0x1d7e57aa55817448
 
 import FlowtyUtils from 0x5c57f79c6694797f
 import Flowty from 0x5c57f79c6694797f
+import CoatCheck from 0x5c57f79c6694797f
 
 // FlowtyRentals
 //
@@ -336,7 +337,7 @@ pub contract FlowtyRentals {
         //
         pub fun borrowNFT(): &NonFungibleToken.NFT {
             let ref = self.nftProviderCapability.borrow()!.borrowNFT(id: self.getDetails().nftID)
-            assert(ref.isInstance(self.getDetails().nftType), message: "token has wrong type")
+            assert(ref.getType() == self.getDetails().nftType, message: "token has wrong type")
             assert(ref.id == self.getDetails().nftID, message: "token has wrong ID")
             return ref
         }
@@ -364,7 +365,7 @@ pub contract FlowtyRentals {
             pre {
                 self.isRentingEnabled(): "Renting is not enabled or this listing has expired"
                 !self.details.rented: "listing has already been rented"
-                payment.isInstance(self.details.paymentVaultType): "payment vault is not requested fungible token"
+                payment.getType() == self.details.paymentVaultType: "payment vault is not requested fungible token"
                 Flowty.getRoyalty(nftTypeIdentifier: self.details.nftType.identifier) != nil: "royalty information not found for given collection"
                 payment.balance == self.details.getTotalPayment(): "payment vault does not contain requested amount"
             }
@@ -380,7 +381,7 @@ pub contract FlowtyRentals {
             // withdraw the NFT being rented and ensure that its type and id match the listing.
             // This protects the renter from receiving the wrong nft.
             let nft <- self.nftProviderCapability.borrow()!.withdraw(withdrawID: self.details.nftID)
-            assert(nft.isInstance(self.details.nftType), message: "withdrawn NFT is not of specified type")
+            assert(nft.getType() == self.details.nftType, message: "withdrawn NFT is not of specified type")
             assert(nft.id == self.details.nftID, message: "withdrawn NFT does not have specified ID")
 
             // transfer the nft being rented into the renter's nft collection
@@ -520,7 +521,7 @@ pub contract FlowtyRentals {
             assert(provider != nil, message: "cannot borrow nftProviderCapability")
 
             let nft = provider!.borrowNFT(id: self.details.nftID)
-            assert(nft.isInstance(self.details.nftType), message: "token is not of specified type")
+            assert(nft.getType() ==self.details.nftType, message: "token is not of specified type")
             assert(nft.id == self.details.nftID, message: "token does not have specified ID")
         }
 
@@ -713,7 +714,6 @@ pub contract FlowtyRentals {
                 listingResourceID: self.details.listingResourceID,
                 rentalResourceID: self.uuid
             )
-
         }
 
         // settleRental can only be executed after the rental has expired.
@@ -741,20 +741,30 @@ pub contract FlowtyRentals {
                         let borrowedNFT = renterNFTProvider.borrowNFT(id: self.details.nftID)
                         if borrowedNFT != nil && borrowedNFT.getType() == self.details.nftType && borrowedNFT.id == self.details.nftID {
                             let nft <- renterNFTProvider.withdraw(withdrawID: self.details.nftID)
-                            FlowtyUtils.trySendNFT(nft: <-nft, receiver: self.ownerNFTCollectionPublic)
-                    
-                            // it worked! the nft is returned
-                            self.details.setToReturned()
+                            if nft.getType() == self.details.nftType {
+                                FlowtyUtils.trySendNFT(nft: <-nft, receiver: self.ownerNFTCollectionPublic)
+                                                    
+                                // it worked! the nft is returned
+                                self.details.setToReturned()
 
-                            emit RentalReturned(
-                                flowtyStorefrontAddress: self.ownerFungibleTokenReceiver.address,
-                                flowtyStorefrontID: self.details.flowtyStorefrontID,
-                                renterAddress: self.renterFungibleTokenReceiver.address,
-                                listingResourceID: self.details.listingResourceID,
-                                rentalResourceID: self.uuid
-                            )
-                            
-                            return
+                                emit RentalReturned(
+                                    flowtyStorefrontAddress: self.ownerFungibleTokenReceiver.address,
+                                    flowtyStorefrontID: self.details.flowtyStorefrontID,
+                                    renterAddress: self.renterFungibleTokenReceiver.address,
+                                    listingResourceID: self.details.listingResourceID,
+                                    rentalResourceID: self.uuid
+                                )
+                                return
+                            } else {
+                                // this path should only be able to be reached intentionally. At that point, we won't know if the
+                                // receiver is setup properly to receive the borrowed item back or not so we should just make a coatcheck 
+                                // item for them and move on. If they can mess with a borrowed item returning a type that is different than 
+                                // the actual withdrawn nft, they can handle redeeming their item back in the coatcheck contract.
+                                let valet = CoatCheck.getValet()
+                                let nfts: @[NonFungibleToken.NFT] <- []
+                                nfts.append(<-nft)
+                                valet.createTicket(redeemer: self.renterFungibleTokenReceiver.address, vaults: nil, tokens: <-nfts)
+                            }
                         }
                     }
                 }
@@ -1149,5 +1159,4 @@ pub contract FlowtyRentals {
 
         emit FlowtyRentalsInitialized()
     }
-
 }
