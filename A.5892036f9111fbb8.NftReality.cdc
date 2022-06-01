@@ -155,13 +155,17 @@ pub contract NftReality: NonFungibleToken {
                         creationDate: self.metadata.creationDate
                     )
                 case Type<MetadataViews.Display>():
+                    var thumbnail: AnyStruct{MetadataViews.File} = MetadataViews.HTTPFile("")
+                    if (self.getAdditionalInfo().containsKey("artworkThumbnail")) {
+                        thumbnail = MetadataViews.IPFSFile(
+                            cid: self.getAdditionalInfo()["artworkThumbnail"]!,
+                            path: "artworkThumbnail"
+                        )
+                    }
                     return MetadataViews.Display(
                         name: self.name(),
                         description: self.description(),
-                        thumbnail: MetadataViews.IPFSFile(
-                            cid: self.imageCID(),
-                            path: "sm.png"
-                        )
+                        thumbnail: thumbnail
                     )
             }
 
