@@ -741,7 +741,7 @@ pub contract FlowtyRentals {
                         let borrowedNFT = renterNFTProvider.borrowNFT(id: self.details.nftID)
                         if borrowedNFT != nil && borrowedNFT.getType() == self.details.nftType && borrowedNFT.id == self.details.nftID {
                             let nft <- renterNFTProvider.withdraw(withdrawID: self.details.nftID)
-                            if nft.getType() == self.details.nftType {
+                            if nft.getType() == self.details.nftType && nft.id == self.details.nftID {
                                 FlowtyUtils.trySendNFT(nft: <-nft, receiver: self.ownerNFTCollectionPublic)
                                                     
                                 // it worked! the nft is returned
