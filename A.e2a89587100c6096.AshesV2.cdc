@@ -3,7 +3,7 @@ import Ashes from 0xe2a89587100c6096
 import UFC_NFT from 0x329feb3ab062d289
 
 pub contract AshesV2 {
-    pub var recentBurn: [AshData?]
+    access(contract) var recentBurn: [AshData?]
     pub var nextAshSerial: UInt64
     pub var allowMint: Bool
     pub var maxMessageSize: Int
@@ -42,6 +42,10 @@ pub contract AshesV2 {
         self.nftType = nftType
         self.nftID = nftID
        }
+    }
+
+    pub fun getRecentBurn(index: Int): AshData?{
+        return self.recentBurn[index]
     }
 
     priv fun addRecentBurn(ashData: AshData) {
