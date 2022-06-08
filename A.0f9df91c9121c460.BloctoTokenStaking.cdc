@@ -302,7 +302,7 @@ pub contract BloctoTokenStaking {
         /// are allowed to perform staking related operations
         pub fun startNewEpoch() {
             BloctoTokenStaking.stakingEnabled = true
-            BloctoTokenStaking.setEpoch(BloctoTokenStaking.getEpoch() + 1)
+            BloctoTokenStaking.setEpoch(BloctoTokenStaking.getEpoch() + (1 as UInt64))
             emit NewEpoch(epoch: BloctoTokenStaking.getEpoch(), totalStaked: BloctoTokenStaking.getTotalStaked(), totalRewardPayout: BloctoTokenStaking.epochTokenPayout)
         }
 
@@ -336,13 +336,14 @@ pub contract BloctoTokenStaking {
             }
             var totalRewardScale = BloctoTokenStaking.epochTokenPayout / totalStaked
 
-            var stakingRewardRecordsRefOpt = BloctoTokenStaking.account.borrow<&{String: Bool}>(from: /storage/bloctoTokenStakingStakingRewardRecords)
+            let epoch = BloctoTokenStaking.getEpoch()
+            let epochPath = BloctoTokenStaking.getStakingRewardPath(epoch: epoch)
+            var stakingRewardRecordsRefOpt = BloctoTokenStaking.account.borrow<&{String: Bool}>(from: epochPath)
             if stakingRewardRecordsRefOpt == nil {
-                BloctoTokenStaking.account.save<{String: Bool}>({} as {String: Bool}, to: /storage/bloctoTokenStakingStakingRewardRecords)
-                stakingRewardRecordsRefOpt = BloctoTokenStaking.account.borrow<&{String: Bool}>(from: /storage/bloctoTokenStakingStakingRewardRecords)
+                BloctoTokenStaking.account.save<{String: Bool}>({} as {String: Bool}, to: epochPath)
+                stakingRewardRecordsRefOpt = BloctoTokenStaking.account.borrow<&{String: Bool}>(from: epochPath)
             }
             var stakingRewardRecordsRef = stakingRewardRecordsRefOpt!
-            let epoch = BloctoTokenStaking.getEpoch()
 
             /// iterate through stakers to pay
             for stakerID in stakerIDs {
@@ -514,7 +515,7 @@ pub contract BloctoTokenStaking {
 
     /// Epoch
     pub fun getEpoch(): UInt64 {
-        return self.account.copy<UInt64>(from: /storage/bloctoTokenStakingEpoch) ?? (0 as UInt64);
+        return self.account.copy<UInt64>(from: /storage/bloctoTokenStakingEpoch) ?? (0 as UInt64)
     }
 
     access(contract) fun setEpoch(_ epoch: UInt64) {
@@ -522,15 +523,19 @@ pub contract BloctoTokenStaking {
         self.account.save<UInt64>(epoch, to: /storage/bloctoTokenStakingEpoch)
     }
 
-
     access(contract) fun getStakingRewardKey(epoch: UInt64, stakerID: UInt64): String {
         // key: {EPOCH}_{STAKER_ID}
         return epoch.toString().concat("_").concat(stakerID.toString())
     }
 
+    access(contract) fun getStakingRewardPath(epoch: UInt64): StoragePath {
+        // path: /storage/bloctoTokenStakingStakingRewardRecords_{EPOCH}
+        return StoragePath(identifier: "bloctoTokenStakingStakingRewardRecords".concat("_").concat(epoch.toString()))!
+    }
+
     /// staking reward records
     pub fun hasSentStakingReward(epoch: UInt64, stakerID: UInt64): Bool {
-        let stakingRewardRecordsRef = self.account.borrow<&{String: Bool}>(from: /storage/bloctoTokenStakingStakingRewardRecords)
+        let stakingRewardRecordsRef = self.account.borrow<&{String: Bool}>(from: BloctoTokenStaking.getStakingRewardPath(epoch: epoch))
         if stakingRewardRecordsRef == nil {
             return false
         }
