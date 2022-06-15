@@ -76,6 +76,11 @@ pub contract GooberXContract : NonFungibleToken {
       self.metadata = metadata
       self.price = price
     }
+
+    pub fun setName(name: String){
+      self.metadata.insert(key: "name", name)
+    }
+
   }
 
   // Goober NFT
@@ -157,13 +162,13 @@ pub contract GooberXContract : NonFungibleToken {
   pub resource Admin {
 
     // Pre-mints Goobers in a global pool
-    // Populates a pool. Each time a user mints a goober from the pool,
+    // Populates a pool. Each time a user mints a goober from the pool
     // the first Goober is removed from the pool and minted as a NFT
     // in the users collection.
     //
     pub fun addGooberToPool(
       uri: String, 
-      metadata: {String: AnyStruct}
+      metadata: {String: AnyStruct},
       address: Address,
       price: UFix64) {
       pre {
@@ -182,7 +187,7 @@ pub contract GooberXContract : NonFungibleToken {
     //
     pub fun replaceGooberInPool(
       uri: String, 
-      metadata: {String: AnyStruct}
+      metadata: {String: AnyStruct},
       address: Address,
       price: UFix64,
       index: Int) {
@@ -230,7 +235,7 @@ pub contract GooberXContract : NonFungibleToken {
     //
     pub fun adminMintAirDropNFT(
         uri: String, 
-        metadata: {String: AnyStruct}
+        metadata: {String: AnyStruct},
         address: Address,
         price: UFix64,
         recipient: &{NonFungibleToken.CollectionPublic}) {
@@ -325,7 +330,7 @@ pub contract GooberXContract : NonFungibleToken {
     // so that the caller can read its metadata and call its methods
     //
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-        return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+        return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     // borrowGoober
@@ -335,7 +340,7 @@ pub contract GooberXContract : NonFungibleToken {
     //
     pub fun borrowGoober(id: UInt64): &GooberXContract.NFT? {
         if self.ownedNFTs[id] != nil {
-          let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+          let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
           return ref as! &GooberXContract.NFT
         } else {
           return nil
@@ -348,7 +353,7 @@ pub contract GooberXContract : NonFungibleToken {
     pub fun listUsersGoobers(): {UInt64: GooberStruct} {
       var goobers: {UInt64: GooberStruct} = {}
       for key in self.ownedNFTs.keys {
-        let el = &self.ownedNFTs[key] as auth &NonFungibleToken.NFT
+        let el = (&self.ownedNFTs[key] as auth &NonFungibleToken.NFT?)!
         let goober = el as! &GooberXContract.NFT
         goobers.insert(key: goober.id, goober.data)
       }
@@ -376,7 +381,7 @@ pub contract GooberXContract : NonFungibleToken {
       // Iterate all keys because regular index, contains not possible
       for key in self.ownedNFTs.keys {
         if (it >= beginIndex && it < endIndex) {
-          let el = &self.ownedNFTs[key] as auth &NonFungibleToken.NFT
+          let el = (&self.ownedNFTs[key] as auth &NonFungibleToken.NFT?)!
           let goober = el as! &GooberXContract.NFT
           goobers.insert(key: goober.id, goober.data)
         }
@@ -473,7 +478,7 @@ pub contract GooberXContract : NonFungibleToken {
 
     // name Goober
     let token <- collection.withdraw(withdrawID: gooberID) as! @GooberXContract.NFT
-    token.data.metadata.insert(key: "name", newName)
+    token.data.setName(name: newName)
 
     // update Goober information in contract
     self.mintedGoobers[self.mintedGoobersIndex[token.data.gooberID]!] = token.data
@@ -591,3 +596,4 @@ pub contract GooberXContract : NonFungibleToken {
   }
 }
 
+ 
