@@ -29,7 +29,7 @@ pub contract FanTopMarket {
     )
 
     pub event SellOrderCancelled(
-        agent: Address,
+        agent: Address?,
         from: Address,
         orderId: String,
         refId: String,
@@ -58,11 +58,11 @@ pub contract FanTopMarket {
 
         priv init(
             orderId: String,
-            capability: Capability<&FanTopToken.Collection>
-            refId: String
+            capability: Capability<&FanTopToken.Collection>,
+            refId: String,
             nftId: UInt64,
             version: UInt32,
-            metadata: { String: String },
+            metadata: { String: String }
         ) {
             self.orderId = orderId
             self.capability = capability
@@ -77,7 +77,7 @@ pub contract FanTopMarket {
             return <- token
         }
 
-        pub fun borrowFanTopToken(): &FanTopToken.NFT? {
+        pub fun borrowFanTopToken(): &FanTopToken.NFT {
             return self.capability.borrow()!.borrowFanTopToken(id: self.nftId)
         }
 
@@ -90,9 +90,8 @@ pub contract FanTopMarket {
                 if !collection.getIDs().contains(self.nftId) {
                     return false
                 }
-                if let token = collection.borrowFanTopToken(id: self.nftId) {
-                    return token.refId == self.refId
-                }
+                let token = collection.borrowFanTopToken(id: self.nftId)
+                return token.refId == self.refId
             }
             return false
         }
@@ -312,7 +311,7 @@ pub contract FanTopMarket {
         )
     }
 
-    access(account) fun cancel(agent: Address, orderId: String) {
+    access(account) fun cancel(agent: Address?, orderId: String) {
         pre {
             self.containsOrder(orderId): "Orders that do not exist cannot be canceled"
         }
