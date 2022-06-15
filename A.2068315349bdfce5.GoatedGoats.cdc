@@ -88,6 +88,15 @@ pub contract GoatedGoats: NonFungibleToken {
             ]
         }
 
+				access(account) fun removeTrait(_ key: String) : @GoatedGoatsTrait.NFT? {
+					return <- self.traits.remove(key: key)
+				}
+
+				access(account) fun setTrait( key: String, value: @GoatedGoatsTrait.NFT?) : @GoatedGoatsTrait.NFT? {
+					let old <- self.traits[key] <- value
+					return <- old
+				}
+
         pub fun resolveView(_ view: Type): AnyStruct? {
             switch view {
                 case Type<MetadataViews.Display>():
@@ -130,7 +139,7 @@ pub contract GoatedGoats: NonFungibleToken {
         pub fun getEquippedTraits(): [{String: AnyStruct}] {
             let traitsData: [{String: AnyStruct}] = []
             for traitSlot in self.traits.keys {
-                let ref = &self.traits[traitSlot] as! &GoatedGoatsTrait.NFT
+                let ref = (&self.traits[traitSlot] as! &GoatedGoatsTrait.NFT?)!
                 let map: {String: AnyStruct} = {}
                 map["traitID"] = ref.id
                 map["traitPackID"] = ref.packID
@@ -206,12 +215,12 @@ pub contract GoatedGoats: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowGoat(id: UInt64): &GoatedGoats.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &GoatedGoats.NFT
             } else {
                 return nil
@@ -219,7 +228,7 @@ pub contract GoatedGoats: NonFungibleToken {
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let goat = nft as! &GoatedGoats.NFT
             return goat as &AnyResource{MetadataViews.Resolver}
         }
