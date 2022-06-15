@@ -4,29 +4,29 @@ import NonFungibleToken from 0x1d7e57aa55817448
     Description: Central Smart Contract for the first generation of Zeedle NFTs
 
     Zeedles are cute little nature-inspired monsters that grow with the real world weather.
-    They are the main characters of Zeedz, the first play-for-purpose game where players 
-    reduce global carbon emissions by growing Zeedles. 
-    
+    They are the main characters of Zeedz, the first play-for-purpose game where players
+    reduce global carbon emissions by growing Zeedles.
+
     This smart contract encompasses the main functionality for the first generation
-    of Zeedle NFTs. 
+    of Zeedle NFTs.
 
     Oriented much on the standard NFT contract, each Zeedle NFT has a certain typeID,
     which is the type of Zeedle - e.g. "Baby Aloe Vera" or "Ginger Biggy". A contract-level
     dictionary takes account of the different quentities that have been minted per Zeedle type.
 
-    Different types also imply different rarities, and these are also hardcoded inside 
-    the given Zeedle NFT in order to allow the direct querying of the Zeedle's rarity 
+    Different types also imply different rarities, and these are also hardcoded inside
+    the given Zeedle NFT in order to allow the direct querying of the Zeedle's rarity
     in external applications and wallets.
 
-    Each batch-minting of Zeedles is resembled by an edition number, with the community pre-sale 
+    Each batch-minting of Zeedles is resembled by an edition number, with the community pre-sale
     being the first-ever edition (0). This way, each Zeedle can be traced back to the edition it
     was created in, and the number of minted Zeedles of that type in the specific edition.
 
-    Many of the in-game purchases lead to real-world donations to NGOs focused on climate action. 
+    Many of the in-game purchases lead to real-world donations to NGOs focused on climate action.
     The carbonOffset attribute of a Zeedle proves the impact the in-game purchases related to this Zeedle
-    have already made with regards to reducing greenhouse gases. This value is computed by taking the 
+    have already made with regards to reducing greenhouse gases. This value is computed by taking the
     current dollar-value of each purchase at the time of the purchase, and applying the dollar-to-CO2-offset
-    formular of the current climate action partner. 
+    formular of the current climate action partner.
 */
 pub contract ZeedzINO: NonFungibleToken {
 
@@ -53,22 +53,22 @@ pub contract ZeedzINO: NonFungibleToken {
         //  The token's ID
         pub let id: UInt64
         //  The memorable short name for the Zeedle, e.g. “Baby Aloe"
-        pub let name: String 
+        pub let name: String
         //  A short description of the Zeedle's type
-        pub let description: String 
+        pub let description: String
         //  Number id of the Zeedle type -> e.g "1 = Ginger Biggy, 2 = Baby Aloe, etc”
         pub let typeID: UInt32
-        //  A Zeedle's unique serial number from the Zeedle's edition 
+        //  A Zeedle's unique serial number from the Zeedle's edition
         pub let serialNumber: String
-        //  Number id of the Zeedle's edition -> e.g "1 = first edition, 2 = second edition, etc"  
-        pub let edition: UInt32 
+        //  Number id of the Zeedle's edition -> e.g "1 = first edition, 2 = second edition, etc"
+        pub let edition: UInt32
         //  The total number of Zeedle's minted in this edition
-        pub let editionCap: UInt32 
-        //  The Zeedle's evolutionary stage 
+        pub let editionCap: UInt32
+        //  The Zeedle's evolutionary stage
         pub let evolutionStage: UInt32
-        //  The Zeedle's rarity -> e.g "RARE, COMMON, LEGENDARY, etc" 
+        //  The Zeedle's rarity -> e.g "RARE, COMMON, LEGENDARY, etc"
         pub let rarity: String
-        //  URI to the image of the Zeedle 
+        //  URI to the image of the Zeedle
         pub let imageURI: String
         //  The total amount this Zeedle has contributed to offsetting CO2 emissions
         pub var carbonOffset: UInt64
@@ -94,13 +94,17 @@ pub contract ZeedzINO: NonFungibleToken {
         access(contract) fun increaseOffset(amount: UInt64) {
             self.carbonOffset = self.carbonOffset + amount
         }
+
+        access(contract) fun changeOffset(offset: UInt64) {
+            self.carbonOffset = offset
+        }
     }
 
-    // 
+    //
     //  This is the interface that users can cast their Zeedz Collection as
     //  to allow others to deposit Zeedles into their Collection. It also allows for reading
     //  the details of Zeedles in the Collection.
-    // 
+    //
     pub resource interface ZeedzCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
@@ -113,10 +117,10 @@ pub contract ZeedzINO: NonFungibleToken {
         }
     }
 
-    // 
+    //
     //  This is the interface that users can cast their Zeedz Collection as
     //  to allow themselves to call the burn function on their own collection.
-    // 
+    //
     pub resource interface ZeedzCollectionPrivate {
         pub fun burn(burnID: UInt64)
         pub fun redeem(redeemID: UInt64, message: String)
@@ -124,7 +128,7 @@ pub contract ZeedzINO: NonFungibleToken {
 
     //
     //  A collection of Zeedz NFTs owned by an account.
-    //   
+    //
     pub resource Collection: ZeedzCollectionPublic, ZeedzCollectionPrivate, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
 
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
@@ -178,7 +182,7 @@ pub contract ZeedzINO: NonFungibleToken {
         //  so that the caller can read its metadata and call its methods.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         //
@@ -188,31 +192,31 @@ pub contract ZeedzINO: NonFungibleToken {
         //
         pub fun borrowZeedle(id: UInt64): &ZeedzINO.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &ZeedzINO.NFT
             } else {
                 return nil
             }
         }
 
-        destroy() {
-            destroy self.ownedNFTs
-        }
-
         init () {
             self.ownedNFTs <- {}
+        }
+
+        destroy() {
+            destroy self.ownedNFTs
         }
     }
 
     //
     //  Public function that anyone can call to create a new empty collection.
-    // 
+    //
     pub fun createEmptyCollection(): @NonFungibleToken.Collection {
         return <- create Collection()
     }
 
     //
-    //  The Administrator resource that an Administrator or something similar 
+    //  The Administrator resource that an Administrator or something similar
     //  would own to be able to mint & level-up NFT's.
     //
     pub resource Administrator {
@@ -228,7 +232,7 @@ pub contract ZeedzINO: NonFungibleToken {
             // increase numberOfMinterPerType and totalSupply
             ZeedzINO.totalSupply = ZeedzINO.totalSupply + (1 as UInt64)
             if ZeedzINO.numberMintedPerType[typeID] == nil {
-                ZeedzINO.numberMintedPerType[typeID] = 1 
+                ZeedzINO.numberMintedPerType[typeID] = 1
             } else {
                 ZeedzINO.numberMintedPerType[typeID] = ZeedzINO.numberMintedPerType[typeID]! + (1 as UInt64)
             }
@@ -239,7 +243,15 @@ pub contract ZeedzINO: NonFungibleToken {
         //
         pub fun increaseOffset(zeedleRef: &ZeedzINO.NFT, amount: UInt64) {
             zeedleRef.increaseOffset(amount: amount)
-            emit Offset(id: zeedleRef.id, amount: amount)
+            emit Offset(id: zeedleRef.id, amount: zeedleRef.carbonOffset)
+        }
+
+        //
+        //  Change the Zeedle's total carbon offset to the given amount
+        //
+        pub fun changeOffset(zeedleRef: &ZeedzINO.NFT, offset: UInt64) {
+            zeedleRef.changeOffset(offset: offset)
+            emit Offset(id: zeedleRef.id, amount: offset)
         }
     }
 
@@ -250,14 +262,16 @@ pub contract ZeedzINO: NonFungibleToken {
     //  If it has a collection and that collection contains the zeedleId, return a reference to that.
     //
     pub fun fetch(_ from: Address, zeedleID: UInt64): &ZeedzINO.NFT? {
-        let collection = getAccount(from)
-            .getCapability(ZeedzINO.CollectionPublicPath)!
-            .borrow<&ZeedzINO.Collection{ZeedzINO.ZeedzCollectionPublic}>()
-            ?? panic("Couldn't get collection")
-        return collection.borrowZeedle(id: zeedleID)
+        let capability = getAccount(from).getCapability<&ZeedzINO.Collection{ZeedzINO.ZeedzCollectionPublic}>(ZeedzINO.CollectionPublicPath)
+        if capability.check() {
+            let collection = capability.borrow()
+            return collection!.borrowZeedle(id: zeedleID)
+        } else {
+            return nil
+        }
     }
 
-    // 
+    //
     //  Returns the number of minted Zeedles for each Zeedle type.
     //
     pub fun getMintedPerType(): {UInt32: UInt64} {
