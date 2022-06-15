@@ -155,12 +155,12 @@ pub contract Flunks: NonFungibleToken {
     }
 
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     pub fun borrowFlunks(id: UInt64): &Flunks.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
         return ref as! &Flunks.NFT
       } else {
         return nil
@@ -168,7 +168,7 @@ pub contract Flunks: NonFungibleToken {
     }
 
     pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-      let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+      let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
       let exampleNFT = nft as! &Flunks.NFT
       return exampleNFT as &AnyResource{MetadataViews.Resolver}
     }
@@ -339,7 +339,7 @@ pub contract Flunks: NonFungibleToken {
           "Cannot borrow Set: The Set doesn't exist"
       }
       
-      return &Flunks.sets[setID] as &Set
+      return (&Flunks.sets[setID] as &Set?)!
     }
 
     pub fun updateFlunksTemplate(templateID: UInt64, newMetadata: {String: String}) {
@@ -364,7 +364,7 @@ pub contract Flunks: NonFungibleToken {
         Flunks.sets[setID] != nil:
         "Cannot borrow Set: The Set doesn't exist"
     }
-    let set = &Flunks.sets[setID] as &Set
+    let set = (&Flunks.sets[setID] as &Set?)!
     return set.getAvailableTemplateIDs()
   }
 
