@@ -217,7 +217,7 @@ pub contract CoatCheck {
 
         pub fun borrowTicket(ticketID: UInt64): &Ticket{TicketPublic}? {
              if self.tickets[ticketID] != nil {
-                return &self.tickets[ticketID] as! &Ticket{TicketPublic}
+                return &self.tickets[ticketID] as! &Ticket{TicketPublic}?
             } else {
                 return nil
             }
