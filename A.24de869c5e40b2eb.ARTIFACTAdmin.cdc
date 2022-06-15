@@ -82,7 +82,7 @@ pub contract ARTIFACTAdmin: Interfaces {
 
         let indexPackAvailable = unsafeRandom() % UInt64(packTemplate.packsAvailable.length)
         let templateIDs = packTemplate.packsAvailable[indexPackAvailable]!
-        packTemplate.packsAvailable.remove(at: indexPackAvailable)
+         packTemplate.removeIndex(indexPackAvailable: indexPackAvailable)
 
         return templateIDs
     }
