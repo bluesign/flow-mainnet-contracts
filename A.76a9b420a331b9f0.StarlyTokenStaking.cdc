@@ -406,7 +406,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
         pub fun getStakedAmount(): UFix64 {
             var sum: UFix64 = 0.0
             for nftId in self.ownedNFTs.keys {
-                let nft = &self.ownedNFTs[nftId] as auth &NonFungibleToken.NFT
+                let nft = (&self.ownedNFTs[nftId] as auth &NonFungibleToken.NFT?)!
                 let stake = nft as! &StarlyTokenStaking.NFT
                 sum = sum + stake.getAccumulatedAmount()
             }
@@ -428,11 +428,11 @@ pub contract StarlyTokenStaking: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let stake = nft as! &StarlyTokenStaking.NFT
             return stake as &AnyResource{MetadataViews.Resolver}
         }
@@ -457,7 +457,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
         }
 
         pub fun borrowStakePublic(id: UInt64): &StarlyTokenStaking.NFT{StarlyTokenStaking.StakePublic, NonFungibleToken.INFT} {
-            let stakeRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let stakeRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let intermediateRef = stakeRef as! auth &StarlyTokenStaking.NFT
             return intermediateRef as &StarlyTokenStaking.NFT{StarlyTokenStaking.StakePublic, NonFungibleToken.INFT}
         }
@@ -499,7 +499,7 @@ pub contract StarlyTokenStaking: NonFungibleToken {
         }
 
         pub fun borrowStakePrivate(id: UInt64): &StarlyTokenStaking.NFT {
-            let stakePassRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let stakePassRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             return stakePassRef as! &StarlyTokenStaking.NFT
         }
     }
