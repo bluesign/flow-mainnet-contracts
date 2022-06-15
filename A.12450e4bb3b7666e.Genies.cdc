@@ -1,3 +1,4 @@
+
 import NonFungibleToken from 0x1d7e57aa55817448
 
 /*
@@ -111,8 +112,8 @@ pub contract Genies: NonFungibleToken {
 
         // initializer
         //
-        init (id: UInt32) {
-            let series = &Genies.seriesByID[id] as! &Genies.Series
+        init (id: UInt32) {    
+            let series = (&Genies.seriesByID[id] as &Genies.Series?)!
             self.id = series.id
             self.name = series.name
             self.metadata = series.metadata
@@ -180,7 +181,7 @@ pub contract Genies: NonFungibleToken {
                 Genies.collectionByID[collectionID] != nil: "no such collectionID"
             }
 
-            let collection = &Genies.collectionByID[collectionID] as &Genies.GeniesCollection
+            let collection = (&Genies.collectionByID[collectionID] as &Genies.GeniesCollection?)!
             collection.close()
             self.collectionsOpen = self.collectionsOpen - 1 as UInt32
         }
@@ -188,10 +189,10 @@ pub contract Genies: NonFungibleToken {
         // Recursively ensure that all of the collections are closed,
         // and all the editions in each are retired,
         // allowing advanceSeries to proceed
-        // 
+        //
         pub fun closeAllGeniesCollections() {
             for collectionID in self.collectionIDs {
-                let collection = &Genies.collectionByID[collectionID] as &Genies.GeniesCollection
+                let collection = (&Genies.collectionByID[collectionID] as &Genies.GeniesCollection?)!
                 if collection.open {
                     collection.retireAllEditions()
                     self.closeGeniesCollection(collectionID: collectionID)
@@ -200,7 +201,7 @@ pub contract Genies: NonFungibleToken {
         }
 
         // initializer
-        // We pass in ID as the lofic for it is more complex than it should be,
+        // We pass in ID as the logic for it is more complex than it should be,
         // and we don't want to spread it out.
         //
         init (id: UInt32, name: String, metadata: {String: String}) {
@@ -212,8 +213,8 @@ pub contract Genies: NonFungibleToken {
             self.name = name
             self.metadata = metadata
             self.collectionIDs = []
-            self.collectionsOpen = 0 as UInt32  
-            self.active = true   
+            self.collectionsOpen = 0 as UInt32
+            self.active = true
 
             emit NewSeriesStarted(
                 newCurrentSeries: self.id,
@@ -275,7 +276,7 @@ pub contract Genies: NonFungibleToken {
         // initializer
         //
         init (id: UInt32) {
-            let collection = &Genies.collectionByID[id] as! &Genies.GeniesCollection
+            let collection = (&Genies.collectionByID[id] as &Genies.GeniesCollection?)!
             self.id = id
             self.seriesID = collection.seriesID
             self.name = collection.name
@@ -332,13 +333,13 @@ pub contract Genies: NonFungibleToken {
                 Genies.editionByID[editionID] != nil: "editionID doesn't exist"
             }
 
-            let edition = &Genies.editionByID[editionID] as &Edition
+            let edition = (&Genies.editionByID[editionID] as &Edition?)!
             edition.retire()
             self.editionsActive = self.editionsActive - 1 as UInt32
         }
 
         // Retire all of the Editions, allowing this collection to be closed
-        // 
+        //
         pub fun retireAllEditions() {
             for editionID in self.editionIDs {
                 self.retireEdition(editionID: editionID)
@@ -408,7 +409,7 @@ pub contract Genies: NonFungibleToken {
         // initializer
         //
         init (id: UInt32) {
-            let edition = &Genies.editionByID[id] as! &Genies.Edition
+            let edition = (&Genies.editionByID[id] as &Genies.Edition?)!
             self.id = id
             self.collectionID = edition.collectionID
             self.name = edition.name
@@ -502,7 +503,7 @@ pub contract Genies: NonFungibleToken {
             Genies.editionByID[id] != nil: "Cannot borrow edition, no such id"
         }
 
-        let edition = &Genies.editionByID[id] as &Genies.Edition
+        let edition = (&Genies.editionByID[id] as &Genies.Edition?)!
 
         return EditionData(id: id)
     }
@@ -534,7 +535,7 @@ pub contract Genies: NonFungibleToken {
         ) {
             pre {
                 Genies.editionByID[editionID] != nil: "no such editionID"
-                (&Genies.editionByID[editionID] as &Edition).open:
+                (&Genies.editionByID[editionID] as &Edition?)!.open:
                     "editionID is retired"
             }
 
@@ -562,7 +563,7 @@ pub contract Genies: NonFungibleToken {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
-                (result == nil) || (result?.id == id): 
+                (result == nil) || (result?.id == id):
                     "Cannot borrow Genies NFT reference: The ID of the returned reference is incorrect"
             }
         }
@@ -631,18 +632,13 @@ pub contract Genies: NonFungibleToken {
         // borrowNFT gets a reference to an NFT in the collection
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowGeniesNFT gets a reference to an NFT in the collection
         //
         pub fun borrowGeniesNFT(id: UInt64): &Genies.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &Genies.NFT
-            } else {
-                return nil
-            }
+            return (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)! as! &Genies.NFT
         }
 
         // Collection destructor
@@ -689,7 +685,7 @@ pub contract Genies: NonFungibleToken {
         ): UInt32 {
             pre {
                 Genies.seriesByID[Genies.currentSeriesID] == nil
-                    || (&Genies.seriesByID[Genies.currentSeriesID] as &Genies.Series).collectionsOpen == 0:
+                    || (&Genies.seriesByID[Genies.currentSeriesID] as &Genies.Series?)!.collectionsOpen == 0:
                     "All collections must be closed before advancing the series"
             }
 
@@ -698,7 +694,7 @@ pub contract Genies: NonFungibleToken {
             // This test handles that case.
             // Its body will be called every time after the initial advance, which is what we want.
             if Genies.seriesByID[Genies.currentSeriesID] != nil {
-                let currentSeries = &Genies.seriesByID[Genies.currentSeriesID] as &Genies.Series
+                let currentSeries = (&Genies.seriesByID[Genies.currentSeriesID] as &Genies.Series?)!
                 if currentSeries.active {
                     // Make sure everything in the series is closed
                     currentSeries.closeAllGeniesCollections()
@@ -731,7 +727,7 @@ pub contract Genies: NonFungibleToken {
                 Genies.seriesByID[id] != nil: "Cannot borrow series, no such id"
             }
 
-            return &Genies.seriesByID[id] as &Genies.Series
+            return (&Genies.seriesByID[id] as &Genies.Series?)!
         }
 
         // Borrow a Genies Collection. Not an NFT Collection!
@@ -741,7 +737,7 @@ pub contract Genies: NonFungibleToken {
                 Genies.collectionByID[id] != nil: "Cannot borrow Genies collection, no such id"
             }
 
-            return &Genies.collectionByID[id] as &Genies.GeniesCollection
+            return (&Genies.collectionByID[id] as &Genies.GeniesCollection?)!
         }
 
         // Borrow an Edition
@@ -751,7 +747,7 @@ pub contract Genies: NonFungibleToken {
                 Genies.editionByID[id] != nil: "Cannot borrow edition, no such id"
             }
 
-            return &Genies.editionByID[id] as &Genies.Edition
+            return (&Genies.editionByID[id] as &Genies.Edition?)!
         }
 
         // Mint a single NFT
