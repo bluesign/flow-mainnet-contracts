@@ -167,7 +167,7 @@ pub contract AshesV2 {
         }
 
         pub fun borrowAsh(id: UInt64): &Ash? {
-            return &self.ownedNFTs[id] as! &Ash
+            return (&self.ownedNFTs[id] as! &Ash?)!
         }
 
         destroy() {
