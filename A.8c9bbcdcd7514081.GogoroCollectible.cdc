@@ -189,7 +189,7 @@ pub contract GogoroCollectible: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowGogoroCollectible
@@ -199,7 +199,7 @@ pub contract GogoroCollectible: NonFungibleToken {
         //
         pub fun borrowGogoroCollectible(id: UInt64): &GogoroCollectible.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &GogoroCollectible.NFT
             } else {
                 return nil
