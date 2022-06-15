@@ -1,5 +1,6 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
+//import FindViews from "./FindViews.cdc"
 
 pub contract Bl0x: NonFungibleToken {
 
@@ -78,23 +79,17 @@ pub contract Bl0x: NonFungibleToken {
 		pub let royalties: MetadataViews.Royalties
 
 		init(
-			serial:UInt64
+			serial:UInt64,
 			rootHash:String,
 			season:UInt64,
 			traits: {String: UInt64}
 		) {
-
-			pre {
-				//TODO: assert that name of Trait is same as key
-			}
-
 			self.nounce=0
 			self.serial=serial
 			self.id=self.uuid
 			self.rootHash=rootHash
 			self.season=season
 			self.traits=traits
-			// TODO: Put the royalty here => 
 			self.royalties=MetadataViews.Royalties(Bl0x.royalties)
 		}
 
@@ -105,7 +100,12 @@ pub contract Bl0x: NonFungibleToken {
 			Type<MetadataViews.Royalties>(),
 			Type<MetadataViews.ExternalURL>(),
 			Type<Data>(),
-			Type<Metadata>()
+			Type<Metadata>(),
+			Type<MetadataViews.NFTCollectionData>(),
+			Type<MetadataViews.NFTCollectionDisplay>()
+			//Type<FindViews.Rarity>(),
+			//Type<FindViews.Tag>(),
+			//Type<FindViews.Nounce>()
 			]
 		}
 
@@ -144,8 +144,10 @@ pub contract Bl0x: NonFungibleToken {
 					description: description,
 					thumbnail: imageFile
 				)
+
 			case Type<MetadataViews.ExternalURL>():
 				return MetadataViews.ExternalURL("https://bl0x.xyz/collection/".concat(self.owner!.address.toString()).concat("/").concat(self.id.toString()))
+
 			case Type<MetadataViews.Royalties>():
 				return self.royalties
 
@@ -162,6 +164,7 @@ pub contract Bl0x: NonFungibleToken {
 					serial:self.serial,
 					traits:self.getAllTraitsMetadata()
 				)
+
 			case Type<Metadata>():
 				return Metadata(
 					nftId : self.id ,
@@ -172,6 +175,34 @@ pub contract Bl0x: NonFungibleToken {
 					serial:self.serial,
 					traits:self.getAllTraitsMetadataAsArray()
 				)
+
+				/*
+			case Type<FindViews.Nounce>():
+				return FindViews.Nounce(self.nounce)
+				*/
+
+			case Type<MetadataViews.NFTCollectionDisplay>():
+				let externalURL = MetadataViews.ExternalURL("https://bl0x.xyz")
+				let squareImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://bl0x.xyz/assets/home/Bl0xlogo.webp"), mediaType: "image")
+				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://bl0x.xyz/assets/home/Bl0xlogo.webp"), mediaType: "image")
+				return MetadataViews.NFTCollectionDisplay(name: "bl0x", description: "Bl0x", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: {})
+
+			case Type<MetadataViews.NFTCollectionData>():
+				return MetadataViews.NFTCollectionData(storagePath: Bl0x.CollectionStoragePath,
+				publicPath: Bl0x.CollectionPublicPath,
+				providerPath: Bl0x.CollectionPrivatePath,
+				publicCollection: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+				publicLinkedType: Type<&Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+				providerLinkedType: Type<&Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+				createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- Bl0x.createEmptyCollection()})
+
+				/*
+			case Type<FindViews.Rarity>(): 
+				return FindViews.Rarity(rarity:0.0, rarityName: self.getRarity(), parts: {})
+
+			case Type<FindViews.Tag>():
+				return self.getTraitsAsTags()
+				*/
 			}
 			return nil
 		}
@@ -196,6 +227,20 @@ pub contract Bl0x: NonFungibleToken {
 
 			return rarity 
 		}
+
+		/*
+		pub fun getTraitsAsTags() : FindViews.Tag {
+			let traits=self.getAllTraitsMetadata()
+
+			let tags : {String:String}={}
+			for trait in traits.keys{
+				let traitValue = traits[trait]!
+				tags[trait]= traitValue.getName().concat(" : ").concat(traitValue.getRarity())
+			}
+
+			return FindViews.Tag(tags)
+		}
+		*/
 
 		pub fun getAllTraitsMetadataAsArray() : [{String : String}] {
 			let traits = self.traits
@@ -280,11 +325,11 @@ pub contract Bl0x: NonFungibleToken {
 		// borrowNFT gets a reference to an NFT in the collection
 		// so that the caller can read its metadata and call its methods
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+			return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
 		}
 
 		pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-			let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+			let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
 			let bl0x = nft as! &NFT
 			return bl0x as &AnyResource{MetadataViews.Resolver}
 		}
@@ -335,7 +380,7 @@ pub contract Bl0x: NonFungibleToken {
 			pub let id:UInt64
 			pub let metadata : {String:String}
 
-			init(id:UInt64 metadata:{String:String}) {
+			init(id:UInt64, metadata:{String:String}) {
 				pre {
 					metadata.containsKey("rarity") : "metadata must contain rarity"
 					metadata.containsKey("name") : "metadata must contain name"
