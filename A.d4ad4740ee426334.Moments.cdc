@@ -453,7 +453,7 @@ pub contract Moments: NonFungibleToken {
             let serialNumber = UInt64(contentEdition.momentIDs.length + 1)
 
             // check that we're not blowing the minting cap for this edition
-            assert(serialNumber <= set.rarityCaps[contentEdition.rarity]!, message: "The cap for that rarity has already been minted for that Moment.")
+            assert(serialNumber < set.rarityCaps[contentEdition.rarity]!, message: "The cap for that rarity has already been minted for that Moment.")
 
             // Mint the new moment
             let newMoment: @NFT <- create NFT(contentID: contentID,
@@ -737,7 +737,7 @@ pub contract Moments: NonFungibleToken {
         // The ID of the Set that the Moment comes from
         pub let setID: UInt64
 
-        init(contentID: UInt64, contentEditionID: UInt64, serialNumber: UInt64, seriesID: UInt64, setID: UInt64, ) {
+        init(contentID: UInt64, contentEditionID: UInt64, serialNumber: UInt64, seriesID: UInt64, setID: UInt64) {
             Moments.totalSupply = Moments.totalSupply + (1 as UInt64)
             self.id = Moments.totalSupply
             self.contentID = contentID
@@ -822,7 +822,7 @@ pub contract Moments: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowMoment
@@ -832,8 +832,8 @@ pub contract Moments: NonFungibleToken {
         //
         pub fun borrowMoment(id: UInt64): &Moments.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &Moments.NFT
+                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+                return ref as! &Moments.NFT?
             } else {
                 return nil
             }
