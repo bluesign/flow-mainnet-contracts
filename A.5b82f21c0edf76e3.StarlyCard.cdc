@@ -36,6 +36,10 @@ pub contract StarlyCard: NonFungibleToken {
             emit Burned(id: self.id, starlyID: self.starlyID)
         }
 
+        pub fun getMetadata(): StarlyMetadataViews.CardEdition? {
+            return StarlyMetadata.getCardEdition(starlyID: self.starlyID);
+        }
+
         pub fun getViews(): [Type] {
             return StarlyMetadata.getViews()
         }
@@ -91,18 +95,18 @@ pub contract StarlyCard: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let card = nft as! &StarlyCard.NFT
             return card as &AnyResource{MetadataViews.Resolver}
         }
 
         pub fun borrowStarlyCard(id: UInt64): &StarlyCard.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &StarlyCard.NFT
             } else {
                 return nil
