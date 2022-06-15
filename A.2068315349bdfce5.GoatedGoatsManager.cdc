@@ -394,7 +394,8 @@ pub contract GoatedGoatsManager {
 
         // Move traits over to the new Goat
         for traitSlot in goatInstance.traits.keys {
-            let old <- newGoatInstance.traits[traitSlot] <- goatInstance.traits.remove(key: traitSlot)
+
+					  let old <- newGoatInstance.setTrait(key: traitSlot, value: <- goatInstance.removeTrait(traitSlot))
             assert(old == nil, message: "Existing trait exists with this trait slot.")
             destroy old
         }
@@ -406,7 +407,7 @@ pub contract GoatedGoatsManager {
             // For each trait ID, validate they exist in store, and return them.
             for traitSlot in traitSlotsToUnequip {
                 assert(newGoatInstance.isTraitEquipped(traitSlot: traitSlot), message: "This goat has the provided trait slot empty.")
-                let trait <- newGoatInstance.traits.remove(key: traitSlot)!
+                let trait <- newGoatInstance.removeTrait(traitSlot)!
                 assert(trait.getMetadata().containsKey("traitSlot"), message: "Provided trait is missing the trait slot.")
                 unequippedTraits.append(<-trait)
             }
@@ -422,10 +423,10 @@ pub contract GoatedGoatsManager {
                 let traitSlot = trait.getMetadata()["traitSlot"]!
                 // If goat already has this trait equipped, remove it
                 if newGoatInstance.isTraitEquipped(traitSlot: traitSlot) {
-                    let existingTrait <- newGoatInstance.traits.remove(key: traitSlot)!
+                    let existingTrait <- newGoatInstance.removeTrait(traitSlot)!
                     unequippedTraits.append(<-existingTrait)
                 }
-                let old <- newGoatInstance.traits[traitSlot] <- trait
+                let old <- newGoatInstance.setTrait(key: traitSlot, value:  <- trait)
                 assert(old == nil, message: "Existing trait exists with this trait slot.")
                 destroy old
             }
