@@ -354,7 +354,7 @@ pub contract DieselNFT: NonFungibleToken {
         // read Diesel data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Parameters: id: The ID of the NFT to get the reference for
@@ -362,7 +362,7 @@ pub contract DieselNFT: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowDiesel(id: UInt64): &DieselNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &DieselNFT.NFT
             } else {
                 return nil
@@ -436,9 +436,9 @@ pub contract DieselNFT: NonFungibleToken {
         self.royaltyPercentage = 0.10
         self.isDieselDataRetired = {}
         self.totalSupply = 0
-        self.CollectionPublicPath = /public/DieselCollection001
-        self.CollectionStoragePath = /storage/DieselCollection001
-        self.AdminStoragePath = /storage/DieselAdmin001
+        self.CollectionPublicPath = /public/DieselCollection004
+        self.CollectionStoragePath = /storage/DieselCollection004
+        self.AdminStoragePath = /storage/DieselAdmin004
 
         // Put a new Collection in storage
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
@@ -452,4 +452,3 @@ pub contract DieselNFT: NonFungibleToken {
         emit ContractInitialized()
     }
 }
- 
