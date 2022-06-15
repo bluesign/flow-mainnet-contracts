@@ -147,24 +147,28 @@ pub contract ARTIFACT: NonFungibleToken {
     }
 
     pub fun resolveView(_ view: Type): AnyStruct? {
-        switch view {
-            case Type<MetadataViews.Display>():
-                return MetadataViews.Display(
-                    name: self.data.metadata["name"]!,
-                    description: self.data.metadata["description"]!,
-                    thumbnail: MetadataViews.HTTPFile(
-                        url: self.data.metadata["image"]!
-                    )
-                )
-            case Type<ARTIFACTViews.ArtifactsDisplay>():
-                return ARTIFACTViews.ArtifactsDisplay(
-                    name: self.data.metadata["name"]!,
-                    description: self.data.metadata["description"]!,
-                    thumbnail: MetadataViews.HTTPFile(
-                        url: self.data.metadata["image"]!
-                    ),
-                    metadata: self.data.metadata
-                )
+      let artifactFileUri = self.data.metadata["artifactFileUri"]!
+      let artifactFileUriFormatted = artifactFileUri.slice(from: 7, upTo: artifactFileUri.length - 1)
+      switch view {
+          case Type<MetadataViews.Display>():
+              return MetadataViews.Display(
+                  name: self.data.metadata["artifactName"]!,
+                  description: self.data.metadata["artifactShortDescription"]!,
+                  thumbnail: MetadataViews.IPFSFile(
+                      cid: artifactFileUriFormatted,
+                      path: nil
+                  )
+              )
+          case Type<ARTIFACTViews.ArtifactsDisplay>():
+              return ARTIFACTViews.ArtifactsDisplay(
+                  name: self.data.metadata["artifactName"]!,
+                  description: self.data.metadata["artifactShortDescription"]!,
+                  thumbnail: MetadataViews.IPFSFile(
+                      cid: artifactFileUriFormatted,
+                      path: nil
+                  ),
+                  metadata: self.data.metadata
+              )
         }
 
         return nil
@@ -246,7 +250,7 @@ pub contract ARTIFACT: NonFungibleToken {
     //
     pub fun borrow(id: UInt64): &ARTIFACT.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
         return ref as! &ARTIFACT.NFT
       } else {
         return nil
@@ -254,11 +258,11 @@ pub contract ARTIFACT: NonFungibleToken {
     }
     
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {      
-      let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+      let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
       let artifactsNFT = nft as! &NFT
       return artifactsNFT as &{MetadataViews.Resolver}
     }
@@ -342,3 +346,4 @@ pub contract ARTIFACT: NonFungibleToken {
     emit ContractInitialized()
   }
 }
+ 
