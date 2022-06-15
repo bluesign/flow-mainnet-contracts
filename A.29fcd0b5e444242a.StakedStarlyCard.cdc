@@ -17,7 +17,7 @@ pub contract StakedStarlyCard: NonFungibleToken {
         remainingResourceAtStakeTimestamp: UFix64)
     pub event CardUnstaked(
         id: UInt64,
-        starlyID: String
+        starlyID: String,
         beneficiary: Address,
         stakeTimestamp: UFix64,
         unstakeTimestamp: UFix64,
@@ -271,17 +271,17 @@ pub contract StakedStarlyCard: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let stake = nft as! &StakedStarlyCard.NFT
             return stake as &AnyResource{MetadataViews.Resolver}
         }
 
         pub fun borrowStakePublic(id: UInt64): &StakedStarlyCard.NFT{StakedStarlyCard.StakePublic, NonFungibleToken.INFT} {
-            let stakeRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let stakeRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let intermediateRef = stakeRef as! auth &StakedStarlyCard.NFT
             return intermediateRef as &StakedStarlyCard.NFT{StakedStarlyCard.StakePublic, NonFungibleToken.INFT}
         }
@@ -302,7 +302,7 @@ pub contract StakedStarlyCard: NonFungibleToken {
         }
 
         pub fun borrowStakePrivate(id: UInt64): &StakedStarlyCard.NFT {
-            let stakePassRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let stakePassRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             return stakePassRef as! &StakedStarlyCard.NFT
         }
 
