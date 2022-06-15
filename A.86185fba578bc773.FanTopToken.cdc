@@ -17,6 +17,7 @@ pub contract FanTopToken: NonFungibleToken {
         serialNumber: UInt32,
         itemId: String,
         itemVersion: UInt32,
+        minter: Address
     )
 
     pub event TokenDestroyed(
@@ -79,14 +80,6 @@ pub contract FanTopToken: NonFungibleToken {
             return self.mintedCount
         }
 
-        access(contract) fun setMintedCount(_ mintedCount: UInt32) {
-            pre {
-                mintedCount > self.mintedCount: "mintedCount must be higher than before"
-                mintedCount <= self.limit: "mintedCount must not exceed limit"
-            }
-            self.mintedCount = mintedCount
-        }
-
         pub fun getData(): ItemData {
             return self.versions[self.version]!
         }
@@ -129,7 +122,7 @@ pub contract FanTopToken: NonFungibleToken {
         pub let refId: String
         access(self) let data: NFTData
 
-        init(refId: String, data: NFTData) {
+        init(refId: String, data: NFTData, minter: Address) {
             FanTopToken.totalSupply = FanTopToken.totalSupply + (1 as UInt64)
 
             self.id = FanTopToken.totalSupply
@@ -141,7 +134,8 @@ pub contract FanTopToken: NonFungibleToken {
                 refId: refId,
                 serialNumber: data.serialNumber,
                 itemId: data.itemId,
-                itemVersion: data.itemVersion
+                itemVersion: data.itemVersion,
+                minter: minter
             )
         }
 
@@ -192,9 +186,9 @@ pub contract FanTopToken: NonFungibleToken {
         pub fun batchDeposit(tokens: @NonFungibleToken.Collection)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowFanTopToken(id: UInt64): &FanTopToken.NFT? {
+        pub fun borrowFanTopToken(id: UInt64): &FanTopToken.NFT {
             post {
-                (result == nil) || (result?.id == id): "Invalid id"
+                result.id == id: "Invalid id"
             }
         }
     }
@@ -251,12 +245,12 @@ pub contract FanTopToken: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
-        pub fun borrowFanTopToken(id: UInt64): &FanTopToken.NFT? {
-            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-            return ref as? &FanTopToken.NFT
+        pub fun borrowFanTopToken(id: UInt64): &FanTopToken.NFT {
+            let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            return (ref as! &FanTopToken.NFT)!
         }
 
         destroy() {
@@ -304,7 +298,8 @@ pub contract FanTopToken: NonFungibleToken {
         refId: String,
         itemId: String,
         itemVersion: UInt32,
-        metadata: { String: String }
+        metadata: { String: String },
+        minter: Address
     ): @NFT {
         pre {
             FanTopToken.items.containsKey(itemId): "That itemId does not exist"
@@ -328,7 +323,7 @@ pub contract FanTopToken: NonFungibleToken {
             metadata: metadata
         )
 
-        return <- create NFT(refId: refId, data: data)
+        return <- create NFT(refId: refId, data: data, minter: minter)
     }
 
     access(account) fun mintTokenWithSerialNumber(
@@ -336,7 +331,8 @@ pub contract FanTopToken: NonFungibleToken {
         itemId: String,
         itemVersion: UInt32,
         metadata: { String: String },
-        serialNumber: UInt32
+        serialNumber: UInt32,
+        minter: Address
     ): @NFT {
         pre {
             FanTopToken.items.containsKey(itemId): "That itemId does not exist"
@@ -368,14 +364,7 @@ pub contract FanTopToken: NonFungibleToken {
             metadata: metadata
         )
 
-        return <- create NFT(refId: refId, data: data)
-    }
-
-   access(account) fun setItemMintedCount(itemId: String, mintedCount: UInt32) {
-        pre {
-            FanTopToken.items.containsKey(itemId): "That itemId does not exist"
-        }
-        self.items[itemId]!.setMintedCount(mintedCount)
+        return <- create NFT(refId: refId, data: data, minter: minter)
     }
 
     access(self) let items: { String: Item }
