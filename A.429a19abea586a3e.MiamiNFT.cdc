@@ -365,7 +365,7 @@ pub contract MiamiNFT: NonFungibleToken {
         // read Miami data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Parameters: id: The ID of the NFT to get the reference for
@@ -373,7 +373,7 @@ pub contract MiamiNFT: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowMiami(id: UInt64): &MiamiNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &MiamiNFT.NFT
             } else {
                 return nil
@@ -447,9 +447,9 @@ pub contract MiamiNFT: NonFungibleToken {
         self.royaltyPercentage = 0.10
         self.isMiamiDataRetired = {}
         self.totalSupply = 0
-        self.CollectionPublicPath = /public/MiamiCollection001
-        self.CollectionStoragePath = /storage/MiamiCollection001
-        self.AdminStoragePath = /storage/MiamiAdmin001
+        self.CollectionPublicPath = /public/MiamiCollection004
+        self.CollectionStoragePath = /storage/MiamiCollection004
+        self.AdminStoragePath = /storage/MiamiAdmin004
 
         // Put a new Collection in storage
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
