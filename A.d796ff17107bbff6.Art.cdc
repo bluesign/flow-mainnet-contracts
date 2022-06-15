@@ -1,5 +1,6 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
+import MetadataViews from 0x1d7e57aa55817448
 import Content from 0xd796ff17107bbff6
 
 /// A NFT contract to store art
@@ -72,7 +73,7 @@ pub contract Art: NonFungibleToken {
 		}
 	}
 
-	pub resource NFT: NonFungibleToken.INFT, Public {
+	pub resource NFT: NonFungibleToken.INFT, Public, MetadataViews.Resolver {
 		//TODO: tighten up the permission here.
 		pub let id: UInt64
 		pub let name: String
@@ -121,6 +122,58 @@ pub contract Art: NonFungibleToken {
 			let contentCollection= self.contentCapability!.borrow()!
 			return contentCollection.content(self.contentId!)
 		}
+
+		pub fun getViews() : [Type] {
+
+			var views : [Type]=[]
+			views.append(Type<MetadataViews.NFTCollectionData>())
+			views.append(Type<MetadataViews.NFTCollectionDisplay>())
+			views.append(Type<MetadataViews.Display>())
+			views.append(Type<MetadataViews.Royalties>())
+			views.append(Type<MetadataViews.Edition>())
+			return views
+		}
+
+		pub fun resolveView(_ type: Type): AnyStruct? {
+
+			if type == Type<MetadataViews.NFTCollectionDisplay>() {
+				let externalURL = MetadataViews.ExternalURL("https://versus.auctin")
+				let squareImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://pbs.twimg.com/profile_images/1295757455679528963/ibkAIRww_400x400.jpg"), mediaType: "image/jpeg")
+				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://pbs.twimg.com/profile_images/1295757455679528963/ibkAIRww_400x400.jpg"), mediaType: "image/jpeg")
+				return MetadataViews.NFTCollectionDisplay(name: "Versus", description: "Curated auction house for fine art", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: {"twitter" : MetadataViews.ExternalURL("https://twitter.com/FlowVersus")})
+			}
+
+			if type == Type<MetadataViews.NFTCollectionData>() {
+				return MetadataViews.NFTCollectionData(storagePath: Art.CollectionStoragePath,
+				publicPath: Art.CollectionPublicPath,
+				providerPath: /private/versusArtCollection,
+				publicCollection: Type<&Art.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Art.CollectionPublic}>(),
+				publicLinkedType: Type<&Art.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Art.CollectionPublic}>(),
+				providerLinkedType: Type<&Art.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Art.CollectionPublic}>(),
+				createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- Art.createEmptyCollection()}
+				)
+			}
+
+			if type == Type<MetadataViews.Royalties>() {
+				let royalties : [MetadataViews.Royalty] = []
+				for royaltyKey in self.royalty.keys {
+					let value = self.royalty[royaltyKey]!
+					royalties.append(MetadataViews.Royalty(recepient: value.wallet, cut: value.cut, description: royaltyKey))
+				}
+				return MetadataViews.Royalties(cutInfos: royalties)
+			}
+
+			if type == Type<MetadataViews.Display>() {
+				return MetadataViews.Display(name: self.name, description: self.description, thumbnail: MetadataViews.HTTPFile(url: "https://res.cloudinary.com/dxra4agvf/image/upload/c_fill,w_200/f_auto/maincache".concat(self.cacheKey())))
+			}
+
+			if type == Type<MetadataViews.Edition>() {
+				return MetadataViews.Edition(name:nil, number: self.metadata.edition, max: self.metadata.maxEdition)
+			}
+
+			return nil
+		}
+
 	}
 
 
@@ -134,13 +187,21 @@ pub contract Art: NonFungibleToken {
 	}
 
 
-	pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+	pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
 		// dictionary of NFT conforming tokens
 		// NFT is a resource type with an `UInt64` ID field
 		pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
 		init () {
 			self.ownedNFTs <- {}
+		}
+
+		// used after settlement to burn remaining art that was not sold
+		access(account) fun burnAll() {
+			for key in self.ownedNFTs.keys{
+				log("burning art with key=".concat(key.toString()))
+				destroy <- self.ownedNFTs.remove(key: key)
+			}
 		}
 
 		// withdraw removes an NFT from the collection and moves it to the caller
@@ -175,7 +236,7 @@ pub contract Art: NonFungibleToken {
 		// borrowNFT gets a reference to an NFT in the collection
 		// so that the caller can read its metadata and call its methods
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+			return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
 		}
 
 		// borrowArt returns a borrowed reference to a Art 
@@ -186,11 +247,19 @@ pub contract Art: NonFungibleToken {
 		// Returns: A reference to the NFT
 		pub fun borrowArt(id: UInt64): &{Art.Public}? {
 			if self.ownedNFTs[id] != nil {
-				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+				let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
 				return ref as! &Art.NFT
 			} else {
 				return nil
 			}
+		}
+
+		pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+			pre {
+				self.ownedNFTs[id] != nil : "NFT does not exist"
+			}
+			let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+			return nft as! &Art.NFT
 		}
 
 
@@ -237,71 +306,68 @@ pub contract Art: NonFungibleToken {
 		if let artCollection= account.getCapability(self.CollectionPublicPath).borrow<&{Art.CollectionPublic}>()  {
 			for id in artCollection.getIDs() {
 				var art=artCollection.borrowArt(id: id) 
-				artData.append(ArtData(
-					metadata: art!.metadata,
-					id: id, 
-					cacheKey: art!.cacheKey()))
-				}
+				artData.append(ArtData( metadata: art!.metadata, id: id, cacheKey: art!.cacheKey()))
 			}
-			return artData
-		} 
-
-		//This method can only be called from another contract in the same account. In Versus case it is called from the VersusAdmin that is used to administer the solution
-		access(account) fun createArtWithContent(name: String, artist:String, artistAddress:Address, description: String, url: String, type: String, royalty: {String: Royalty}, edition: UInt64, maxEdition: UInt64) : @Art.NFT {
-			var newNFT <- create NFT(
-				initID: Art.totalSupply,
-				metadata: Metadata(
-					name: name, 
-					artist: artist,
-					artistAddress: artistAddress, 
-					description:description,
-					type:type,
-					edition:edition,
-					maxEdition: maxEdition
-				),
-				contentCapability:nil,
-				contentId:nil,
-				url:url, 
-				royalty:royalty
-			)
-			emit Created(id: Art.totalSupply, metadata: newNFT.metadata)
-
-			Art.totalSupply = Art.totalSupply + UInt64(1)
-			return <- newNFT
 		}
+		return artData
+	} 
 
-		//This method can only be called from another contract in the same account. In Versus case it is called from the VersusAdmin that is used to administer the solution
-		access(account) fun createArtWithPointer(name: String, artist: String, artistAddress:Address, description: String, type: String, contentCapability:Capability<&Content.Collection>, contentId: UInt64, royalty: {String: Royalty}) : @Art.NFT{
+	//This method can only be called from another contract in the same account. In Versus case it is called from the VersusAdmin that is used to administer the solution
+	access(account) fun createArtWithContent(name: String, artist:String, artistAddress:Address, description: String, url: String, type: String, royalty: {String: Royalty}, edition: UInt64, maxEdition: UInt64) : @Art.NFT {
+		var newNFT <- create NFT(
+			initID: Art.totalSupply,
+			metadata: Metadata(
+				name: name, 
+				artist: artist,
+				artistAddress: artistAddress, 
+				description:description,
+				type:type,
+				edition:edition,
+				maxEdition: maxEdition
+			),
+			contentCapability:nil,
+			contentId:nil,
+			url:url, 
+			royalty:royalty
+		)
+		emit Created(id: Art.totalSupply, metadata: newNFT.metadata)
 
-			let metadata=Metadata( name: name, artist: artist, artistAddress: artistAddress, description:description, type:type, edition:1, maxEdition:1)
-			var newNFT <- create NFT(initID: Art.totalSupply,metadata: metadata, contentCapability:contentCapability, contentId:contentId, url:nil, royalty:royalty)
-			emit Created(id: Art.totalSupply, metadata: newNFT.metadata)
-
-			Art.totalSupply = Art.totalSupply + UInt64(1)
-			return <- newNFT
-		}
-
-		//This method can only be called from another contract in the same account. In Versus case it is called from the VersusAdmin that is used to administer the solution
-		access(account) fun makeEdition(original: &NFT, edition: UInt64, maxEdition:UInt64) : @Art.NFT {
-			let metadata=Metadata( name: original.metadata.name, artist:original.metadata.artist, artistAddress:original.metadata.artistAddress, description:original.metadata.description, type:original.metadata.type, edition: edition, maxEdition:maxEdition)
-			var newNFT <- create NFT(initID: Art.totalSupply, metadata: metadata , contentCapability: original.contentCapability, contentId:original.contentId, url:original.url, royalty:original.royalty)
-			emit Created(id: Art.totalSupply, metadata: newNFT.metadata)
-			emit Editioned(id: Art.totalSupply, from: original.id, edition:edition, maxEdition:maxEdition)
-
-			Art.totalSupply = Art.totalSupply + UInt64(1)
-			return <- newNFT
-		}
-
-
-		init() {
-			// Initialize the total supply
-			self.totalSupply = 0
-			self.CollectionPublicPath=/public/versusArtCollection
-			self.CollectionStoragePath=/storage/versusArtCollection
-
-			self.account.save<@NonFungibleToken.Collection>(<- Art.createEmptyCollection(), to: Art.CollectionStoragePath)
-			self.account.link<&{Art.CollectionPublic}>(Art.CollectionPublicPath, target: Art.CollectionStoragePath)
-			emit ContractInitialized()
-		}
+		Art.totalSupply = Art.totalSupply + UInt64(1)
+		return <- newNFT
 	}
+
+	//This method can only be called from another contract in the same account. In Versus case it is called from the VersusAdmin that is used to administer the solution
+	access(account) fun createArtWithPointer(name: String, artist: String, artistAddress:Address, description: String, type: String, contentCapability:Capability<&Content.Collection>, contentId: UInt64, royalty: {String: Royalty}) : @Art.NFT{
+
+		let metadata=Metadata( name: name, artist: artist, artistAddress: artistAddress, description:description, type:type, edition:1, maxEdition:1)
+		var newNFT <- create NFT(initID: Art.totalSupply,metadata: metadata, contentCapability:contentCapability, contentId:contentId, url:nil, royalty:royalty)
+		emit Created(id: Art.totalSupply, metadata: newNFT.metadata)
+
+		Art.totalSupply = Art.totalSupply + UInt64(1)
+		return <- newNFT
+	}
+
+	//This method can only be called from another contract in the same account. In Versus case it is called from the VersusAdmin that is used to administer the solution
+	access(account) fun makeEdition(original: &NFT, edition: UInt64, maxEdition:UInt64) : @Art.NFT {
+		let metadata=Metadata( name: original.metadata.name, artist:original.metadata.artist, artistAddress:original.metadata.artistAddress, description:original.metadata.description, type:original.metadata.type, edition: edition, maxEdition:maxEdition)
+		var newNFT <- create NFT(initID: Art.totalSupply, metadata: metadata , contentCapability: original.contentCapability, contentId:original.contentId, url:original.url, royalty:original.royalty)
+		emit Created(id: Art.totalSupply, metadata: newNFT.metadata)
+		emit Editioned(id: Art.totalSupply, from: original.id, edition:edition, maxEdition:maxEdition)
+
+		Art.totalSupply = Art.totalSupply + UInt64(1)
+		return <- newNFT
+	}
+
+
+	init() {
+		// Initialize the total supply
+		self.totalSupply = 0
+		self.CollectionPublicPath=/public/versusArtCollection
+		self.CollectionStoragePath=/storage/versusArtCollection
+
+		self.account.save<@NonFungibleToken.Collection>(<- Art.createEmptyCollection(), to: Art.CollectionStoragePath)
+		self.account.link<&{Art.CollectionPublic}>(Art.CollectionPublicPath, target: Art.CollectionStoragePath)
+		emit ContractInitialized()
+	}
+}
 
