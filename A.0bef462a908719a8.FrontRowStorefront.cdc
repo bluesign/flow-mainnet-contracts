@@ -410,7 +410,7 @@ pub contract FrontRowStorefront {
     //
     pub fun borrowSaleOffer(blueprintId: UInt32): &SaleOffer{SaleOfferPublic}? {
       if self.saleOffers[blueprintId] != nil {
-        return &self.saleOffers[blueprintId] as! &SaleOffer{SaleOfferPublic}
+        return &self.saleOffers[blueprintId] as &SaleOffer{SaleOfferPublic}?
       } else {
         return nil
       }
