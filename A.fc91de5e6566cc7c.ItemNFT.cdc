@@ -1,9 +1,9 @@
+
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import GarmentNFT from 0xfc91de5e6566cc7c
 import MaterialNFT from 0xfc91de5e6566cc7c
 import FBRC from 0xfc91de5e6566cc7c
-
 
 pub contract ItemNFT: NonFungibleToken {
 
@@ -437,7 +437,7 @@ pub contract ItemNFT: NonFungibleToken {
         // read Item data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Parameters: id: The ID of the NFT to get the reference for
@@ -445,7 +445,7 @@ pub contract ItemNFT: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowItem(id: UInt64): &ItemNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &ItemNFT.NFT
             } else {
                 return nil
@@ -623,9 +623,9 @@ pub contract ItemNFT: NonFungibleToken {
         self.royaltyPercentage = 0.10
         self.totalSupply = 0
         
-        self.CollectionPublicPath = /public/ItemCollection20
-        self.CollectionStoragePath = /storage/ItemCollection20
-        self.AdminStoragePath = /storage/ItemAdmin20
+        self.CollectionPublicPath = /public/ItemCollection0021
+        self.CollectionStoragePath = /storage/ItemCollection0021
+        self.AdminStoragePath = /storage/ItemAdmin0021
 
 
 
@@ -641,3 +641,4 @@ pub contract ItemNFT: NonFungibleToken {
         emit ContractInitialized()
     }
 }
+ 
