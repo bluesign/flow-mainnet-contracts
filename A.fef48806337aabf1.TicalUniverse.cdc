@@ -384,7 +384,7 @@ pub contract TicalUniverse: NonFungibleToken {
                 TicalUniverse.sets[setId] != nil: "Cannot borrow set: The set doesn't exist."
             }
 
-            return &TicalUniverse.sets[setId] as &Set
+            return (&TicalUniverse.sets[setId] as &Set?)!
         }
 
         // End the current series and start a new one
@@ -493,7 +493,7 @@ pub contract TicalUniverse: NonFungibleToken {
         // This only allows the caller to read the ID of the NFT,
         // not any Collectible specific data.
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Return a borrowed reference to a Collectible
@@ -501,7 +501,7 @@ pub contract TicalUniverse: NonFungibleToken {
         // and use them to read the setData or Item data from the contract
         pub fun borrowCollectible(id: UInt64): &TicalUniverse.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &TicalUniverse.NFT
             } else {
                 return nil
@@ -643,4 +643,3 @@ pub contract TicalUniverse: NonFungibleToken {
         emit ContractInitialized()
     }
 }
-
