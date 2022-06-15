@@ -152,7 +152,7 @@ pub contract SwapFactory {
             )
 
             if self.lpTokenVaults.containsKey(pairAddr) {
-                let vaultRef = &self.lpTokenVaults[pairAddr] as! &FungibleToken.Vault
+                let vaultRef = (&self.lpTokenVaults[pairAddr] as &FungibleToken.Vault?)!
                 vaultRef.deposit(from: <- lpTokenVault)
             } else {
                 self.lpTokenVaults[pairAddr] <-! lpTokenVault
@@ -168,7 +168,7 @@ pub contract SwapFactory {
                     )
             }
 
-            let vaultRef = &self.lpTokenVaults[pairAddr] as! &FungibleToken.Vault
+            let vaultRef = (&self.lpTokenVaults[pairAddr] as &FungibleToken.Vault?)!
             let withdrawVault <- vaultRef.withdraw(amount: amount)
             if vaultRef.balance == 0.0 {
                 let deletedVault <- self.lpTokenVaults[pairAddr] <- nil
@@ -183,7 +183,7 @@ pub contract SwapFactory {
 
         pub fun getLpTokenBalance(pairAddr: Address): UFix64 {
             if self.lpTokenVaults.containsKey(pairAddr) {
-                let vaultRef = &self.lpTokenVaults[pairAddr] as! &FungibleToken.Vault
+                let vaultRef = (&self.lpTokenVaults[pairAddr] as &FungibleToken.Vault?)!
                 return vaultRef.balance
             }
             return 0.0
