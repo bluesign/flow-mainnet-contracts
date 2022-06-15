@@ -3,19 +3,40 @@ import NonFungibleToken from 0x1d7e57aa55817448
 
 pub contract NFL_NFT: NonFungibleToken {
 
-    // Events
+    // NFL_NFT Events
     //
+    // Emitted when the NFL_NFT contract is created
     pub event ContractInitialized()
-    pub event Withdraw(id: UInt64, from: Address?)
-    pub event Deposit(id: UInt64, to: Address?)
-    pub event Minted(id: UInt64)
-    pub event NFTDestroyed(id: UInt64)
+
+    // Emitted when an NFT is minted
+    pub event Minted(id: UInt64, setId: UInt32, seriesId: UInt32)
+
+    // Events for Series-related actions
+    //
+    // Emitted when a new Series is created
     pub event SeriesCreated(seriesId: UInt32)
+    // Emitted when a Series is sealed, meaning Series metadata
+    // cannot be updated
     pub event SeriesSealed(seriesId: UInt32)
-    pub event SetCreated(seriesId: UInt32, setId: UInt32)
+    // Emitted when a Series' metadata is updated
     pub event SeriesMetadataUpdated(seriesId: UInt32)
+
+    // Events for Set-related actions
+    //
+    // Emitted when a new Set is created
+    pub event SetCreated(seriesId: UInt32, setId: UInt32)
+    // Emitted when a Set's metadata is updated
     pub event SetMetadataUpdated(seriesId: UInt32, setId: UInt32)
 
+    // Events for Collection-related actions
+    //
+    // Emitted when an NFT is withdrawn from a Collection
+    pub event Withdraw(id: UInt64, from: Address?)
+    // Emitted when an NFT is deposited into a Collection
+    pub event Deposit(id: UInt64, to: Address?)
+
+    // Emitted when an NFT is destroyed
+    pub event NFTDestroyed(id: UInt64)
     // Named Paths
     //
     pub let CollectionStoragePath: StoragePath
@@ -38,6 +59,8 @@ pub contract NFL_NFT: NonFungibleToken {
     access(self) var series: @{UInt32: Series}
 
 
+    // An NFTSetData is a Struct that holds metadata associated with
+    // a specific NFT Set.
     pub struct NFTSetData {
 
         // Unique ID for the Set
@@ -70,8 +93,6 @@ pub contract NFL_NFT: NonFungibleToken {
             self.maxEditions = maxEditions
             self.metadata = metadata
             self.ipfsMetadataHashes = ipfsMetadataHashes
-
-            emit SetCreated(seriesId: self.seriesId, setId: self.setId)
         }
 
         pub fun getIpfsMetadataHash(editionNum: UInt32): String? {
@@ -87,6 +108,8 @@ pub contract NFL_NFT: NonFungibleToken {
         }
     }
 
+    // A SeriesData is a struct that groups metadata for a 
+    // a related group of NFTSets.
     pub struct SeriesData {
 
         // Unique ID for the Series
@@ -100,8 +123,6 @@ pub contract NFL_NFT: NonFungibleToken {
             metadata: {String: String}) {
             self.seriesId = seriesId
             self.metadata = metadata
-
-            emit SeriesCreated(seriesId: self.seriesId)
         }
 
         pub fun getMetadata(): {String: String} {
@@ -110,9 +131,8 @@ pub contract NFL_NFT: NonFungibleToken {
     }
 
 
-    // NFTSet
-    // Resource that allows an admin to mint new NFTs
-    //
+    // A Series is special resource type that contains functions to mint NFL_NFT NFTs, 
+    // add NFTSets, update NFTSet and Series metadata, and seal Series.
 	pub resource Series {
 
         // Unique ID for the Series
@@ -143,7 +163,9 @@ pub contract NFL_NFT: NonFungibleToken {
             NFL_NFT.seriesData[seriesId] = SeriesData(
                     seriesId: seriesId,
                     metadata: metadata
-            )      
+            )
+
+            emit SeriesCreated(seriesId: seriesId)   
         }
 
         pub fun addNftSet(
@@ -293,7 +315,7 @@ pub contract NFL_NFT: NonFungibleToken {
         }
 	}
 
-    // NFT
+    // A resource that represents the NFL_NFT NFT
     //
     pub resource NFT: NonFungibleToken.INFT {
         // The token's ID
@@ -316,7 +338,9 @@ pub contract NFL_NFT: NonFungibleToken {
             self.setId = setId
             self.editionNum = editionNum
 
-            emit Minted(id: self.id)
+            let seriesId = NFL_NFT.getSetSeriesId(setId: setId)!
+
+            emit Minted(id: self.id, setId: setId, seriesId: seriesId)
         }
 
         // If the NFT is destroyed, emit an event
@@ -355,7 +379,7 @@ pub contract NFL_NFT: NonFungibleToken {
             }
 
             // Get a reference to the Series and return it
-            return &NFL_NFT.series[seriesId] as &Series
+            return (&NFL_NFT.series[seriesId] as &Series?)!
         }
 
         pub fun createNewAdmin(): @Admin {
@@ -467,7 +491,7 @@ pub contract NFL_NFT: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowNFL_NFT
@@ -476,12 +500,8 @@ pub contract NFL_NFT: NonFungibleToken {
         // This is safe as there are no functions that can be called on the NFL_NFT.
         //
         pub fun borrowNFL_NFT(id: UInt64): &NFL_NFT.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &NFL_NFT.NFT
-            } else {
-                return nil
-            }
+            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+            return ref as! &NFL_NFT.NFT?
         }
 
         // destructor
