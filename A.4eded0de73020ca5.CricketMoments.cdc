@@ -162,7 +162,7 @@ pub contract CricketMoments: NonFungibleToken {
         // so that the caller can read its id
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowCricketMoment
@@ -173,7 +173,7 @@ pub contract CricketMoments: NonFungibleToken {
         //
         pub fun borrowCricketMoment(id: UInt64): &CricketMoments.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &CricketMoments.NFT
             } else {
                 return nil
