@@ -463,7 +463,7 @@ pub contract Bl0xPack: NonFungibleToken {
 		// so that the caller can read its metadata and call its methods
 		//
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+			return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
 		}
 
 		// borrowBl0xPack
@@ -473,7 +473,7 @@ pub contract Bl0xPack: NonFungibleToken {
 		//
 		pub fun borrowBl0xPack(id: UInt64): &Bl0xPack.NFT? {
 			if self.ownedNFTs[id] != nil {
-				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+				let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
 				return ref as! &Bl0xPack.NFT
 			} else {
 				return nil
@@ -481,7 +481,7 @@ pub contract Bl0xPack: NonFungibleToken {
 		}
 
 		pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-			let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+			let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
 			let exampleNFT = nft as! &NFT
 			return exampleNFT 
 		}
