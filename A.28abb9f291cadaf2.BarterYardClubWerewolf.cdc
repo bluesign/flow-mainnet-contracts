@@ -323,7 +323,7 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
         pub fun getAutoImageType(): ImageType {
             if self.auto {
                 let hour = BarterYardClubWerewolf.getCurrentHour(self.utc)
-                let thumbnail = (hour > 8 && hour < 20 ) ? ImageType.Day : ImageType.Night
+                let thumbnail: BarterYardClubWerewolf.ImageType = (hour > 8 && hour < 20) ? ImageType.Day : ImageType.Night
                 return thumbnail
             }
 
@@ -436,7 +436,7 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
         // borrowNFT gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowBarterYardClubWerewolfNFT(id: UInt64): &BarterYardClubWerewolf.NFT? {
@@ -444,17 +444,17 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
                 self.ownedNFTs[id] != nil : "NFT not in collection"
             }
             // Create an authorized reference to allow downcasting
-            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-            return ref as! &BarterYardClubWerewolf.NFT
+            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+            return ref as! &BarterYardClubWerewolf.NFT?
         }
 
         pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
           pre {
             self.ownedNFTs[id] != nil : "NFT not in collection"
           }
-          let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+          let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
           let BarterYardClubWerewolf = nft as! &BarterYardClubWerewolf.NFT
-          return BarterYardClubWerewolf
+          return BarterYardClubWerewolf as! &{MetadataViews.Resolver}
         }
 
         destroy() {
