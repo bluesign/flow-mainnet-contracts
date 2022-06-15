@@ -4,7 +4,7 @@ Central Smart Contract for KOTD x Niftory Battle Rap Collectibles
 Heavily based off the Dapper Labs NBA Top Shot contract, with the following modifications:
 -Nomenclature changes (e.g. 'Play' -> 'CollectibleItem')
 -Small quality of life improvements, like named paths
--Data access improvements based off of Josh Hannan's "What I've learned since Top Shot" Cadence blogs
+-Data access improvements based off of Josh Hannan's "What I’ve learned since Top Shot" Cadence blogs
 -Additional contract defined metadata at the Series, Set, and CollectibleItem level
 -Functionality conveniences, such as closing all open sets & editions when starting a new Series
 
@@ -122,7 +122,7 @@ pub contract KOTD: NonFungibleToken {
         pub let seriesIdentityURL: String?
 
          init() {
-            var referencedSeries = &KOTD.seriesDatas[KOTD.currentSeriesID] as &Series
+            var referencedSeries = (&KOTD.seriesDatas[KOTD.currentSeriesID] as &Series?)!
             self.seriesID = referencedSeries.seriesID
             self.name = referencedSeries.name
             self.seriesIdentityURL = referencedSeries.seriesIdentityURL
@@ -191,7 +191,7 @@ pub contract KOTD: NonFungibleToken {
         pub var numberMintedPerCollectibleItem: {UInt32: UInt32}
 
         init(setID: UInt32) {
-            var referencedSet = &KOTD.sets[setID] as &Set
+            var referencedSet = (&KOTD.sets[setID] as &Set?)!
 
             self.setID = referencedSet.setID
             self.name = referencedSet.name
@@ -495,7 +495,7 @@ pub contract KOTD: NonFungibleToken {
             
             // Get a reference to the Set and return it
             // use `&` to indicate the reference to the object and type
-            return &KOTD.sets[setID] as &Set
+            return (&KOTD.sets[setID] as &Set?)!
         }
 
         // startNewSeries ends the current series by creating a new Series, 
@@ -693,7 +693,7 @@ pub contract KOTD: NonFungibleToken {
         // not any KOTD specific data. Please use borrowCollectible to 
         // read Collectible data.
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowCollectible returns a borrowed reference to a Collectible
@@ -708,7 +708,7 @@ pub contract KOTD: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowCollectible(id: UInt64): &KOTD.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &KOTD.NFT
             } else {
                 return nil
@@ -872,9 +872,9 @@ pub contract KOTD: NonFungibleToken {
 
         // initialize paths
         // Set our named paths
-        self.CollectionStoragePath = /storage/NiftoryCollectibleCollection
-        self.CollectionPublicPath = /public/NiftoryCollectibleCollection
-        self.AdminStoragePath = /storage/KOTDAdmin004
+        self.CollectionStoragePath = /storage/NiftoryCollectibleCollection001
+        self.CollectionPublicPath = /public/NiftoryCollectibleCollection001
+        self.AdminStoragePath = /storage/KOTDAdmin005
 
         // Put a new Collection in storage 
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
