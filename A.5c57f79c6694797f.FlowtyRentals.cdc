@@ -1,6 +1,5 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
-
 import FlowtyUtils from 0x5c57f79c6694797f
 import Flowty from 0x5c57f79c6694797f
 import CoatCheck from 0x5c57f79c6694797f
@@ -79,14 +78,14 @@ pub contract FlowtyRentals {
         flowtyStorefrontAddress: Address,
         flowtyStorefrontID: UInt64,
         listingResourceID: UInt64,
-        nftType: Type,
+        nftType: String,
         nftID: UInt64,
         amount: UFix64,
         deposit: UFix64,
         term: UFix64,
         royaltyRate: UFix64,
         expiresAfter: UFix64,
-        paymentTokenType: Type,
+        paymentTokenType: String,
         renter: Address?
     )
 
@@ -103,7 +102,7 @@ pub contract FlowtyRentals {
         listingResourceID: UInt64,
         rentalResourceID: UInt64,
         nftID: UInt64,
-        nftType: Type,
+        nftType: String,
         amount: UFix64,
         deposit: UFix64,
         enabledAutomaticReturn: Bool
@@ -141,7 +140,7 @@ pub contract FlowtyRentals {
         renter: Address,
         lender: Address,
         nftID: UInt64,
-        nftType: Type,
+        nftType: String,
         deposit: UFix64
     )
 
@@ -336,6 +335,10 @@ pub contract FlowtyRentals {
         // if the NFT is absent, for example if it has been sold via another listing.
         //
         pub fun borrowNFT(): &NonFungibleToken.NFT {
+            pre {
+                self.nftProviderCapability.check(): "provider capability failed check"
+            }
+
             let ref = self.nftProviderCapability.borrow()!.borrowNFT(id: self.getDetails().nftID)
             assert(ref.getType() == self.getDetails().nftType, message: "token has wrong type")
             assert(ref.id == self.getDetails().nftID, message: "token has wrong ID")
@@ -368,6 +371,9 @@ pub contract FlowtyRentals {
                 payment.getType() == self.details.paymentVaultType: "payment vault is not requested fungible token"
                 Flowty.getRoyalty(nftTypeIdentifier: self.details.nftType.identifier) != nil: "royalty information not found for given collection"
                 payment.balance == self.details.getTotalPayment(): "payment vault does not contain requested amount"
+                self.nftProviderCapability.check(): "nftProviderCapability failed check"
+                renterNFTCollection.check(): "renterNFTCollection failed check"
+                renterNFTProvider == nil || renterNFTProvider!.check(): "renterNFTProvider failed check"
             }
 
             // handle if this listing is private or not.
@@ -409,14 +415,14 @@ pub contract FlowtyRentals {
 
             // get payment cut information for the listing owner to receive payment for
             // this listing being rented.
+            assert(self.details.getPaymentCut().receiver.check(), message: "paymentCut receiver failed check")
             let receiver = self.details.getPaymentCut().receiver.borrow()!
             receiver.deposit(from: <-payment)
 
             // get the path and corresponding capability to send fees to the Flowty account
             let tokenPaths = Flowty.getTokenPaths()
             let feeTokenPath = tokenPaths[self.details.paymentVaultType.identifier]!
-            let flowtyFeeReceiver = FlowtyRentals.account.getCapability<&AnyResource{FungibleToken.Receiver}>(feeTokenPath).borrow()
-                ?? panic("Missing or mis-typed FungibleToken Reveiver")
+            let flowtyFeeReceiver = FlowtyRentals.account.getCapability<&AnyResource{FungibleToken.Receiver}>(feeTokenPath).borrow()!
             flowtyFeeReceiver.deposit(from: <-flowtyFeeCut)
 
             // create the Rental resource on the Flowty accounts' marketplace
@@ -448,7 +454,7 @@ pub contract FlowtyRentals {
                 listingResourceID: listingResourceID,
                 rentalResourceID: rentalResourceID,
                 nftID: self.details.nftID,
-                nftType: self.details.nftType,
+                nftType: self.details.nftType.identifier,
                 amount: self.details.amount,
                 deposit: self.details.deposit,
                 enabledAutomaticReturn: enabledAutomaticReturn
@@ -501,6 +507,12 @@ pub contract FlowtyRentals {
             expiresAfter: UFix64,
             renter: Address?
         ) {
+            pre {
+                nftProviderCapability.check(): "nftProviderCapability failed check"
+                nftPublicCollectionCapability.check(): "nftPublicCollectionCapability failed check"
+                ownerFungibleTokenReceiver.check(): "ownerFungibleTokenReceiver failed check"
+            }
+
             self.details = ListingDetails(
                 nftType: nftType,
                 nftID: nftID,
@@ -513,14 +525,12 @@ pub contract FlowtyRentals {
                 expiresAfter: expiresAfter,
                 renter: renter
             )
-
             self.nftProviderCapability = nftProviderCapability
             self.nftPublicCollectionCapability = nftPublicCollectionCapability
             self.ownerFungibleTokenReceiver = ownerFungibleTokenReceiver
-            let provider = self.nftProviderCapability.borrow()
-            assert(provider != nil, message: "cannot borrow nftProviderCapability")
+            let provider = self.nftProviderCapability.borrow()!
 
-            let nft = provider!.borrowNFT(id: self.details.nftID)
+            let nft = provider.borrowNFT(id: self.details.nftID)
             assert(nft.getType() ==self.details.nftType, message: "token is not of specified type")
             assert(nft.id == self.details.nftID, message: "token does not have specified ID")
         }
@@ -731,19 +741,20 @@ pub contract FlowtyRentals {
             // do we have a provider?
             if self.renterNFTProvider != nil {
                 // borrow it.
-                if let renterNFTProvider = self.renterNFTProvider!.borrow() {
+                if self.renterNFTProvider!.check() {
+                    let renterNFTProvider = self.renterNFTProvider!.borrow()!
                     // does this NFT Collection have the ID that we need to withdraw?
                     let ids = renterNFTProvider.getIDs()
                     if ids.contains(self.details.nftID) {
-                        let deposit <- self.depositedFungibleTokens <- nil
-                        FlowtyUtils.trySendFungibleTokenVault(vault: <-deposit!, receiver: self.renterFungibleTokenReceiver)
-
                         let borrowedNFT = renterNFTProvider.borrowNFT(id: self.details.nftID)
                         if borrowedNFT != nil && borrowedNFT.getType() == self.details.nftType && borrowedNFT.id == self.details.nftID {
                             let nft <- renterNFTProvider.withdraw(withdrawID: self.details.nftID)
                             if nft.getType() == self.details.nftType && nft.id == self.details.nftID {
                                 FlowtyUtils.trySendNFT(nft: <-nft, receiver: self.ownerNFTCollectionPublic)
-                                                    
+
+                                let deposit <- self.depositedFungibleTokens <- nil
+                                FlowtyUtils.trySendFungibleTokenVault(vault: <-deposit!, receiver: self.renterFungibleTokenReceiver)
+
                                 // it worked! the nft is returned
                                 self.details.setToReturned()
 
@@ -802,7 +813,7 @@ pub contract FlowtyRentals {
                 renter: self.renterFungibleTokenReceiver.address,
                 lender: self.ownerFungibleTokenReceiver.address,
                 nftID: self.details.nftID,
-                nftType: self.details.nftType,
+                nftType: self.details.nftType.identifier,
                 deposit: self.listingDetails.deposit
             )
         }
@@ -936,7 +947,7 @@ pub contract FlowtyRentals {
 
         pub fun borrowRental(rentalResourceID: UInt64): &Rental{RentalPublic}? {
             if self.rentals[rentalResourceID] != nil {
-                return &self.rentals[rentalResourceID] as! &Rental{RentalPublic}
+                return &self.rentals[rentalResourceID] as &Rental{RentalPublic}?
             } else {
                 return nil
             }
@@ -944,7 +955,7 @@ pub contract FlowtyRentals {
 
         pub fun borrowPrivateRental(rentalResourceID: UInt64): &Rental? {
             if self.rentals[rentalResourceID] != nil {
-                return &self.rentals[rentalResourceID] as! &Rental
+                return &self.rentals[rentalResourceID] as &Rental?
             } else {
                 return nil
             }
@@ -1014,7 +1025,7 @@ pub contract FlowtyRentals {
              pre {
                 FlowtyUtils.isTokenSupported(type: paymentVaultType): "provided payment type is not supported"
                 Flowty.SupportedCollections[nftType.identifier] == nil: "nftType is not supported"
-                paymentCut.receiver.borrow()!.getType() == paymentVaultType: "paymentCut receiver type and paymentVaultType do not match"
+                paymentCut.receiver.check() && paymentCut.receiver.borrow()!.getType() == paymentVaultType: "paymentCut receiver type and paymentVaultType do not match"
             }
 
             // create the listing
@@ -1047,14 +1058,14 @@ pub contract FlowtyRentals {
                 flowtyStorefrontAddress: self.owner!.address,
                 flowtyStorefrontID: self.uuid,
                 listingResourceID: listingResourceID,
-                nftType: nftType,
+                nftType: nftType.identifier,
                 nftID: nftID,
                 amount: amount,
                 deposit: deposit,
                 term: term,
                 royaltyRate: royaltyRate,
                 expiresAfter: expiration,
-                paymentTokenType: paymentVaultType,
+                paymentTokenType: paymentVaultType.identifier,
                 renter: renter
             )
 
@@ -1074,7 +1085,7 @@ pub contract FlowtyRentals {
 
         pub fun borrowListing(listingResourceID: UInt64): &Listing{ListingPublic}? {
             if self.listings[listingResourceID] != nil {
-                return &self.listings[listingResourceID] as! &Listing{ListingPublic}
+                return &self.listings[listingResourceID] as &Listing{ListingPublic}?
             } else {
                 return nil
             }
@@ -1124,8 +1135,7 @@ pub contract FlowtyRentals {
     }
 
     access(account) fun borrowMarketplace(): &FlowtyRentals.FlowtyRentalsMarketplace {
-        return self.account.borrow<&FlowtyRentals.FlowtyRentalsMarketplace>(from: FlowtyRentals.FlowtyRentalsMarketplaceStoragePath)
-            ?? panic("Missing or mis-typed FlowtyRentals FlowtyRentalsMarketplace")
+        return self.account.borrow<&FlowtyRentals.FlowtyRentalsMarketplace>(from: FlowtyRentals.FlowtyRentalsMarketplaceStoragePath)!
     }
 
     pub resource FlowtyRentalsAdmin {
