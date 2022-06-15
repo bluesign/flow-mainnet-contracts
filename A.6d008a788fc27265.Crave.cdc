@@ -122,7 +122,7 @@ pub contract Crave: NonFungibleToken {
         pub let seriesIdentityURL: String?
 
          init() {
-            var referencedSeries = &Crave.seriesDatas[Crave.currentSeriesID] as &Series
+            var referencedSeries = (&Crave.seriesDatas[Crave.currentSeriesID] as &Series?)!
             self.seriesID = referencedSeries.seriesID
             self.name = referencedSeries.name
             self.seriesIdentityURL = referencedSeries.seriesIdentityURL
@@ -191,7 +191,11 @@ pub contract Crave: NonFungibleToken {
         pub var numberMintedPerCollectibleItem: {UInt32: UInt32}
 
         init(setID: UInt32) {
-            var referencedSet = &Crave.sets[setID] as &Set
+            pre {
+                Crave.sets[setID] != nil: "Cannot borrow Set: The Set doesn't exist"
+            }
+
+            var referencedSet = (&Crave.sets[setID] as &Set?)!
 
             self.setID = referencedSet.setID
             self.name = referencedSet.name
@@ -495,7 +499,7 @@ pub contract Crave: NonFungibleToken {
             
             // Get a reference to the Set and return it
             // use `&` to indicate the reference to the object and type
-            return &Crave.sets[setID] as &Set
+            return (&Crave.sets[setID] as &Set?)!
         }
 
         // startNewSeries ends the current series by creating a new Series, 
@@ -693,7 +697,7 @@ pub contract Crave: NonFungibleToken {
         // not any Crave specific data. Please use borrowCollectible to 
         // read Collectible data.
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowCollectible returns a borrowed reference to a Collectible
@@ -708,7 +712,7 @@ pub contract Crave: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowCollectible(id: UInt64): &Crave.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Crave.NFT
             } else {
                 return nil
