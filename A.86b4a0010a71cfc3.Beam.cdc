@@ -122,7 +122,7 @@ pub contract Beam: NonFungibleToken {
         pub let seriesIdentityURL: String?
 
          init() {
-            var referencedSeries = &Beam.seriesDatas[Beam.currentSeriesID] as &Series
+            var referencedSeries = (&Beam.seriesDatas[Beam.currentSeriesID] as &Series?)!
             self.seriesID = referencedSeries.seriesID
             self.name = referencedSeries.name
             self.seriesIdentityURL = referencedSeries.seriesIdentityURL
@@ -191,7 +191,7 @@ pub contract Beam: NonFungibleToken {
         pub var numberMintedPerCollectibleItem: {UInt32: UInt32}
 
         init(setID: UInt32) {
-            var referencedSet = &Beam.sets[setID] as &Set
+            var referencedSet = (&Beam.sets[setID] as &Set?)!
 
             self.setID = referencedSet.setID
             self.name = referencedSet.name
@@ -495,7 +495,7 @@ pub contract Beam: NonFungibleToken {
             
             // Get a reference to the Set and return it
             // use `&` to indicate the reference to the object and type
-            return &Beam.sets[setID] as &Set
+            return (&Beam.sets[setID] as &Set?)!
         }
 
         // startNewSeries ends the current series by creating a new Series, 
@@ -693,7 +693,7 @@ pub contract Beam: NonFungibleToken {
         // not any Beam specific data. Please use borrowCollectible to 
         // read Collectible data.
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowCollectible returns a borrowed reference to a Collectible
@@ -708,7 +708,7 @@ pub contract Beam: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowCollectible(id: UInt64): &Beam.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Beam.NFT
             } else {
                 return nil
