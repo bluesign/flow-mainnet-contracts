@@ -18,6 +18,7 @@ pub contract SturdyItems: NonFungibleToken {
 		artist: String, 
 		secondaryRoyalty: String, 
 		platformMintedOn: String)
+    pub event Purchased(buyer: Address, id: UInt64, price: UInt64)
 
     // Named Paths
     //
@@ -50,6 +51,8 @@ pub contract SturdyItems: NonFungibleToken {
         pub let secondaryRoyalty: String
         // Platform Minted On
         pub let platformMintedOn: String
+        // Token Price
+        // pub let price: UInt64
 
         // initializer
         //
@@ -60,7 +63,8 @@ pub contract SturdyItems: NonFungibleToken {
         	initTokenDescription: String, 
         	initArtist: String, 
         	initSecondaryRoyalty: String,
-        	initPlatformMintedOn: String) {
+        	initPlatformMintedOn: String
+        ) {
 	   			self.id = initID
 	            self.typeID = initTypeID
 	            self.tokenURI = initTokenURI
@@ -138,7 +142,7 @@ pub contract SturdyItems: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowSturdyItem
@@ -148,8 +152,8 @@ pub contract SturdyItems: NonFungibleToken {
         //
         pub fun borrowSturdyItem(id: UInt64): &SturdyItems.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &SturdyItems.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+                return ref as! &SturdyItems.NFT?
             } else {
                 return nil
             }
@@ -174,6 +178,15 @@ pub contract SturdyItems: NonFungibleToken {
         return <- create Collection()
     }
 
+    // purchased
+    // Remain price information
+    //
+    pub fun purchased(recipient: Address, tokenID: UInt64, price: UInt64): UInt64 {
+        emit Purchased(buyer: recipient, id: tokenID, price: price)
+        return tokenID
+    }
+
+
     // NFTMinter
     // Resource that an admin or something similar would own to be
     // able to mint new NFTs
@@ -184,6 +197,9 @@ pub contract SturdyItems: NonFungibleToken {
         // Mints a new NFT with a new ID
 		// and deposit it in the recipients collection using their collection reference
         //
+        // price: UInt64
+        // price: price
+        // initPrice: price
 		pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}, 
 			typeID: UInt64, 
 			tokenURI: String, 
@@ -191,7 +207,8 @@ pub contract SturdyItems: NonFungibleToken {
 			tokenDescription: String, 
 		 	artist: String, 
 		 	secondaryRoyalty: String,  
-		 	platformMintedOn: String) {
+		 	platformMintedOn: String
+        ) {
             SturdyItems.totalSupply = SturdyItems.totalSupply + (1 as UInt64)
             emit Minted(id: SturdyItems.totalSupply, 
             	typeID: typeID, 
@@ -200,7 +217,8 @@ pub contract SturdyItems: NonFungibleToken {
             	tokenDescription: tokenDescription,
             	artist: artist, 
             	secondaryRoyalty: secondaryRoyalty, 
-            	platformMintedOn: platformMintedOn)
+            	platformMintedOn: platformMintedOn
+            )
 
 			// deposit it in the recipient's account using their reference
 			recipient.deposit(token: <-create SturdyItems.NFT(
@@ -211,7 +229,8 @@ pub contract SturdyItems: NonFungibleToken {
 				initTokenDescription: tokenDescription,
 				initArtist: artist,
 				initSecondaryRoyalty: secondaryRoyalty,
-				initPlatformMintedOn: platformMintedOn))
+				initPlatformMintedOn: platformMintedOn
+            ))
 		}
 	}
 
