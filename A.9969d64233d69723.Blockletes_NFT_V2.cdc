@@ -111,7 +111,7 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
             }
             
             for key in abilitiesUpgrade.abilityUpgrades.keys {
-                self.attributes[key] = self.attributes[key]! + abilitiesUpgrade.abilityUpgrades[key]!;
+                self.attributes[key] = self.attributes[key]! + abilitiesUpgrade.abilityUpgrades[key]!
             }
 
             destroy abilitiesUpgrade
@@ -195,7 +195,7 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
         // by authorized roles, such as admins or trainers
         //
         pub fun upgradeBlocklete(tokenId: UInt64, abilitiesUpgrade: @AbilitiesUpgradeBundle) {
-            let ref = &self.ownedNFTs[tokenId] as auth &NonFungibleToken.NFT
+            let ref = (&self.ownedNFTs[tokenId] as auth &NonFungibleToken.NFT?)!
             let blockleteToken = ref as! &Blockletes_NFT_V2.NFT
             blockleteToken.upgrade(abilitiesUpgrade: <-abilitiesUpgrade)
         }
@@ -276,7 +276,7 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowBlocklete
@@ -286,7 +286,7 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
         //
         pub fun borrowBlocklete(id: UInt64): &Blockletes_NFT_V2.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Blockletes_NFT_V2.NFT
             } else {
                 return nil
@@ -315,35 +315,35 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
     // NFTMinter
     // Resource that allows an admin to mint new NFTs
     //
-    pub resource NFTMinter {
+	pub resource NFTMinter {
 
-        // mintBlocklete
+		// mintBlocklete
         // Mints a new Blocklete NFT with a new ID
-        // and deposits it in the recipients collection using their collection reference
+		// and deposits it in the recipients collection using their collection reference
         //
-        pub fun mintBlocklete(recipient: &{NonFungibleToken.CollectionPublic}, newAttributes: {UInt16: UInt16}) {
+		pub fun mintBlocklete(recipient: &{NonFungibleToken.CollectionPublic}, newAttributes: {UInt16: UInt16}) {
             emit Minted(id: Blockletes_NFT_V2.totalSupply)
 
-            // deposit it in the recipient's account using their reference
-            recipient.deposit(token: <-create Blockletes_NFT_V2.NFT(
+			// deposit it in the recipient's account using their reference
+			recipient.deposit(token: <-create Blockletes_NFT_V2.NFT(
                 initID: Blockletes_NFT_V2.totalSupply,
                 attributes: newAttributes
             ))
 
             Blockletes_NFT_V2.totalSupply = Blockletes_NFT_V2.totalSupply + (1 as UInt64)
-        }
+		}
  
         // batchMintBlockletes
         // Mints multiple new Blocklete NFTs given a list of Blocklete attributes
-        // and deposits the NFTs into the recipients collection using their collection reference
+		// and deposits the NFTs into the recipients collection using their collection reference
         //
-        pub fun batchMintBlockletes(recipient: &{NonFungibleToken.CollectionPublic}, attributesList: [{UInt16: UInt16}]) {
+		pub fun batchMintBlockletes(recipient: &{NonFungibleToken.CollectionPublic}, attributesList: [{UInt16: UInt16}]) {
             for attributes in attributesList {
-                // deposit it in the recipient's account using their reference
-                self.mintBlocklete(recipient: recipient, newAttributes: attributes);
+			    // deposit it in the recipient's account using their reference
+                self.mintBlocklete(recipient: recipient, newAttributes: attributes)
             }
-        }
-    }
+		}
+	}
 
     // fetch
     // Get a reference to a Blocklete from an account's Collection, if available.
@@ -363,7 +363,7 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
 
     // initializer
     //
-    init() {
+	init() {
         // Set our named paths
         self.CollectionStoragePath = /storage/BlockletesCollection_NFT_V2
         self.CollectionPublicPath = /public/BlockletesCollection_NFT_V2
@@ -391,6 +391,7 @@ pub contract Blockletes_NFT_V2: NonFungibleToken {
             target: self.AdminStoragePath
         ) ?? panic("Could not get a capability to the admin")
 
-        emit ContractInitialized()  
-    }
+        emit ContractInitialized()
+	}
 }
+ 
