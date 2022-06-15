@@ -359,7 +359,7 @@ pub contract MaterialNFT: NonFungibleToken {
         // read Material data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Parameters: id: The ID of the NFT to get the reference for
@@ -367,7 +367,7 @@ pub contract MaterialNFT: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowMaterial(id: UInt64): &MaterialNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &MaterialNFT.NFT
             } else {
                 return nil
@@ -441,9 +441,9 @@ pub contract MaterialNFT: NonFungibleToken {
         self.royaltyPercentage = 0.10
         self.isMaterialDataRetired = {}
         self.totalSupply = 0
-        self.CollectionPublicPath = /public/MaterialCollection20
-        self.CollectionStoragePath = /storage/MaterialCollection20
-        self.AdminStoragePath = /storage/MaterialAdmin20
+        self.CollectionPublicPath = /public/MaterialCollection0021
+        self.CollectionStoragePath = /storage/MaterialCollection0021
+        self.AdminStoragePath = /storage/MaterialAdmin0021
 
         // Put a new Collection in storage
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
