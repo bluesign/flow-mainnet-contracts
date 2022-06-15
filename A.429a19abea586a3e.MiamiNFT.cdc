@@ -41,7 +41,6 @@ pub contract MiamiNFT: NonFungibleToken {
     pub let CollectionStoragePath: StoragePath
 
     pub let CollectionPublicPath: PublicPath
-
     pub let AdminStoragePath: StoragePath
 
     // Variable size dictionary of Miami structs
