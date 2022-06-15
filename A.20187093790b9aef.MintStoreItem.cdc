@@ -146,7 +146,7 @@ pub contract MintStoreItem: NonFungibleToken {
              if MintStoreItem.editions[editionID] == nil {
                 panic("the editionID was not found")
             }
-            let editionToRead = &MintStoreItem.editions[editionID] as &Edition
+            let editionToRead = (&MintStoreItem.editions[editionID] as &Edition?)!
 
             self.editionID = editionID
             self.metadata = editionToRead.metadata
@@ -269,6 +269,56 @@ pub contract MintStoreItem: NonFungibleToken {
             }
 
             return <-newCollection
+        }
+
+        // updateMetadata updates the metadata
+        //
+        // Parameters: 
+        //
+        // updates: a dictionary of key - values that is requested to be appended
+        //
+        // suffix: If the metadata already contains an attribute with a given key, this value should still be kept 
+        // for posteriority. Therefore, the old value to be replaced will be stored in a metadata entry with key = key+suffix. 
+        // This can offer some reassurance to the NFT owner that the metadata will never disappear.
+        // 
+        // Returns: the EditionID
+        //
+        pub fun updateMetadata(updates: {String:String}, suffix: String): UInt32 {
+           
+
+
+            // prevalidation 
+            // if metadata[key] exists and metadata[key+suffix] exists, we have a clash.
+            for key in updates.keys {
+
+                let newKey = key.concat(suffix)
+
+                if self.metadata[key] != nil && self.metadata[newKey]!=nil {
+                    var errorMsg = "attributes "
+                    errorMsg = errorMsg.concat(key).concat(" and ").concat(newKey).concat(" are already defined")
+                    panic(errorMsg)
+                }
+                    
+
+            }
+
+            // execution
+            for key in updates.keys {
+
+                let newKey = key.concat(suffix)
+
+                if self.metadata[key] != nil {
+                    self.metadata[newKey] = self.metadata[key]    
+                }
+                self.metadata[key] = updates[key]
+                
+            }
+
+
+            emit EditionMetadaUpdated(editionID: self.editionID)
+            
+            // Return the EditionID and return it
+            return self.editionID
         }
 
     }
@@ -409,7 +459,7 @@ pub contract MintStoreItem: NonFungibleToken {
             }
             
             // Get a reference to the Edition and return it
-            return &MintStoreItem.editions[editionID] as &Edition
+            return (&MintStoreItem.editions[editionID] as &Edition?)!
         }
 
         // updateEditionMetadata returns a reference to an edition in the MintStoreItem
@@ -431,37 +481,8 @@ pub contract MintStoreItem: NonFungibleToken {
                 MintStoreItem.editions[editionID] != nil: "Cannot borrow Edition: it does not exist"
             }
 
-            let edition = self.borrowEdition(editionID: editionID)
-
-            // prevalidation 
-            // if metadata[key] exists and metadata[key+suffix] exists, we have a clash.
-            for key in updates.keys {
-
-                let newKey = key.concat(suffix)
-
-                if edition.metadata[key] != nil && edition.metadata[newKey]!=nil {
-                    var errorMsg = "attributes "
-                    errorMsg = errorMsg.concat(key).concat(" and ").concat(newKey).concat(" are already defined")
-                    panic(errorMsg)
-                }
-                    
-
-            }
-
-            // execution
-            for key in updates.keys {
-
-                let newKey = key.concat(suffix)
-
-                if edition.metadata[key] != nil {
-                    edition.metadata[newKey] = edition.metadata[key]    
-                }
-                edition.metadata[key] = updates[key]
-                
-            }
-
-
-            emit EditionMetadaUpdated(editionID: editionID)
+            let editionRef = &MintStoreItem.editions[editionID] as &Edition?
+            editionRef!.updateMetadata(updates: updates, suffix: suffix)
             
             // Return the EditionID and return it
             return editionID
@@ -656,7 +677,7 @@ pub contract MintStoreItem: NonFungibleToken {
         // read MintStoreItem data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowMintStoreItem returns a borrowed reference to a MintStoreItem
@@ -671,7 +692,7 @@ pub contract MintStoreItem: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowMintStoreItem(id: UInt64): &MintStoreItem.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &MintStoreItem.NFT
             } else {
                 return nil
