@@ -275,7 +275,7 @@ pub contract NFTContract: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowNowWhereNFT returns a borrowed reference to a NFTContract
@@ -286,7 +286,7 @@ pub contract NFTContract: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowNowWhereNFT(id: UInt64): &NFTContract.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &NFTContract.NFT
             } else {
                 return nil
