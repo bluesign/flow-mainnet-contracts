@@ -93,8 +93,6 @@ pub contract Costacos_NFT: NonFungibleToken {
             self.maxEditions = maxEditions
             self.metadata = metadata
             self.ipfsMetadataHashes = ipfsMetadataHashes
-
-            emit SetCreated(seriesId: self.seriesId, setId: self.setId)
         }
 
         pub fun getIpfsMetadataHash(editionNum: UInt32): String? {
@@ -125,8 +123,6 @@ pub contract Costacos_NFT: NonFungibleToken {
             metadata: {String: String}) {
             self.seriesId = seriesId
             self.metadata = metadata
-
-            emit SeriesCreated(seriesId: self.seriesId)
         }
 
         pub fun getMetadata(): {String: String} {
@@ -167,7 +163,9 @@ pub contract Costacos_NFT: NonFungibleToken {
             Costacos_NFT.seriesData[seriesId] = SeriesData(
                     seriesId: seriesId,
                     metadata: metadata
-            )      
+            )
+
+            emit SeriesCreated(seriesId: seriesId)   
         }
 
         pub fun addNftSet(
@@ -381,7 +379,7 @@ pub contract Costacos_NFT: NonFungibleToken {
             }
 
             // Get a reference to the Series and return it
-            return &Costacos_NFT.series[seriesId] as &Series
+            return (&Costacos_NFT.series[seriesId] as &Series?)!
         }
 
         pub fun createNewAdmin(): @Admin {
@@ -493,7 +491,7 @@ pub contract Costacos_NFT: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowCostacos_NFT
@@ -502,12 +500,8 @@ pub contract Costacos_NFT: NonFungibleToken {
         // This is safe as there are no functions that can be called on the Costacos_NFT.
         //
         pub fun borrowCostacos_NFT(id: UInt64): &Costacos_NFT.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &Costacos_NFT.NFT
-            } else {
-                return nil
-            }
+            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+            return ref as! &Costacos_NFT.NFT?
         }
 
         // destructor
