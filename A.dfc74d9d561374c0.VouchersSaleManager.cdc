@@ -5,9 +5,9 @@
     sale and have ability to mint editions themself.
 */
 
+import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import FlowToken from 0x1654653399040a61
-import NonFungibleToken from 0x1d7e57aa55817448
 import GoatedGoatsVouchers from 0xdfc74d9d561374c0
 import TraitPacksVouchers from 0xdfc74d9d561374c0
 import VouchersSaleManagerHelper from 0xdfc74d9d561374c0
@@ -179,7 +179,8 @@ pub contract VouchersSaleManager {
             GoatedGoatsVouchers.totalSupply + 1 <= self.maxSupply : "Unable to mint any more editions, reached max supply"
         }
         let goatVoucher <- GoatedGoatsVouchers.mint(nftID: edition)
-        VouchersSaleManagerHelper.mintedGoatVoucherEditions[edition] = true
+        VouchersSaleManagerHelper.setSequentialGoatEditionNumber(edition)
+
         return <-goatVoucher
     }
 
@@ -187,7 +188,7 @@ pub contract VouchersSaleManager {
     access(self) fun mintSequentialGoatVoucher(): @NonFungibleToken.NFT {
         var curEditionNumber = VouchersSaleManagerHelper.curSequentialGoatEditionNumber
         while (self.mintedEditions.containsKey(UInt64(curEditionNumber)) ||
-                VouchersSaleManagerHelper.mintedGoatVoucherEditions.containsKey(UInt64(curEditionNumber))) {
+                VouchersSaleManagerHelper.hasGoatVoucherEdition(UInt64(curEditionNumber))) {
             curEditionNumber = curEditionNumber + 1
         }
         VouchersSaleManagerHelper.setSequentialGoatEditionNumber(curEditionNumber)
@@ -203,7 +204,7 @@ pub contract VouchersSaleManager {
             TraitPacksVouchers.totalSupply + 1 <= self.maxSupply : "Unable to mint any more editions, reached max supply"
         }
         let traitPackVoucher <- TraitPacksVouchers.mint(nftID: edition)
-        VouchersSaleManagerHelper.mintedPackVoucherEditions[edition] = true
+        VouchersSaleManagerHelper.setMintedPackVoucherEditionToMinted(edition)
         return <-traitPackVoucher
     }
 
