@@ -38,13 +38,16 @@ pub contract ZeedzMarketplace {
         init(storefrontPublicCapability: Capability<&{NFTStorefront.StorefrontPublic}>, listingID: UInt64) {
             self.storefrontPublicCapability = storefrontPublicCapability
             self.listingID = listingID
-            let storefrontPublic = storefrontPublicCapability.borrow() ?? panic("Could not borrow public storefront from capability")
-            let listingPublic = storefrontPublic.borrowListing(listingResourceID: listingID) ?? panic("no listing id")
-            // check if owner is correct
-            assert(listingPublic.borrowNFT() != nil, message: "could not borrow NFT")
+            if storefrontPublicCapability.check() {
+                let storefrontPublic = storefrontPublicCapability.borrow()
+                let listingPublic = storefrontPublic!.borrowListing(listingResourceID: listingID) ?? panic("no listing id")
+                assert(listingPublic.borrowNFT() != nil, message: "could not borrow NFT")
+                self.listingDetails = listingPublic.getDetails()
+                self.timestamp = getCurrentBlock().timestamp
+            } else {
+                panic("Could not borrow public storefront from capability")
+            }
 
-            self.listingDetails = listingPublic.getDetails()
-            self.timestamp = getCurrentBlock().timestamp
         }
     }
 
@@ -121,11 +124,13 @@ pub contract ZeedzMarketplace {
     pub fun removeListing(id: UInt64) {
         if let item = self.listingIDItems[id] {
             // Skip if the listing item hasn't been purchased
-            if let storefrontPublic = item.storefrontPublicCapability.borrow() {
-                if let listingItem = storefrontPublic.borrowListing(listingResourceID: id) {
-                    let listingDetails = listingItem.getDetails()
-                    if listingDetails.purchased == false {
-                        return
+            if item.storefrontPublicCapability.check() {
+                if let storefrontPublic = item.storefrontPublicCapability.borrow() {
+                    if let listingItem = storefrontPublic.borrowListing(listingResourceID: id) {
+                        let listingDetails = listingItem.getDetails()
+                        if listingDetails.purchased == false {
+                            return
+                        }
                     }
                 }
             }
@@ -157,7 +162,7 @@ pub contract ZeedzMarketplace {
     }
 
     //
-    // Returns an array of the current marketplace SaleCutRequirements 
+    // Returns an array of the current marketplace SaleCutRequirements
     //
     pub fun getAllSaleCutRequirements(): {String: [SaleCutRequirement]} {
         return self.saleCutRequirements
@@ -170,7 +175,7 @@ pub contract ZeedzMarketplace {
         return self.saleCutRequirements[vaultType.identifier]
     }
 
-    // 
+    //
     // Helper function to add an item to the marketplace
     //
     access(contract) fun addItem(
@@ -197,7 +202,7 @@ pub contract ZeedzMarketplace {
                 }
             }
         }
-        
+
         // check sale cut
         if let requirements = self.saleCutRequirements[item.listingDetails.salePaymentVaultType.identifier] {
             for requirement in requirements {
@@ -205,8 +210,8 @@ pub contract ZeedzMarketplace {
 
                 var match = false
                 for saleCut in item.listingDetails.saleCuts {
-                    if saleCut.receiver.address == requirement.receiver.address &&
-                    saleCut.receiver.borrow()! == requirement.receiver.borrow()! {
+                    if saleCut.receiver.check() && requirement.receiver.check() && saleCut.receiver.address == requirement.receiver.address &&
+                    saleCut.receiver.borrow() == requirement.receiver.borrow() {
                         if saleCut.amount >= saleCutAmount {
                             match = true
                         }
