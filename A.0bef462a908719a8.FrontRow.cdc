@@ -402,7 +402,10 @@ pub contract FrontRow: NonFungibleToken {
     // read NFT data.
     //
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      pre {
+          self.ownedNFTs[id] != nil: "NFT does not exist in the collection!"
+      }
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     // borrowFrontRowNFT returns a borrowed reference to a FrontRow NFT
@@ -418,7 +421,7 @@ pub contract FrontRow: NonFungibleToken {
     //
     pub fun borrowFrontRowNFT(id: UInt64): &FrontRow.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
         return ref as! &FrontRow.NFT
       } else {
         return nil
@@ -440,7 +443,7 @@ pub contract FrontRow: NonFungibleToken {
         let maybeNftId = blueprint.getNftId(serialNumber)
         if let nftId = maybeNftId {
           if self.ownedNFTs[nftId] != nil {
-            let ref = &self.ownedNFTs[nftId] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[nftId] as auth &NonFungibleToken.NFT?)!
             return ref as! &FrontRow.NFT
           }
         }
