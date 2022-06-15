@@ -699,7 +699,7 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
         // “Je lève mon verre à la liberté.” 
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowDrink
@@ -712,7 +712,7 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
         //
         pub fun borrowDrink(id: UInt64): &PartyMansionDrinksContract.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &PartyMansionDrinksContract.NFT
             } else {
                 return nil
