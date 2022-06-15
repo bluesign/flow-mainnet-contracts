@@ -123,7 +123,7 @@ pub contract OlympicPin : NonFungibleToken {
     // the admin resource can call its methods.
     //
     // The admin can add pins to a Set so that the set can mint NFTs
-    // that reference that Pind.
+    // that reference that PinId.
     // The NFTs that are minted by a Set will be listed as belonging to
     // the Set that minted it, as well as the Pin it references.
     // 
@@ -190,7 +190,7 @@ pub contract OlympicPin : NonFungibleToken {
             pre {
                 OlympicPin.pins[pinId] != nil: "Cannot add the Pin to Set: Pin doesn't exist."
                 !self.locked: "Cannot add the Pin to the Set after the set has been locked."
-                self.numberMintedPerPin[pinId] == nil: "The pin has already beed added to the set."
+                self.numberMintedPerPin[pinId] == nil: "The pin has already been added to the set."
             }
 
             // Add the Pin to the array of pins
@@ -417,7 +417,7 @@ pub contract OlympicPin : NonFungibleToken {
 
             // Get a reference to the Set and return it
             // use `&` to indicate the reference to the object and type
-            return &OlympicPin.sets[setId] as &Set
+            return (&OlympicPin.sets[setId] as &Set?)!
         }
 
         // startNewSeries ends the current series by incrementing
@@ -533,7 +533,7 @@ pub contract OlympicPin : NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64) : &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowPiece returns a borrowed reference to a Piece
@@ -548,7 +548,7 @@ pub contract OlympicPin : NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowPiece(id: UInt64): &OlympicPin.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &OlympicPin.NFT
             } else {
                 return nil
