@@ -1,7 +1,7 @@
+import FUSD from 0x3c5959b568896393
+import StarlyCard from 0x5b82f21c0edf76e3
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
-import FUSD from 0x3c5959b568896393
-import StarlyCard from 0x5b82f21c0edf76e3   
 
 pub contract StarlyCardMarket {
 
@@ -408,7 +408,7 @@ pub contract StarlyCardMarket {
             if self.saleOffers[itemID] == nil {
                 return nil
             } else {
-                return &self.saleOffers[itemID] as &SaleOffer{SaleOfferPublicView}
+                return (&self.saleOffers[itemID] as &SaleOffer{SaleOfferPublicView}?)!
             }
         }
 
