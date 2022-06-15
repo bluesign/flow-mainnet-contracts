@@ -31,10 +31,6 @@ pub contract FanTopPermissionV2a {
             FanTopPermissionV2a.removePermission(address, role: role)
         }
 
-        pub fun setItemMintedCount(itemId: String, mintedCount: UInt32) {
-            FanTopToken.setItemMintedCount(itemId: itemId, mintedCount: mintedCount)
-        }
-
         priv init() {
             self.role = "owner"
         }
@@ -112,11 +108,11 @@ pub contract FanTopPermissionV2a {
         pub let role: String
 
         pub fun mintToken(refId: String, itemId: String, itemVersion: UInt32, metadata: { String: String }): @FanTopToken.NFT {
-            return <- FanTopToken.mintToken(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata)
+            return <- FanTopToken.mintToken(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata, minter: self.owner!.address)
         }
 
         pub fun mintTokenWithSerialNumber(refId: String, itemId: String, itemVersion: UInt32, metadata: { String: String }, serialNumber: UInt32): @FanTopToken.NFT {
-            return <- FanTopToken.mintTokenWithSerialNumber(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata, serialNumber: serialNumber)
+            return <- FanTopToken.mintTokenWithSerialNumber(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata, serialNumber: serialNumber, minter: self.owner!.address)
         }
 
         pub fun truncateSerialBox(itemId: String, limit: Int) {
@@ -208,6 +204,18 @@ pub contract FanTopPermissionV2a {
                 metadata: flatMetadata
             )
         }
+
+        pub fun cancel(
+            account: AuthAccount,
+            orderId: String
+        ) {
+            pre {
+                FanTopMarket.containsOrder(orderId): "Order is not exists"
+                account.address == FanTopMarket.getSellOrder(orderId)!.getOwner().address: "Cancel account is not match order account"
+            }
+
+            FanTopMarket.cancel(agent: nil, orderId: orderId)
+        }
     }
 
     pub resource interface Receiver {
@@ -233,7 +241,7 @@ pub contract FanTopPermissionV2a {
                 self.check(address: by.address): "Only borrowing by the owner is allowed"
                 FanTopPermissionV2a.hasPermission(by.address, role: role): "Roles not on the list are not allowed"
             }
-            return &self.resources[role] as! auth &AnyResource{Role}
+            return (&self.resources[role] as! auth &AnyResource{Role}?) ?? panic("Could not borrow role")
         }
 
         pub fun borrowAdmin(by: AuthAccount): &Admin {
@@ -347,6 +355,7 @@ pub contract FanTopPermissionV2a {
             self.account.address: { "owner": true }
         }
 
-        //self.account.save<@Owner>(<- create Owner(), to: self.ownerStoragePath)
+        self.account.save<@Owner>(<- create Owner(), to: self.ownerStoragePath)
     }
 }
+ 
