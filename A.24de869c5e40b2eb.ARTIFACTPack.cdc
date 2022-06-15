@@ -106,6 +106,10 @@ pub contract ARTIFACTPack: NonFungibleToken {
     pub fun updateLockStatus(lockStatus: Bool) {
       self.lockStatus = lockStatus
     }
+
+    pub fun removeIndex(indexPackAvailable: UInt64) {
+      self.packsAvailable.remove(at: indexPackAvailable)
+    }
   }
   
   // The resource that represents the Pack
@@ -143,21 +147,37 @@ pub contract ARTIFACTPack: NonFungibleToken {
     }
 
     pub fun resolveView(_ view: Type): AnyStruct? {
+
+        var mediaUri = ""
+        var description = ""
+
+        if (self.isOpen) {
+            description = self.metadata["descriptionOpened"]!
+            mediaUri = self.metadata["fileUriOpened"]!
+        } else {
+            description = self.metadata["descriptionUnopened"]!
+            mediaUri = self.metadata["fileUriUnopened"]!
+        }
+        let fileUri = mediaUri.slice(from: 7, upTo: mediaUri.length - 1)
+
+        var title = self.metadata["name"]!
         switch view {
             case Type<MetadataViews.Display>():
                 return MetadataViews.Display(
-                    name: "",
-                    description: "",
-                    thumbnail: MetadataViews.HTTPFile(
-                        url: ""
-                    )
+                    name: self.metadata["name"]!,
+                    description: description,
+                    thumbnail: MetadataViews.IPFSFile(
+                      cid: fileUri,
+                      path: nil
+                    ),
                 )
             case Type<ARTIFACTViews.ArtifactsDisplay>():
                 return ARTIFACTViews.ArtifactsDisplay(
                     name: self.metadata["name"]!,
-                    description: self.metadata["description"]!,
-                    thumbnail: MetadataViews.HTTPFile(
-                        url: self.metadata["image"]!
+                    description: description,
+                    thumbnail: MetadataViews.IPFSFile(
+                      cid: fileUri,
+                      path: nil
                     ),
                     metadata: self.metadata
                 )
@@ -214,7 +234,7 @@ pub contract ARTIFACTPack: NonFungibleToken {
     // Paramters: collection: The NFTs collection
     //
     pub fun openPack(packID: UInt64, owner: Address, collection: &{ARTIFACT.CollectionPublic}) {
-      let packRef = &self.ownedNFTs[packID] as auth &NonFungibleToken.NFT
+      let packRef = (&self.ownedNFTs[packID] as auth &NonFungibleToken.NFT?)!
       let pack = packRef as! &NFT
 
       var nfts: @[NonFungibleToken.NFT] <- pack.open(owner: owner)  
@@ -279,7 +299,7 @@ pub contract ARTIFACTPack: NonFungibleToken {
     //
     pub fun borrow(id: UInt64): &ARTIFACTPack.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
         return ref as! &ARTIFACTPack.NFT
       } else {
         return nil
@@ -287,11 +307,11 @@ pub contract ARTIFACTPack: NonFungibleToken {
     }
     
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {      
-      let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+      let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
       let artifactsPack = nft as! &NFT
       return artifactsPack as &{MetadataViews.Resolver}
     }
