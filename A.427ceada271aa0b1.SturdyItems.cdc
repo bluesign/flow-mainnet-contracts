@@ -153,7 +153,7 @@ pub contract SturdyItems: NonFungibleToken {
         pub fun borrowSturdyItem(id: UInt64): &SturdyItems.NFT? {
             if self.ownedNFTs[id] != nil {
                 let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
-                return ref as! &SturdyItems.NFT?
+                return ref as! &SturdyItems.NFT
             } else {
                 return nil
             }
