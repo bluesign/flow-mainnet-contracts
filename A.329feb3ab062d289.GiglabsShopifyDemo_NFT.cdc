@@ -5,7 +5,7 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
 
     // GiglabsShopifyDemo_NFT Events
     //
-    // Emitted when the NBA_NFT contract is created
+    // Emitted when the GiglabsShopifyDemo_NFT contract is created
     pub event ContractInitialized()
 
     // Emitted when an NFT is minted
@@ -93,8 +93,6 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
             self.maxEditions = maxEditions
             self.metadata = metadata
             self.ipfsMetadataHashes = ipfsMetadataHashes
-
-            emit SetCreated(seriesId: self.seriesId, setId: self.setId)
         }
 
         pub fun getIpfsMetadataHash(editionNum: UInt32): String? {
@@ -110,13 +108,8 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
         }
     }
 
-    // A SeriesData is a Struct that that groups metadata for a 
-    // a related group of NFTSets. For example, all Teams in a 
-    // particular sports league could be grouped in one Series,
-    // or a collection of NFTs for a particular drop could 
-    // be grouped as a Series, or a Series can simply be
-    // a Series of unrelated NFTs that get dropped over a 
-    // period of time (ex. 2022).
+    // A SeriesData is a struct that groups metadata for a 
+    // a related group of NFTSets.
     pub struct SeriesData {
 
         // Unique ID for the Series
@@ -130,8 +123,6 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
             metadata: {String: String}) {
             self.seriesId = seriesId
             self.metadata = metadata
-
-            emit SeriesCreated(seriesId: self.seriesId)
         }
 
         pub fun getMetadata(): {String: String} {
@@ -172,7 +163,9 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
             GiglabsShopifyDemo_NFT.seriesData[seriesId] = SeriesData(
                     seriesId: seriesId,
                     metadata: metadata
-            )      
+            )
+
+            emit SeriesCreated(seriesId: seriesId)   
         }
 
         pub fun addNftSet(
@@ -386,7 +379,7 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
             }
 
             // Get a reference to the Series and return it
-            return &GiglabsShopifyDemo_NFT.series[seriesId] as &Series
+            return (&GiglabsShopifyDemo_NFT.series[seriesId] as &Series?)!
         }
 
         pub fun createNewAdmin(): @Admin {
@@ -498,7 +491,7 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowGiglabsShopifyDemo_NFT
@@ -507,12 +500,8 @@ pub contract GiglabsShopifyDemo_NFT: NonFungibleToken {
         // This is safe as there are no functions that can be called on the GiglabsShopifyDemo_NFT.
         //
         pub fun borrowGiglabsShopifyDemo_NFT(id: UInt64): &GiglabsShopifyDemo_NFT.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &GiglabsShopifyDemo_NFT.NFT
-            } else {
-                return nil
-            }
+            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+            return ref as! &GiglabsShopifyDemo_NFT.NFT?
         }
 
         // destructor
