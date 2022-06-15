@@ -96,7 +96,7 @@ pub contract FanTopPermission {
 
     pub resource Minter {
         pub fun mintToken(refId: String, itemId: String, itemVersion: UInt32, metadata: { String: String }): @FanTopToken.NFT {
-            return <- FanTopToken.mintToken(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata)
+            return <- FanTopToken.mintToken(refId: refId, itemId: itemId, itemVersion: itemVersion, metadata: metadata, minter: self.owner!.address)
         }
 
         access(contract) init() {
