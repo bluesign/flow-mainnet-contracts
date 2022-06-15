@@ -338,13 +338,15 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         pub fun spendAccessUnit(): @AccessToken {
             pre {
                 self.accessUnits > 0 : "Must have more than 0 access units to spend"
+                self.promotionsCap.check():
+                "The promotion this TheFabricantAccessPass came from has been deleted!"
                 
             }
             post {
                 before(self.accessUnits) == self.accessUnits + 1: "Access units must be decremented"
             }
   
-            let promotions = self.promotionsCap.borrow() ?? panic("The promotion this TheFabricantAccessPass came from has been deleted!")
+            let promotions = self.promotionsCap.borrow()!
             let promotion = promotions.getPromotionRef(id: self.promotionId) ?? panic("No promotion with id exists")
 
             // Some gated areas/activities may require an AccessToken for entry.
@@ -394,6 +396,10 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         // An AccessPass might have metadata associated with it that is provided
         // by the Promotion
         pub fun getPromotionMetadata(): {String: String}? {
+            pre {
+                self.promotionsCap.check():
+                "promotions capability invalid"
+            }
             if let promotions = self.promotionsCap.borrow() {
                 let promotion: &Promotion = promotions.getPromotionRef(id: self.promotionId) ?? panic("promotion with id doesn't exist")
                 if let metadataId = self.metadataId {
@@ -409,8 +415,8 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         pub fun getViews(): [Type] {
             return [
                 Type<MetadataViews.Display>(),
-                Type<TheFabricantMetadataViews.AccessPassMetadataView>(),
-                Type<TheFabricantMetadataViews.Identifier>()
+                Type<TheFabricantMetadataViews.AccessPassMetadataViewV2>(),
+                Type<TheFabricantMetadataViews.IdentifierV2>()
             ]
         }
 
@@ -424,34 +430,38 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
                             url: self.file
                         )
                     )
-                case Type<TheFabricantMetadataViews.AccessPassMetadataView>():
-                    return TheFabricantMetadataViews.AccessPassMetadataView(
+                case Type<TheFabricantMetadataViews.AccessPassMetadataViewV2>():
+                    return TheFabricantMetadataViews.AccessPassMetadataViewV2(
                         id: self.id,
-                        serial: self.serial,
+                        season: self.season,
                         campaignName: self.campaignName,
+                        promotionName: self.promotionName,
+                        edition: self.serial,
                         variant: self.variant,
                         description: self.description,
                         file: self.file,
                         dateReceived: self.dateReceived,
                         promotionId: self.promotionId,
                         promotionHost: self.promotionHost,
-                        metadataId: self.metadataId,
-                        metadata: self.getPromotionMetadata(),
                         originalRecipient: self.originalRecipient,
                         accessUnits: self.accessUnits,
                         initialAccessUnits: self.initialAccessUnits,
+                        metadataId: self.metadataId,
+                        metadata: self.getPromotionMetadata(),
                         extraMetadata: self.extraMetadata,
+                        royalties: self.royalties,
+                        royaltiesTFMarketplace: self.royaltiesTFMarketplace,
                         owner: self.owner!.address,
                     )
-                case Type<TheFabricantMetadataViews.Identifier>():
-                    return TheFabricantMetadataViews.Identifier(
+                case Type<TheFabricantMetadataViews.IdentifierV2>():
+                    return TheFabricantMetadataViews.IdentifierV2(
                         season: self.season,
                         campaignName: self.campaignName,
                         promotionName: self.promotionName,
                         promotionId: self.promotionId,
+                        edition: self.serial,
                         variant: self.variant,
                         id: self.id,
-                        serial: self.serial,
                         address: self.owner!.address,
                         dateReceived: self.dateReceived,
                         originalRecipient: self.originalRecipient,
@@ -694,7 +704,7 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
             let response: [UInt64] = []
 
             for id in ids {
-                let tokenRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let tokenRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 let nftRef = tokenRef as! &NFT
                 if nftRef.promotionsCap.check() {
                     response.append(id)
@@ -708,12 +718,12 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowTheFabricantAccessPass(id: UInt64): &NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &NFT
             } else {
                 return nil
@@ -721,7 +731,7 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         }
 
         pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
-            let tokenRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let tokenRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let nftRef = tokenRef as! &NFT
             return nftRef as &{MetadataViews.Resolver}
         }
@@ -1102,7 +1112,7 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
                 originalRecipient: originalRecipient,
                 accessUnits: accessUnits,
                 initialAccessUnits: initialAccessUnits,
-                metadataId: metadataId
+                metadataId: metadataId,
             )
             self.currentHolders[serial] = identifier;
 
@@ -1167,8 +1177,8 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
                     self.totalSupply == before(self.totalSupply) + 1
                 }
             
-            let supply = self.totalSupply
             self.totalSupply = self.totalSupply + 1
+            let supply = self.totalSupply
             var metadata: {String: String}? = nil
             if let _metadatas = self.accessPassMetadatas  {
                 // If there is accessPassMetadata provided, then the nft must have one
@@ -1202,7 +1212,7 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
                 promotionId: nft.promotionId,
                 variant: nft.variant,
                 id: nft.uuid, 
-                serial: supply, 
+                serial: nft.serial,
                 address: recipient,
                 dateReceived: nft.dateReceived,
                 originalRecipient: nft.originalRecipient,
@@ -1499,7 +1509,7 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
 
         // Used to access promotions internally
         access(account) fun getPromotionRef(id: UInt64): &TheFabricantAccessPass.Promotion? {
-            return &self.promotions[id] as &TheFabricantAccessPass.Promotion
+            return (&self.promotions[id] as &TheFabricantAccessPass.Promotion?)
         }
 
         pub fun getAllPromotionsByName(): {String: UInt64} {
@@ -1510,12 +1520,12 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
             return self.promotionsToPublicMinterPath
         }
         pub fun getPromotionPublic(id: UInt64): &TheFabricantAccessPass.Promotion{PromotionPublic, PromotionPublicAccessList}? {
-            return &self.promotions[id] as &TheFabricantAccessPass.Promotion{PromotionPublic, PromotionPublicAccessList}
+            return (&self.promotions[id] as &TheFabricantAccessPass.Promotion{PromotionPublic, PromotionPublicAccessList}?)
         }
 
         // Used by admin in txs to access Promotion level functions
         pub fun borrowAdminPromotion(id: UInt64): &TheFabricantAccessPass.Promotion{PromotionAdminAccess}?  {
-            return &self.promotions[id] as &TheFabricantAccessPass.Promotion{PromotionAdminAccess}
+            return (&self.promotions[id] as &TheFabricantAccessPass.Promotion{PromotionAdminAccess}?)
         }
 
         pub fun getIDs(): [UInt64] {
@@ -1678,8 +1688,8 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
             receiver: &{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic}
         )
         pub fun mintUsingNftRefs(
-            receiver: &{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic}
-            refs: [&AnyResource{NonFungibleToken.INFT}]?,  
+            receiver: &{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic},
+            refs: [&AnyResource{NonFungibleToken.INFT}]?  
         )
         pub fun mintUsingAccessToken(
             receiver: &{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic},
@@ -1855,7 +1865,7 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
             // OR nft is of correct Type AND hasn't been used for claim before √
         pub fun mintUsingNftRefs(
             receiver: &{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic},
-            refs: [&AnyResource{NonFungibleToken.INFT}]?,  
+            refs: [&AnyResource{NonFungibleToken.INFT}]? 
             ) {
             pre {
                 !self.isAccessListOnly()
