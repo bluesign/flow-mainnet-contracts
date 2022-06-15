@@ -1,3 +1,7 @@
+/*
+    Secure Cadence Version
+*/
+
 import NonFungibleToken from 0x1d7e57aa55817448
 import IPackNFT from 0x44c6a6fd2281b6cc
 
