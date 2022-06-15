@@ -426,7 +426,7 @@ pub contract DooverseAdminNFTStorefront {
     //
     pub fun borrowListings(setID: String): &{String: Listing{ListingPublic}}? {
       if self.listings[setID] != nil {
-        return &self.listings[setID] as! &{String: Listing{ListingPublic}}
+        return &self.listings[setID] as &{String: Listing{ListingPublic}}?
       } else {
         return nil
       }
@@ -439,7 +439,7 @@ pub contract DooverseAdminNFTStorefront {
       let setListings = self.borrowListings(setID: setID)
       if (setListings != nil) {
         let listing = setListings!
-        return &listing[packID] as! &Listing{ListingPublic}
+        return &listing[packID] as &Listing{ListingPublic}?
       } else {
         return nil
       }
