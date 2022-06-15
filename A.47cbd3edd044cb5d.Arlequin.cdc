@@ -1,3 +1,4 @@
+// mainnet
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
@@ -5,6 +6,24 @@ import FlowToken from 0x1654653399040a61
 import ArleePartner from 0x47cbd3edd044cb5d
 import ArleeScene from 0x47cbd3edd044cb5d
 import ArleeSceneVoucher from 0x47cbd3edd044cb5d
+
+// testnet
+// import FungibleToken from 0x9a0766d93b6608b7
+// import NonFungibleToken from 0x631e88ae7f1d7c20
+// import MetadataViews from 0x631e88ae7f1d7c20
+// import FlowToken from 0x7e60df042a9c0868
+// import ArleePartner from 0xe7fd8b1148e021b2
+// import ArleeScene from 0xe7fd8b1148e021b2
+// import ArleeSceneVoucher from 0xe7fd8b1148e021b2
+
+// local
+// import FungibleToken from "./FungibleToken"
+// import NonFungibleToken from "./NonFungibleToken"
+// import MetadataViews from "./MetadataViews"
+// import FlowToken from "./FlowToken"
+// import ArleePartner from "./ArleePartner"
+// import ArleeScene from "./ArleeScene"
+// import ArleeSceneVoucher from "./ArleeSceneVoucher"
 
 pub contract Arlequin {
     
@@ -287,7 +306,7 @@ pub contract Arlequin {
         let recipientCap = getAccount(buyer).getCapability<&ArleeScene.Collection{ArleeScene.CollectionPublic}>(ArleeScene.CollectionPublicPath)
         let recipient = recipientCap.borrow() ?? panic("Cannot borrow recipient's Collection Public")
 
-        ArleeScene.freeMintAcct[buyer] = ArleeScene.freeMintAcct[buyer]! - 1
+        ArleeScene.deductFreeMintAcct(addr: buyer, mint: 1)
 
         // deposit
         ArleeScene.mintSceneNFT(recipient:recipient, cid: cid, metadata: metadata)
