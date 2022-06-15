@@ -371,7 +371,7 @@ pub contract TheFabricantS2GarmentNFT: NonFungibleToken {
         // read Garment data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Parameters: id: The ID of the NFT to get the reference for
@@ -379,7 +379,7 @@ pub contract TheFabricantS2GarmentNFT: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowGarment(id: UInt64): &TheFabricantS2GarmentNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &TheFabricantS2GarmentNFT.NFT
             } else {
                 return nil
@@ -458,9 +458,9 @@ pub contract TheFabricantS2GarmentNFT: NonFungibleToken {
         self.isGarmentDataRetired = {}
         self.totalSupply = 0
         self.nftIDToOwner = {}
-        self.CollectionPublicPath = /public/S2GarmentCollection0022
-        self.CollectionStoragePath = /storage/S2GarmentCollection0022
-        self.AdminStoragePath = /storage/S2GarmentAdmin0022
+        self.CollectionPublicPath = /public/S2GarmentCollection0028
+        self.CollectionStoragePath = /storage/S2GarmentCollection0028
+        self.AdminStoragePath = /storage/S2GarmentAdmin0028
 
         // Put a new Collection in storage
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
