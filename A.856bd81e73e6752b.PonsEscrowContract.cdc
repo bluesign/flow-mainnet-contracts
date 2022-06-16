@@ -40,6 +40,7 @@ pub contract PonsEscrowContract {
 		/* Stores locked-up Pons NFTs */
 		access(account) var ponsNfts : @[PonsNftContractInterface.NFT]
 
+
 		/* Offer access to the enclosed Flow Token Vault */
 		pub fun borrowFlowVault () : &FungibleToken.Vault {
 			return & self .flowVault as &FungibleToken.Vault }
@@ -269,7 +270,7 @@ pub contract PonsEscrowContract {
 		fulfillment .receivePaymentCap .borrow () !.deposit (from: <- fulfillmentFlowVault)
 
 		while resources .ponsNfts .length > 0 {
-			fulfillment .receiveNftCap .borrow () !.depositNft (<- resources .ponsNfts .remove (at: 0) !) }
+			fulfillment .receiveNftCap .borrow () !.depositNft (<- resources .borrowPonsNfts () .remove (at: 0)) }
 		
 		destroy resources }
 
