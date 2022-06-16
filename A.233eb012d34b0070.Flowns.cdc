@@ -50,7 +50,7 @@ pub contract Flowns {
 
   pub event RootDomainMintDurationUpdated(domainId: UInt64, before: UFix64, after: UFix64)
 
-  pub event DomainRegisterCommissionAllocated(domainId: UInt64, nammeHash: String, amount: UFix64, commissionAmount: UFix64, refer: Address, receiveId: UInt64)
+  pub event DomainRegisterCommissionAllocated(domainId: UInt64, nameHash: String, amount: UFix64, commissionAmount: UFix64, refer: Address, receiveId: UInt64)
 
 
   // structs 
@@ -166,6 +166,14 @@ pub contract Flowns {
       return self.domainVault.balance
     }
 
+    // Deposit fee to domain Vault
+    pub fun depositVault(fee: @FungibleToken.Vault) {
+      pre {
+        self.domainVault != nil : "Vault not init yet..."
+      }
+      self.domainVault.deposit(from: <- fee)
+    }
+
     pub fun getPrices(): {Int: UFix64} {
       return self.prices
     }
@@ -211,8 +219,38 @@ pub contract Flowns {
       emit RootDomainCommissionRateUpdated(domainId: self.id, before: oldRate, after: rate)
     }
 
+    access(contract) fun _distributeCommission(feeTokens: @FungibleToken.Vault, refer: Address, from: Address?): @FungibleToken.Vault {
+      let rentFee = feeTokens.balance
+      let commissionFee  = rentFee * self.commissionRate
+        
+      let referAcc = getAccount(refer!)
+
+      let collectionCap = referAcc.getCapability<&{Domains.CollectionPublic}>(Domains.CollectionPublicPath) 
+      let collection = collectionCap.borrow()
+      if collection != nil {
+        let ids = collection!.getIDs()
+        var defaultDomain: &{Domains.DomainPublic}? = nil
+        defaultDomain = collection!.borrowDomain(id: ids[0])!
+        if ids.length > 0 {
+          for id in ids {
+            let domain = collection!.borrowDomain(id: id)!
+            let isDefault = domain.getText(key: "isDefault")
+            if isDefault == "true" {
+              defaultDomain = domain
+            }
+          }
+          if defaultDomain!.receivable == true && !Domains.isExpired(defaultDomain!.nameHash) {
+            defaultDomain!.depositVault(from: <- feeTokens.withdraw(amount: commissionFee), senderRef: nil)
+            emit DomainRegisterCommissionAllocated(domainId: self.id, nameHash: defaultDomain!.nameHash, amount: rentFee, commissionAmount: commissionFee, refer: refer!, receiveId: defaultDomain!.id)
+          }
+        }
+      }
+      return <- feeTokens
+    }
+
+
     // Renew domain
-    pub fun renewDomain(domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault) {
+    pub fun renewDomain(domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?) {
       pre {
         !Domains.isDeprecated(nameHash: domain.nameHash, domainId: domain.id) : "Domain already deprecated ..."
       }
@@ -243,9 +281,16 @@ pub contract Flowns {
       if rentFee < rentPrice {
         panic("Not enough fee to renew your domain.")
       }
+      var feeVault: @FungibleToken.Vault? <- nil
+      // distribution of commission
+      if self.commissionRate > 0.0 && refer != nil {
+        feeVault <-! self._distributeCommission(feeTokens: <- feeTokens, refer: refer!, from: Domains.getRecords(domain.nameHash))
+      } else {
+        feeVault <-! feeTokens
+      }
 
       // Receive rent fee
-      self.domainVault.deposit(from: <- feeTokens)
+      self.domainVault.deposit(from: <- feeVault!)
 
       let expiredAt = Domains.getExpiredTime(domain.nameHash)! + UFix64(duration)
       // Update domain's expire time with Domains expired mapping
@@ -294,29 +339,15 @@ pub contract Flowns {
 
       let expiredTime = getCurrentBlock().timestamp + UFix64(duration)
 
+      var feeVault: @FungibleToken.Vault? <- nil
       // distribution of commission
       if self.commissionRate > 0.0 && refer != nil {
-        let commissionFee  = rentFee * self.commissionRate
-        
-        let referAcc = getAccount(refer!)
-
-        let collectionCap = referAcc.getCapability<&{Domains.CollectionPublic}>(Domains.CollectionPublicPath) 
-        let collection = collectionCap.borrow()
-        if collection != nil {
-          let ids = collection!.getIDs()
-          if ids.length > 0 {
-            // default domains as a receiver
-            let id = ids[0]
-            let domain: &{Domains.DomainPublic} = collection!.borrowDomain(id: id)
-            if domain.receivable == true && !Domains.isExpired(domain.nameHash) {
-              domain.depositVault(from: <- feeTokens.withdraw(amount: commissionFee))
-              emit DomainRegisterCommissionAllocated(domainId: self.id, nammeHash: nameHash, amount: rentFee, commissionAmount: commissionFee, refer: refer!, receiveId: domain.id)
-            }
-          }
-        }
+        feeVault <-! self._distributeCommission(feeTokens: <- feeTokens, refer: refer!, from: Domains.getRecords(nameHash))
+      } else {
+        feeVault <-! feeTokens
       }
 
-      self.domainVault.deposit(from: <- feeTokens)
+      self.domainVault.deposit(from: <- feeVault!)
 
       self.server!.borrow()!.mintDomain(name: name, nameHash: nameHash, parentName: self.name, expiredAt: expiredTime, receiver: receiver)
 
@@ -364,7 +395,9 @@ pub contract Flowns {
 
     pub fun getAllDomains(): {UInt64: RootDomainInfo}
 
-    pub fun renewDomain(domainId: UInt64, domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault)
+    pub fun renewDomain(domainId: UInt64, domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?)
+
+    pub fun renewDomainWithNameHash(nameHash: String, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?)
 
     pub fun registerDomain(domainId: UInt64, name: String, duration: UFix64, feeTokens: @FungibleToken.Vault, receiver: Capability<&{NonFungibleToken.Receiver}>,  refer: Address? )
 
@@ -395,6 +428,9 @@ pub contract Flowns {
     access(account) fun setCommissionRate(domainId: UInt64, rate: UFix64)
     
     access(account) fun mintDomain(domainId: UInt64, name: String, duration: UFix64, receiver: Capability<&{NonFungibleToken.Receiver}>)
+
+    access(account) fun renewDomainWithAdmin(nameHash: String, duration: UFix64)
+
   }
 
   // Root domain Collection 
@@ -430,15 +466,70 @@ pub contract Flowns {
       destroy oldDomain
     }
 
-    pub fun renewDomain(domainId: UInt64, domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault){
+    pub fun renewDomain(domainId: UInt64, domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?) {
       pre {
           self.domains[domainId] != nil : "Root domain not exist..."
         }
       let root = self.getRootDomain(domainId)
-      root.renewDomain(domain: domain, duration: duration, feeTokens: <- feeTokens)
+      root.renewDomain(domain: domain, duration: duration, feeTokens: <- feeTokens, refer: refer)
     }
 
-    pub fun registerDomain(domainId: UInt64, name: String, duration: UFix64, feeTokens: @FungibleToken.Vault, receiver: Capability<&{NonFungibleToken.Receiver}>, refer: Address?){
+    pub fun renewDomainWithNameHash(nameHash: String, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?) {
+      let domain = Flowns.getDomain(nameHash: nameHash) ?? panic("Can not find domain by nameHash")
+      // get all domains with pub
+      let rootDomains = Flowns.getAllRootDomains()!
+      let ids = rootDomains.keys
+      var rootDomain: RootDomainInfo? = nil
+      for id in ids {
+        let root = rootDomains[id]!
+        if root.name == domain.parent {
+          rootDomain = root
+        }
+      }
+      assert(rootDomain != nil, message: "Can not get root domain info")
+
+      var len = domain.name.length
+      if len > 10 {
+        len = 10
+      }
+      let price = rootDomain!.prices[len]
+      
+      if duration < rootDomain!.minRentDuration {
+        panic("Duration must greater than min rent duration ".concat(rootDomain!.minRentDuration.toString()))
+      }
+      if price == 0.0 || price == nil {
+        panic("Can not renew domain, rent price not set yet")
+      }
+      // Calc rent price
+      let rentPrice = price! * duration 
+      
+      let rentFee = feeTokens.balance
+      
+      // check the rent fee
+      if rentFee < rentPrice {
+        panic("Not enough fee to renew your domain.")
+      }
+
+      let rootDomainRef = self.getRootDomain(rootDomain!.id)!
+
+      var feeVault: @FungibleToken.Vault? <- nil
+      // distribution of commission
+     if rootDomain!.commissionRate > 0.0 && refer != nil {
+        feeVault <-! rootDomainRef._distributeCommission(feeTokens: <- feeTokens, refer: refer!, from: Domains.getRecords(nameHash) )
+      } else {
+        feeVault <-! feeTokens
+      }
+
+
+      rootDomainRef.depositVault(fee: <- feeVault!)
+
+      let expiredAt = Domains.getExpiredTime(nameHash)! + UFix64(duration)
+      Domains.updateExpired(nameHash: nameHash, time: expiredAt )
+      emit RenewDomain(name: domain.name, nameHash: domain.nameHash, duration: duration, price: rentFee )
+    }
+
+
+    pub fun registerDomain(domainId: UInt64, name: String, duration: UFix64, feeTokens: @FungibleToken.Vault, receiver: Capability<&{NonFungibleToken.Receiver}>, refer: Address?) {
       pre {
         self.domains[domainId] != nil : "Root domain not exist..."
       }
@@ -450,9 +541,9 @@ pub contract Flowns {
         pre {
         self.domains[domainId] != nil : "Root domain not exist..."
       }
-      let rootRef = &self.domains[domainId] as? &RootDomain
+      let rootRef = &self.domains[domainId] as &RootDomain?
 
-      return rootRef.getVaultBalance()
+      return rootRef!.getVaultBalance()
     }
 
     access(account) fun withdrawVault(domainId: UInt64, receiver: Capability<&{FungibleToken.Receiver}>, amount: UFix64) {
@@ -481,8 +572,8 @@ pub contract Flowns {
     pub fun getAllDomains(): {UInt64: RootDomainInfo} {
       var domainInfos: {UInt64: RootDomainInfo }= {}
       for id in self.domains.keys {
-        let itemRef = &self.domains[id] as? &RootDomain
-        domainInfos[id] = itemRef.getRootDomainInfo()
+        let itemRef = &self.domains[id] as &RootDomain?
+        domainInfos[id] = itemRef!.getRootDomainInfo()
       }
       return domainInfos
     }
@@ -517,9 +608,8 @@ pub contract Flowns {
       pre {
         self.domains[domainId] != nil: "domain doesn't exist"
       }
-      return &self.domains[domainId] as &RootDomain
+      return (&self.domains[domainId] as &RootDomain?)!
     }
-
     // get Root domain info
     pub fun getDomainInfo(domainId: UInt64): RootDomainInfo {
       return self.getRootDomain(domainId).getRootDomainInfo()
@@ -530,9 +620,20 @@ pub contract Flowns {
       return self.getRootDomain(domainId).getPrices()
     }
 
+    // renew domain by nameHash with admin auth
+    access(account) fun renewDomainWithAdmin(nameHash: String, duration: UFix64) {
+      pre{
+        Domains.getExpiredTime(nameHash) != nil : "Domain doesn't exist"
+      }
+      let expiredAt = Domains.getExpiredTime(nameHash)! + UFix64(duration)
+      // Update domain's expire time with Domains expired mapping
+      Domains.updateExpired(nameHash: nameHash, time: expiredAt )
+      let domain = Flowns.getDomain(nameHash: nameHash)!
+      emit RenewDomain(name: domain.name.concat(".").concat(domain.parent), nameHash: nameHash, duration: duration, price: 0.0 )
+    }
 
-    destroy() {            
-        destroy self.domains
+    destroy() {
+      destroy self.domains
     }
   }
 
@@ -664,6 +765,14 @@ pub contract Flowns {
       self.server!.borrow()!.mintDomain(domainId: domainId, name: name, duration: duration, receiver: receiver)
     }
 
+      // Renew domain with admin auth
+    pub fun renewDomain(nameHash: String, duration: UFix64) {
+      pre {
+        self.server != nil : "Your client has not been linked to the server"
+      }
+      self.server!.borrow()!.renewDomainWithAdmin(nameHash: nameHash, duration: duration)
+    }
+
     pub fun setPause(_ flag: Bool) {
       pre {
         Flowns.isPause != flag : "Already done!"
@@ -717,6 +826,21 @@ pub contract Flowns {
     let lableHash = String.encodeHex(HashAlgorithm.SHA3_256.hash(lable.utf8))
     let hash = String.encodeHex(HashAlgorithm.SHA3_256.hash(prefixNode.concat(lableHash).utf8))
     return hash
+  }
+
+  // query domain info by nameHash
+  pub fun getDomain(nameHash: String): &{Domains.DomainPublic}? {
+    let address = Domains.getRecords(nameHash) ?? panic("Domain not exist")
+    let account = getAccount(address)
+    let collectionCap = account.getCapability<&{Domains.CollectionPublic}>(Domains.CollectionPublicPath)!
+    let collection = collectionCap.borrow()!
+    var domain: &{Domains.DomainPublic}? = nil
+
+    let id = Domains.getDomainId(nameHash)
+    if id != nil && !Domains.isDeprecated(nameHash: nameHash, domainId: id!) {
+      domain = collection.borrowDomain(id: id!)
+    }
+    return domain
   }
 
 
@@ -778,14 +902,27 @@ pub contract Flowns {
     collection.registerDomain(domainId: domainId, name: name, duration: duration, feeTokens: <-feeTokens, receiver: receiver, refer: refer)
   }
   
-  pub fun renewDomain(domainId: UInt64, domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault) {
+  pub fun renewDomain(domainId: UInt64, domain: &Domains.NFT, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?) {
     pre {
       Flowns.isPause == false : "Renewer pause"
     }
     let account = Flowns.account
     let rootCollectionCap = account.getCapability<&{Flowns.RootDomainCollectionPublic}>(self.CollectionPublicPath)
     let collection = rootCollectionCap.borrow() ?? panic("Could not borrow collection ")
-    collection.renewDomain(domainId: domainId, domain: domain, duration: duration, feeTokens: <-feeTokens)
+    collection.renewDomain(domainId: domainId, domain: domain, duration: duration, feeTokens: <-feeTokens, refer: refer)
+  }
+
+  pub fun renewDomainWithNameHash(nameHash: String, duration: UFix64, feeTokens: @FungibleToken.Vault, refer: Address?) {
+    pre {
+      Flowns.isPause == false : "Renewer pause"
+      duration > 0.0 : "Duration must great than 0"
+    }
+    
+    let account = Flowns.account
+    let rootCollectionCap = account.getCapability<&{Flowns.RootDomainCollectionPublic}>(self.CollectionPublicPath)
+    let collection = rootCollectionCap.borrow() ?? panic("Could not borrow collection ")
+    collection.renewDomainWithNameHash(nameHash: nameHash, duration: duration, feeTokens: <-feeTokens, refer: refer)
+
   }
   
   init() {
