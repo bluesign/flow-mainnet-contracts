@@ -223,7 +223,7 @@ pub contract RaribleOpenBid {
 
         pub fun borrowBid(bidId: UInt64): &Bid{BidPublic}? {
             if self.bids[bidId] != nil {
-                return &self.bids[bidId] as! &Bid{BidPublic}
+                return &self.bids[bidId] as! &Bid{BidPublic}?
             } else {
                 return nil
             }
