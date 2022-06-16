@@ -245,7 +245,7 @@ pub contract Digiyo: NonFungibleToken {
             pre {
                 Digiyo.sets[setID] != nil: "Cannot borrow Set: The Set doesn't exist"
             }
-            return &Digiyo.sets[setID] as &Set
+            return (&Digiyo.sets[setID] as &Set?)!
         }
 
         // startNewSeries ends the current series by incrementing currentSeries
@@ -334,7 +334,7 @@ pub contract Digiyo: NonFungibleToken {
         // Parameters: id: The ID of the instance being referenced
         // Returns: A reference to the instance
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowInstance Returns a borrowed reference to an instance in the collection
@@ -343,7 +343,7 @@ pub contract Digiyo: NonFungibleToken {
         // Returns: A reference to the instance
         pub fun borrowInstance(id: UInt64): &Digiyo.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Digiyo.NFT
             } else {
                 return nil
@@ -486,3 +486,4 @@ pub contract Digiyo: NonFungibleToken {
         emit ContractInitialized()
     }
 }
+ 
