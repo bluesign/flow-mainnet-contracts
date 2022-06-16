@@ -349,6 +349,15 @@ pub contract Everbloom: NonFungibleToken {
 			return self.numberMintedPerEdition[editionID]!
 		}
 
+		access(contract) fun incrementEditionNftCount(editionID: UInt32): UInt32 {
+		    pre {
+                self.editions[editionID] != nil: "Edition does not exist"
+            }
+        	self.numberMintedPerEdition[editionID] = self.numberMintedPerEdition[editionID]! + UInt32(1)
+
+            return self.numberMintedPerEdition[editionID]!
+        }
+
 		/* This method creates new edition
 
 			parameter: name: name of the edition
@@ -534,7 +543,7 @@ pub contract Everbloom: NonFungibleToken {
 		*/
 		pub fun borrowArtwork(artworkID: UInt32): &Artwork? {
 			if self.artworks[artworkID] != nil {
-				let ref = &self.artworks[artworkID] as &Artwork
+				let ref = &self.artworks[artworkID] as &Artwork?
 				return ref
 			} else {
 				return nil
@@ -552,7 +561,7 @@ pub contract Everbloom: NonFungibleToken {
 			for artworkData in self.artworkDatas.values {
 				if externalPostID == artworkData.externalPostID {
 					// If the externalPostID is found, return the artwork
-					return  &self.artworks[artworkData.artworkID] as &Artwork
+					return  &self.artworks[artworkData.artworkID] as &Artwork?
 				}
 			}
 
@@ -622,7 +631,7 @@ pub contract Everbloom: NonFungibleToken {
 
 			// Get a reference to the Gallery and return it
 			// use `&` to indicate the reference to the object and type
-			return &self.galleries[galleryID] as &Gallery
+			return &self.galleries[galleryID] as &Gallery?
 		}
 
 		/* This method creates a gallery resource and will store it in galleries dictionary
@@ -674,7 +683,7 @@ pub contract Everbloom: NonFungibleToken {
 				signature: signature
 			)
 
-			artwork.numberMintedPerEdition[editionID] = numOfArtworks + UInt32(1)
+			artwork.incrementEditionNftCount(editionID: editionID)
 
 			return <-newPrint
 		}
@@ -710,8 +719,8 @@ pub contract Everbloom: NonFungibleToken {
 				self.galleries[galleryID] != nil: "Cannot borrow Gallery: The Gallery doesn't exist"
 			}
 
-			let gallery = &self.galleries[galleryID] as &Everbloom.Gallery
-			gallery.disableGallery()
+			let gallery = &self.galleries[galleryID] as &Everbloom.Gallery?
+			gallery!.disableGallery()
 		}
 
 		 // This method enables the gallery
@@ -720,8 +729,8 @@ pub contract Everbloom: NonFungibleToken {
 				self.galleries[galleryID] != nil: "Cannot borrow Gallery: The Gallery doesn't exist"
 			}
 
-			let gallery = &self.galleries[galleryID] as &Everbloom.Gallery
-			gallery.enableGallery()
+			let gallery = &self.galleries[galleryID] as &Everbloom.Gallery?
+			gallery!.enableGallery()
 		}
 
 		destroy() {
@@ -918,7 +927,7 @@ pub contract Everbloom: NonFungibleToken {
 			Returns: A reference to the NFT
 		*/
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+			return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
 		}
 
 		/*  borrowPrint returns a borrowed reference to a Print
@@ -931,7 +940,7 @@ pub contract Everbloom: NonFungibleToken {
 		*/
 		pub fun borrowPrint(id: UInt64): &Everbloom.NFT? {
 			if self.ownedNFTs[id] != nil {
-				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+				let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
 				return ref as! &Everbloom.NFT
 			} else {
 				return nil
