@@ -343,14 +343,14 @@ pub contract SomePlaceCollectible : NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowCollectible(id: UInt64) : &SomePlaceCollectible.NFT? {
             if self.ownedNFTs[id] == nil {
                 return nil
             } else {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &SomePlaceCollectible.NFT
             }
         }
