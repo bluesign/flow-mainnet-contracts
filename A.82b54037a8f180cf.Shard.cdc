@@ -1,4 +1,5 @@
-import NonFungibleToken from 0x1d7e57aa55817448
+// import NonFungibleToken from 0x631e88ae7f1d7c20 // testnet
+import NonFungibleToken from 0x1d7e57aa55817448 // mainnet
 
 // eternal.gg
 pub contract Shard: NonFungibleToken {
@@ -170,13 +171,13 @@ pub contract Shard: NonFungibleToken {
         // Gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // Gets a reference to the Shard NFT for metadata and such
         pub fun borrowShardNFT(id: UInt64): &Shard.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Shard.NFT
             } else {
                 return nil
