@@ -56,6 +56,32 @@ pub contract PonsNftContract_v1 : PonsNftContractInterface, NonFungibleToken {
 	access(account) var ponsNftMetadatas : {String: {String: String}}
 
 
+	/* Inserts or updates the royalty for a NFT */
+	access(account) fun insertRoyalty (nftId : String, royalty : PonsUtils.Ratio) : PonsUtils.Ratio? {
+		return self .ponsNftRoyalties .insert (key: nftId, royalty) }
+
+	/* Inserts or updates the edition label for a NFT */
+	access(account) fun insertEditionLabel (nftId : String, editionLabel : String) : String? {
+		return self .ponsNftEditionLabels .insert (key: nftId, editionLabel) }
+
+	/* Inserts or updates the metadata for a NFT */
+	access(account) fun insertMetadata (nftId : String, metadata : {String: String}) : {String: String}? {
+		return self .ponsNftMetadatas .insert (key: nftId, metadata) }
+
+	/* Removes the royalty for a NFT */
+	access(account) fun removeRoyalty (nftId : String) : PonsUtils.Ratio? {
+		return self .ponsNftRoyalties .remove (key: nftId) }
+
+	/* Removes the edition label for a NFT */
+	access(account) fun removeEditionLabel (nftId : String) : String? {
+		return self .ponsNftEditionLabels .remove (key: nftId) }
+
+	/* Removes the metadata for a NFT */
+	access(account) fun removeMetadata (nftId : String) : {String: String}? {
+		return self .ponsNftMetadatas .remove (key: nftId) }
+	
+
+
 	/* The concrete Pons NFT resource. Striaghtforward implementation of the PonsNft and INFT interfaces */
 	pub resource NFT : PonsNftContractInterface.PonsNft, NonFungibleToken.INFT {
 		/* Ensures the authenticity of this PonsNft; requirement by PonsNft */
@@ -189,7 +215,7 @@ pub contract PonsNftContract_v1 : PonsNftContractInterface, NonFungibleToken {
 			destroy nilNft
 
 			// Get a reference to the NFT at the corresponding serialNumber, and cast it to the return type
-			let nftRef = & self .ownedNFTs [serialNumber] as auth &NonFungibleToken.NFT
+			let nftRef = (& self .ownedNFTs [serialNumber] as auth &NonFungibleToken.NFT?) !
 			let ponsNftRef = nftRef as! &PonsNftContractInterface.NFT
             		return ponsNftRef }
 
@@ -229,7 +255,7 @@ pub contract PonsNftContract_v1 : PonsNftContractInterface, NonFungibleToken {
 			destroy nilNft
 
 			// Get a reference to the NFT at the corresponding serialNumber, and cast it to the return type
-			let nftRef = & self .ownedNFTs [serialNumber] as &NonFungibleToken.NFT
+			let nftRef = (& self .ownedNFTs [serialNumber] as &NonFungibleToken.NFT?) !
 			return nftRef }
 
 
