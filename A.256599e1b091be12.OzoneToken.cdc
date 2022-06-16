@@ -1,6 +1,7 @@
 //SPDX-License-Identifier : CC-BY-NC-4.0
 
 
+// testnet 0x9a0766d93b6608b7
 import FungibleToken from 0xf233dcee88fe0abe
 
 pub contract OzoneToken: FungibleToken {
