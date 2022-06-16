@@ -196,7 +196,7 @@ pub contract BarterYardPackNFT: NonFungibleToken {
         pub fun borrowBarterYardPackNFT(id: UInt64): &BarterYardPackNFT.NFT? {
             if self.ownedNFTs[id] != nil {
                 // Create an authorized reference to allow downcasting
-                let ref = (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &BarterYardPackNFT.NFT?
             }
 
