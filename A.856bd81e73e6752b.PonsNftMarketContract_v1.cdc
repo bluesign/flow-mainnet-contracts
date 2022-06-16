@@ -49,6 +49,14 @@ pub contract PonsNftMarketContract_v1 {
 		access(account) var secondaryCommissionRatio : PonsUtils.Ratio
 
 
+		/* Inserts or updates a sale price */
+		access(account) fun insertSalePrice (nftId : String, price : PonsUtils.FlowUnits) : PonsUtils.FlowUnits? {
+			return self .salePrices .insert (key: nftId, price) }
+
+		/* Removes a sale price */
+		access(account) fun removeSalePrice (nftId : String) : PonsUtils.FlowUnits? {
+			return self .salePrices .remove (key: nftId) }
+
 
 		/* Get the nftIds of all NFTs for sale */
 		pub fun getForSaleIds () : [String] {
