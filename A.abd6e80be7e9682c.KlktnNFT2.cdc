@@ -187,10 +187,24 @@ pub contract KlktnNFT2: NonFungibleToken {
     // getNFTMetadata gets a KlktnNFTTemplatePublic struct with combined metadata
     pub fun getFullMetadata(): KlktnNFTTemplatePublic {
       let template = KlktnNFT2.KlktnNFTTypeSet[self.typeID]!.getPublic()
-      for key in self.metadata.keys {
-        template.metadata[key] = self.metadata[key]
+      
+      let concatenatedMedata: {String: String} = {}
+
+      for key in template.metadata.keys {
+        concatenatedMedata[key] = template.metadata[key]
       }
-      return template
+
+      for key in self.metadata.keys {
+        concatenatedMedata[key] = self.metadata[key]
+      }
+      
+      return KlktnNFTTemplatePublic(
+        initTypeID: self.typeID,
+        initIsPack: template.isPack,
+        initName: template.name,
+        initMintLimit: template.mintLimit,
+        initMetadata: concatenatedMedata
+      )
     }
 
     init(initID: UInt64, initTypeID: UInt64, initSerialNumber: UInt64, initMetadata: {String: String}) {
@@ -243,7 +257,7 @@ pub contract KlktnNFT2: NonFungibleToken {
     // - Gets a reference to an NFT in the collection
     // so that the caller can read its metadata and call its methods
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     // borrowKlktnNFT: 
@@ -252,7 +266,7 @@ pub contract KlktnNFT2: NonFungibleToken {
     // - This is safe as there are no administrative functions that can be called on the KlktnNFT
     pub fun borrowKlktnNFT(id: UInt64): &KlktnNFT2.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
         return ref as! &KlktnNFT2.NFT
       } else {
         return nil
@@ -265,7 +279,7 @@ pub contract KlktnNFT2: NonFungibleToken {
         self.ownedNFTs[packID] != nil:
           "invalid packID."
       }
-      let packRef = (&self.ownedNFTs[packID] as auth &NonFungibleToken.NFT) as! &KlktnNFT2.NFT
+      let packRef = (&self.ownedNFTs[packID] as auth &NonFungibleToken.NFT?)! as! &KlktnNFT2.NFT
       let packTemplateInfo = packRef.getNFTTemplate()!
       if (!packTemplateInfo.isPack) {
         panic("NFT is not a pack.")
