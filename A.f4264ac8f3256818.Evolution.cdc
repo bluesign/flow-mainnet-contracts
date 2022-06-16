@@ -491,7 +491,7 @@ pub contract Evolution: NonFungibleToken {
         // and use them to read the setData or Item data from the contract
         pub fun borrowCollectible(id: UInt64): &Evolution.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Evolution.NFT
             } else {
                 return nil
