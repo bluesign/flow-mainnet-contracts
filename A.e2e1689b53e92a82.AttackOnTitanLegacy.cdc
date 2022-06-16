@@ -473,11 +473,11 @@ pub contract AttackOnTitanLegacy: NonFungibleToken, Anique {
         // read Collectible data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowAniqueNFT(id: UInt64): auth &Anique.NFT {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             return nft as! auth &Anique.NFT
         }
 
@@ -487,7 +487,7 @@ pub contract AttackOnTitanLegacy: NonFungibleToken, Anique {
             pre {
                 self.ownedNFTs[id] != nil: "NFT does not exist in the collection!"
             }
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             return nft as! auth &NFT
         }
 
@@ -552,7 +552,7 @@ pub contract AttackOnTitanLegacy: NonFungibleToken, Anique {
             pre {
                 AttackOnTitanLegacy.sets[setID] != nil: "Cannot borrow Set: The Set doesn't exist"
             }
-            return &AttackOnTitanLegacy.sets[setID] as &Set
+            return (&AttackOnTitanLegacy.sets[setID] as &Set?)!
         }
 
         // createNewAdmin creates a new Admin resource
