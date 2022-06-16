@@ -69,7 +69,7 @@ pub contract PonsNftMarketContract {
 		/* Given a Pons artist certificate, mint new Pons NFTs on behalf of the artist and list it on the marketplace for sale */
 		/* The price of the first edition of the NFT minted is determined by the basePrice */
 		/* When only one edition is minted, the incrementalPrice is inconsequential */
-		/* When the Pons marketplace mints multiple editions of NFTs, the market price of each succeesive NFT is incremented by the incrementalPrice */
+		/* When the Pons marketplace mints multiple editions of NFTs, the market price of each successive NFT is incremented by the incrementalPrice */
 		pub fun mintForSale
 		( _ artistCertificate : &PonsNftContract.PonsArtistCertificate
 		, metadata : {String: String}
@@ -152,7 +152,15 @@ pub contract PonsNftMarketContract {
 		init () {
 			self .listingCertificates <- [] }
 		destroy () {
-			destroy self .listingCertificates } }
+			destroy self .listingCertificates }
+
+		/* API to add listing certificates to a listing certificate collection */
+		pub fun appendListingCertificate (_ listingCertificate : @{PonsListingCertificate}) : Void {
+			self .listingCertificates .append (<- listingCertificate) }
+
+		/* API to remove listing certificates from a listing certificate collection */
+		pub fun removeListingCertificate (at index : Int) : @{PonsListingCertificate} {
+			return <- self .listingCertificates .remove (at: index) } }
 
 	pub fun createPonsListingCertificateCollection () : @PonsListingCertificateCollection {
 		return <- create PonsListingCertificateCollection () }
