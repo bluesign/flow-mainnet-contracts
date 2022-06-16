@@ -14,7 +14,7 @@ pub contract Domains: NonFungibleToken {
   pub let CollectionPrivatePath: PrivatePath
 
   // Domain records to store the owner of Domains.Domain resource
-  // When domain resource transfer to another user, the records will be update in the deposite func
+  // When domain resource transfer to another user, the records will be update in the deposit func
   access(self) let records: {String: Address}
 
   // Expired records for Domains to check the domain's validity, will change at register and renew
@@ -49,10 +49,11 @@ pub contract Domains: NonFungibleToken {
   pub event DmoainAddressChanged(nameHash: String, chainType: UInt64, address: String)
   pub event DmoainTextChanged(nameHash: String, key: String, value: String)
   pub event DomainMinted(id: UInt64, name: String, nameHash: String, parentName: String, expiredAt: UFix64, receiver: Address)
-  pub event DomainVaultDeposited(vaultType: String, amount: UFix64, to: Address?)
-  pub event DomainVaultWithdrawn(vaultType: String, amount: UFix64, from: String)
-  pub event DomainCollectionAdded(collectionType: String, to: Address?)
-  pub event DomainCollectionWithdrawn(vaultType: String, itemId: UInt64, from: String)
+  pub event DomainVaultDeposited(nameHash: String, vaultType: String, amount: UFix64, from: Address?)
+  pub event DomainVaultWithdrawn(nameHash: String, vaultType: String, amount: UFix64, from: Address?)
+  pub event DomainCollectionAdded(nameHash: String, collectionType: String)
+  pub event DomainCollectionWithdrawn(nameHash: String, collectionType: String, itemId: UInt64, from: Address?)
+  pub event DomainCollectionDeposited(nameHash: String, collectionType: String, itemId: UInt64, from: Address?)
   pub event DomainReceiveOpened(name: String)
   pub event DomainReceiveClosed(name: String)
 
@@ -152,7 +153,7 @@ pub contract Domains: NonFungibleToken {
       subdomains: {String: SubdomainDetail},
       createdAt: UFix64,
       vaultBalances: {String: UFix64},
-      collections: {String: [UInt64]}
+      collections: {String: [UInt64]},
       receivable: Bool,
       deprecated: Bool
     ) {
@@ -200,13 +201,13 @@ pub contract Domains: NonFungibleToken {
 
     pub fun getSubdomainDetail(nameHash: String): SubdomainDetail
 
-    pub fun depositVault(from: @FungibleToken.Vault)
+    pub fun depositVault(from: @FungibleToken.Vault, senderRef: &{FungibleToken.Receiver}?)
 
     pub fun addCollection(collection: @NonFungibleToken.Collection)
 
     pub fun checkCollection(key: String): Bool
 
-    pub fun depositNFT(key: String, token:@NonFungibleToken.NFT)
+    pub fun depositNFT(key: String, token:@NonFungibleToken.NFT, senderRef: &{NonFungibleToken.CollectionPublic}?)
   }
 
   pub resource interface SubdomainPublic {
@@ -490,7 +491,7 @@ pub contract Domains: NonFungibleToken {
         self.subdomains[nameHash] != nil : "Subdomain not exsit..."
       }
 
-      let subdomain = &self.subdomains[nameHash] as &{SubdomainPrivate}
+      let subdomain = (&self.subdomains[nameHash] as &Domains.Subdomain?)!
       subdomain.setText(key: key, value: value)
     }
 
@@ -501,7 +502,7 @@ pub contract Domains: NonFungibleToken {
         self.subdomains[nameHash] != nil : "Subdomain not exsit..."
       }
 
-      let subdomain = &self.subdomains[nameHash] as &{SubdomainPrivate}
+      let subdomain = (&self.subdomains[nameHash] as &Domains.Subdomain?)!
       subdomain.setAddress(chainType: chainType, address: address)
     }
 
@@ -511,7 +512,7 @@ pub contract Domains: NonFungibleToken {
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
         self.subdomains[nameHash] != nil : "Subdomain not exsit..."
       }
-      let subdomain = &self.subdomains[nameHash] as &{SubdomainPrivate}
+      let subdomain = (&self.subdomains[nameHash] as &Domains.Subdomain?)!
       subdomain.removeText(key: key)
     }
 
@@ -521,7 +522,7 @@ pub contract Domains: NonFungibleToken {
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
         self.subdomains[nameHash] != nil : "Subdomain not exsit..."
       }
-      let subdomain = &self.subdomains[nameHash] as &{SubdomainPrivate}
+      let subdomain = (&self.subdomains[nameHash] as &Domains.Subdomain?)!
       subdomain.removeAddress(chainType: chainType)
     }
     
@@ -533,7 +534,7 @@ pub contract Domains: NonFungibleToken {
       let subdomainKeys = self.subdomains.keys
       var subdomains: {String: SubdomainDetail} = {}
       for subdomainKey in subdomainKeys {
-        let subRef = &self.subdomains[subdomainKey] as! &Subdomain
+        let subRef = (&self.subdomains[subdomainKey] as &Subdomain?)!
         let detail = subRef.getDetail()
         subdomains[subdomainKey] = detail
       }
@@ -541,7 +542,7 @@ pub contract Domains: NonFungibleToken {
       var vaultBalances: {String: UFix64} = {}
       let vaultKeys = self.vaults.keys
       for vaultKey in vaultKeys {
-        let balRef = &self.vaults[vaultKey] as! &FungibleToken.Vault
+        let balRef = (&self.vaults[vaultKey] as &FungibleToken.Vault?)!
         let balance = balRef.balance
         vaultBalances[vaultKey] = balance
       }
@@ -550,8 +551,8 @@ pub contract Domains: NonFungibleToken {
 
       let collectionKeys = self.collections.keys
       for collectionKey in collectionKeys {
-        let collectionRef = &self.collections[collectionKey] as! &NonFungibleToken.Collection
-        let ids = collectionRef.getIDs()
+        let collectionRef = (&self.collections[collectionKey] as &NonFungibleToken.Collection?)!
+        let ids = collectionRef!.getIDs()
         collections[collectionKey] = ids
       }
 
@@ -576,7 +577,7 @@ pub contract Domains: NonFungibleToken {
     }
 
     pub fun getSubdomainDetail(nameHash: String): SubdomainDetail {
-      let subdomainRef = &self.subdomains[nameHash] as! &Subdomain
+      let subdomainRef = (&self.subdomains[nameHash] as &Subdomain?)!
       return subdomainRef.getDetail()
     }
 
@@ -585,7 +586,7 @@ pub contract Domains: NonFungibleToken {
       let ids = self.subdomains.keys
       var subdomains:[SubdomainDetail] = []
       for id in ids {
-        let subRef = &self.subdomains[id] as! &Subdomain
+        let subRef = (&self.subdomains[id] as! &Subdomain?)!
         let detail = subRef.getDetail()
         subdomains.append(detail)
       }
@@ -644,7 +645,7 @@ pub contract Domains: NonFungibleToken {
 
     }
 
-    pub fun depositVault(from: @FungibleToken.Vault) {
+    pub fun depositVault(from: @FungibleToken.Vault, senderRef: &{FungibleToken.Receiver}?) {
       pre {
         !Domains.isExpired(self.nameHash) : Domains.domainExpiredTip
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
@@ -656,10 +657,10 @@ pub contract Domains: NonFungibleToken {
       if self.vaults[typeKey] == nil {
         self.vaults[typeKey] <-! from
       } else {
-        let vaultRef = &self.vaults[typeKey] as! &FungibleToken.Vault
-        vaultRef.deposit(from: <- from)
+        let vault = (&self.vaults[typeKey] as &FungibleToken.Vault?)!
+        vault.deposit(from: <- from)
       }
-      emit DomainVaultDeposited(vaultType: typeKey, amount: amount, to: address )
+      emit DomainVaultDeposited(nameHash: self.nameHash, vaultType: typeKey, amount: amount, from: senderRef?.owner?.address )
 
     }
 
@@ -667,13 +668,13 @@ pub contract Domains: NonFungibleToken {
       pre {
         self.vaults[key] != nil : "Vault not exsit..."
       }
-      let vaultRef = &self.vaults[key] as! &FungibleToken.Vault
+      let vaultRef = (&self.vaults[key] as &FungibleToken.Vault?)!
       let balance = vaultRef.balance
       var withdrawAmount = amount
       if amount == 0.0 {
         withdrawAmount = balance
       }
-      emit DomainVaultWithdrawn(vaultType: key, amount: balance, from: self.getDomainName())
+      emit DomainVaultWithdrawn(nameHash: self.nameHash, vaultType: key, amount: balance, from: Domains.getRecords(self.nameHash))
       return <- vaultRef.withdraw(amount: withdrawAmount)
     }
 
@@ -691,8 +692,11 @@ pub contract Domains: NonFungibleToken {
       let address = collection.owner?.address
       if self.collections[typeKey] == nil {
         self.collections[typeKey] <-! collection
-        emit DomainCollectionAdded(collectionType: typeKey, to: address )
+        emit DomainCollectionAdded(nameHash: self.nameHash, collectionType: typeKey)
       } else {
+        if collection.getIDs().length > 0 {
+          panic("collection not empty ")
+        }
         destroy collection
       }
     }
@@ -701,13 +705,16 @@ pub contract Domains: NonFungibleToken {
       return self.collections[key] != nil
     }
 
-    pub fun depositNFT(key: String, token: @NonFungibleToken.NFT) {
+    pub fun depositNFT(key: String, token: @NonFungibleToken.NFT, senderRef: &{NonFungibleToken.CollectionPublic}?) {
       pre {
         self.collections[key] != nil : "Cannot find NFT collection..."
         !Domains.isExpired(self.nameHash) : Domains.domainExpiredTip
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
       }
-      let collectionRef = &self.collections[key] as &NonFungibleToken.Collection
+      let collectionRef = (&self.collections[key] as &NonFungibleToken.Collection?)!
+
+      emit DomainCollectionDeposited(nameHash: self.nameHash, collectionType: key, itemId: token.id, from: senderRef?.owner?.address)
+
       collectionRef.deposit(token: <- token)
     }
 
@@ -715,9 +722,9 @@ pub contract Domains: NonFungibleToken {
       pre {
         self.collections[key] != nil : "Cannot find NFT collection..."
       }
-      let collectionRef = &self.collections[key] as! &NonFungibleToken.Collection
+      let collectionRef = (&self.collections[key] as &NonFungibleToken.Collection?)!
 
-      emit DomainCollectionWithdrawn(vaultType: key, itemId: itemId, from: self.getDomainName())
+      emit DomainCollectionWithdrawn(nameHash: self.nameHash, collectionType: key, itemId: itemId, from: Domains.getRecords(self.nameHash))
 
       return <- collectionRef.withdraw(withdrawID: itemId)
     }
@@ -796,7 +803,7 @@ pub contract Domains: NonFungibleToken {
       }
       // update the owner record for new domain owner
       
-      Domains.updateRecords(nameHash: nameHash, address: self.owner?.address!)
+      Domains.updateRecords(nameHash: nameHash, address: self.owner?.address)
       
       // add the new token to the dictionary which removes the old one
       let oldToken <- self.ownedNFTs[id] <- token
@@ -813,7 +820,7 @@ pub contract Domains: NonFungibleToken {
     }
 
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
     
     // Borrow domain for public use
@@ -821,8 +828,8 @@ pub contract Domains: NonFungibleToken {
       pre {
         self.ownedNFTs[id] != nil: "domain doesn't exist"
       }
-      let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-      return ref as! &Domains.NFT
+      let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+      return ref! as! &Domains.NFT
     }
 
     // Borrow domain for domain owner 
@@ -830,8 +837,8 @@ pub contract Domains: NonFungibleToken {
       pre {
         self.ownedNFTs[id] != nil: "domain doesn't exist"
       }
-      let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-      return ref as! &Domains.NFT
+      let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+      return ref! as! &Domains.NFT
     }
 
     access(account) fun mintDomain(name: String, nameHash: String, parentName: String, expiredAt: UFix64, receiver: Capability<&{NonFungibleToken.Receiver}>){
