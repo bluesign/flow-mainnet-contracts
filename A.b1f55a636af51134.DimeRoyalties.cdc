@@ -163,14 +163,14 @@ pub contract DimeRoyalties {
             if self.releases[id] == nil {
                 return nil
             }
-            return &(self.releases[id]) as &Release{ReleasePublic}
+            return &self.releases[id] as &Release{ReleasePublic}?
         }
 
         pub fun borrowPrivateRelease(id: UInt64): &Release? {
             if self.releases[id] == nil {
                 return nil
             }
-            return &(self.releases[id]) as &Release
+            return &self.releases[id] as &Release?
         }
 
         pub fun createRelease(collection: &DimeCollectibleV3.Collection{NonFungibleToken.CollectionPublic},
