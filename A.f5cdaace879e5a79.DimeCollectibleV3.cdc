@@ -182,7 +182,7 @@ pub contract DimeCollectibleV3: NonFungibleToken {
 		// We don't use this function (we use our own version, borrowCollectible),
 		// but it's required by the NonFungibleToken.CollcetionPublic interface
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-			return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+			return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
 		}
 
 		// Gets a reference to an NFT in the collection as a DimeCollectibleV3.
@@ -190,8 +190,8 @@ pub contract DimeCollectibleV3: NonFungibleToken {
 			if self.ownedNFTs[id] == nil {
 				return nil
 			}
-			let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-			return ref as! &DimeCollectibleV3.NFT
+			let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+			return ref as! &DimeCollectibleV3.NFT?
 		}
 
 		destroy() {
@@ -214,7 +214,7 @@ pub contract DimeCollectibleV3: NonFungibleToken {
 			numCopies: UInt64, creators: [Address], content: String, hiddenContent: String?,
 			tradeable: Bool, previousHistory: [Transaction]?, royalties: Royalties,
 			initialSale: Transaction?) {
-			let history = initialSale != nil ? [initialSale!] : []
+			let history: [Transaction] = initialSale != nil ? [initialSale!] : []
 			var counter = 1 as UInt64
 			while counter <= numCopies {
 				let tokenId = DimeCollectibleV3.totalSupply + counter
@@ -233,7 +233,7 @@ pub contract DimeCollectibleV3: NonFungibleToken {
 		pub fun mintRoyaltyNFTs(collection: &{NonFungibleToken.CollectionPublic}, blueprintId: UInt64,
 			numCopies: UInt64, creators: [Address], content: String, tradeable: Bool, royalties: Royalties,
 			initialSale: Transaction?): [UInt64] {
-			let history = initialSale != nil ? [initialSale!] : []
+			let history: [Transaction] = initialSale != nil ? [initialSale!] : []
 			var counter = 1 as UInt64
 			let idsUsed: [UInt64] = []
 			while counter <= numCopies {
@@ -255,7 +255,7 @@ pub contract DimeCollectibleV3: NonFungibleToken {
 		pub fun mintReleaseNFTs(collection: &{NonFungibleToken.CollectionPublic}, blueprintId: UInt64,
 			numCopies: UInt64, creators: [Address], content: String, hiddenContent: String?, tradeable: Bool,
 			previousHistory: [Transaction]?, royalties: Royalties, initialSale: Transaction?) {
-			let history = initialSale != nil ? [initialSale!] : []
+			let history: [Transaction] = initialSale != nil ? [initialSale!] : []
 			var counter = 1 as UInt64
 			while counter <= numCopies {
 				let tokenId = DimeCollectibleV3.totalSupply + counter
