@@ -1,6 +1,6 @@
 //SPDX-License-Identifier : CC-BY-NC-4.0
 
-
+// testnet 0x631e88ae7f1d7c20
 import NonFungibleToken from 0x1d7e57aa55817448
 
 // Metaverse
@@ -134,7 +134,7 @@ pub contract Metaverse: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowMetaverse
@@ -144,7 +144,7 @@ pub contract Metaverse: NonFungibleToken {
         //
         pub fun borrowMetaverse(id: UInt64): &Metaverse.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Metaverse.NFT
             } else {
                 return nil
