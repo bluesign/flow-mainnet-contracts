@@ -103,7 +103,7 @@ pub contract BarterYardPackNFT: NonFungibleToken {
             self.ipfsThumbnailPath = ipfsThumbnailPath
             self.edition = edition
         }
-    
+
         pub fun getViews(): [Type] {
             return [
                 Type<MetadataViews.Display>(),
@@ -190,23 +190,23 @@ pub contract BarterYardPackNFT: NonFungibleToken {
         // borrowNFT gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
- 
+
         pub fun borrowBarterYardPackNFT(id: UInt64): &BarterYardPackNFT.NFT? {
             if self.ownedNFTs[id] != nil {
                 // Create an authorized reference to allow downcasting
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &BarterYardPackNFT.NFT
+                let ref = (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
+                return ref as! &BarterYardPackNFT.NFT?
             }
 
             return nil
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let BarterYardPackNFT = nft as! &BarterYardPackNFT.NFT
-            return BarterYardPackNFT
+            return BarterYardPackNFT as! &{MetadataViews.Resolver}
         }
 
         destroy() {
@@ -284,7 +284,7 @@ pub contract BarterYardPackNFT: NonFungibleToken {
     pub fun getPackPartById(packPartId: Int): BarterYardPackNFT.PackPart? {
         return self.packParts[packPartId]
     }
-    
+
     init() {
         // Initialize the total supply
         self.totalSupply = 0
