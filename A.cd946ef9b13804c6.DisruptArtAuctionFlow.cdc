@@ -454,7 +454,7 @@ pub contract DisruptArtAuctionFlow {
             let auctionList: {UInt64: AuctionStatus} = {}
 
             for id in self.auctionItems.keys {
-                let itemRef = &self.auctionItems[id] as? &AuctionItem
+                let itemRef = (&self.auctionItems[id] as? &AuctionItem?)!
                 auctionList[id] = itemRef.getAuctionStatus()
             }
 
@@ -470,7 +470,7 @@ pub contract DisruptArtAuctionFlow {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             let status = itemRef.getAuctionStatus()
             return status
         }
@@ -493,7 +493,7 @@ pub contract DisruptArtAuctionFlow {
                     "Auction doesn't exist"
             }
 
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.settleAuction()
         }
 
@@ -503,7 +503,7 @@ pub contract DisruptArtAuctionFlow {
                     "Auction does not exist"
             }
 
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.cancelAuction()
           
         }
@@ -518,7 +518,7 @@ pub contract DisruptArtAuctionFlow {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
 
             itemRef.placeBid(bidTokens: <- bidTokens, vaultCap: vaultCap, collectionCap: collectionCap)
 
