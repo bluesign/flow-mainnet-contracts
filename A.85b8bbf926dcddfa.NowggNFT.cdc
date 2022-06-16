@@ -159,7 +159,7 @@ pub contract NowggNFT: NonFungibleToken {
         // Gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowNowggNFT
@@ -168,7 +168,7 @@ pub contract NowggNFT: NonFungibleToken {
         // This is safe as there are no functions that can be called on the NowggItem.
         pub fun borrowNowggNFT(id: UInt64): &NowggNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &NowggNFT.NFT
             } else {
                 return nil
