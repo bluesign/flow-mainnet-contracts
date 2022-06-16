@@ -139,7 +139,7 @@ pub contract KlktnNFT: NonFungibleToken {
     // - Gets a reference to an NFT in the collection
     // so that the caller can read its metadata and call its methods
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     // borrowKlktnNFT: 
@@ -148,8 +148,8 @@ pub contract KlktnNFT: NonFungibleToken {
     // - This is safe as there are no administrative functions that can be called on the KlktnNFT
     pub fun borrowKlktnNFT(id: UInt64): &KlktnNFT.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-        return ref as! &KlktnNFT.NFT
+        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+        return ref as! &KlktnNFT.NFT?
       } else {
         return nil
       }
@@ -301,7 +301,7 @@ pub contract KlktnNFT: NonFungibleToken {
     if KlktnNFT.klktnNFTTypeSet.containsKey(typeID) {
       return KlktnNFT.klktnNFTTypeSet[typeID]!.metadata
     }
-    panic("invalid tokentypeID.")
+    panic("invalid token typeID.")
   }
 
   // -----------------------------------------------------------------------
