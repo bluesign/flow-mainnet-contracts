@@ -209,6 +209,27 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         active: Bool
     )
 
+    pub event PromotionIsAccessListUsedChanged(
+        promotionId: UInt64,
+        promotionHost: Address,
+        campaignName: String,
+        isAccessListUsed: Bool,
+    )
+
+    pub event PromotionIsOpenAccessChanged(
+        promotionId: UInt64,
+        promotionHost: Address,
+        campaignName: String,
+        isOpenAccess: Bool,
+    )
+
+    pub event PromotionOnlyUseAccessListChanged(
+        promotionId: UInt64,
+        promotionHost: Address,
+        campaignName: String,
+        onlyUseAccessList: Bool,
+    )
+
     pub event PromotionMetadataAdded(
         promotionId: UInt64,
         promotionHost: Address,
@@ -765,6 +786,10 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
     pub resource interface PromotionPublic {
         pub fun getViews(): [Type]
         pub fun resolveView(_ view: Type): AnyStruct?
+
+        // Added because of bug in BC that prevents PromotionMetadataView from being populated in scripts
+        pub fun getNftsUsedForClaim(): {UInt64: TheFabricantMetadataViews.Identifier}
+
     }
 
     // AccessList is separate to PromotionPublic interface as it may be so large
@@ -923,14 +948,35 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
 
         pub fun changeIsOpenAccess(isOpenAccess: Bool) {
             self.isOpenAccess = isOpenAccess
+
+            emit PromotionIsOpenAccessChanged(
+                promotionId: self.id,
+                promotionHost: self.host,
+                campaignName: self.campaignName,
+                isOpenAccess: self.isOpenAccess,
+            )
         }
 
         pub fun changeIsAccessListUsed(useAccessList: Bool) {
             self.isAccessListUsed = useAccessList
+
+            emit PromotionIsAccessListUsedChanged(
+                promotionId: self.id,
+                promotionHost: self.host,
+                campaignName: self.campaignName,
+                isAccessListUsed: self.isAccessListUsed,
+             )
         }
 
         pub fun changeOnlyUseAccessList(onlyUseAccessList: Bool) {
             self.onlyUseAccessList = onlyUseAccessList
+
+            emit PromotionOnlyUseAccessListChanged(
+                promotionId: self.id,
+                promotionHost: self.host,
+                campaignName: self.campaignName,
+                onlyUseAccessList: self.onlyUseAccessList,
+            )
         }
 
         // Toggle master switch
