@@ -485,7 +485,7 @@ pub contract AAAuction {
 
         pub fun borrow(auctionID: UInt64): &Auction{AuctionPublic}? {
             if self.auctions[auctionID] != nil {
-              return &self.auctions[auctionID] as! &Auction{AuctionPublic}
+              return (&self.auctions[auctionID] as! &Auction{AuctionPublic}?)!
             } else {
               return nil
             }
@@ -514,7 +514,7 @@ pub contract AAAuction {
                 var i = 0
 
                 while i < bids.length {
-                    let ref = &bids[i] as &AAAuction.Bid
+                    let ref = (&bids[i] as &AAAuction.Bid?)!
                     assert(ref.doRefund(), message: "Can't not refund")
 
                     i = i + 1
