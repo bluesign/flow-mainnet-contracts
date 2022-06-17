@@ -1,7 +1,7 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import FUSD from 0x3c5959b568896393
-import IrVoucher from 0x276a7cc9316712af 
+import IrVoucher from 0x276a7cc9316712af
 
 // The IN|RIFT Contract
 //
@@ -169,7 +169,7 @@ pub contract IrNFT: NonFungibleToken {
         pub let name: String
 
         init(id: UInt32) {
-            let brand = &IrNFT.brands[id] as! &IrNFT.IrBrand
+            let brand = (&IrNFT.brands[id] as &IrNFT.IrBrand?)!
 
             self.id = brand.id
             self.publicID = brand.publicID
@@ -257,7 +257,7 @@ pub contract IrNFT: NonFungibleToken {
         pub let totalSupplyPerItem: {UInt32: UInt64}
 
         init(id: UInt32) {
-            let collection = &IrNFT.collections[id] as! &IrNFT.IrCollection
+            let collection = (&IrNFT.collections[id] as &IrNFT.IrCollection?)!
 
             self.id = collection.id
             self.publicID = collection.publicID
@@ -515,9 +515,9 @@ pub contract IrNFT: NonFungibleToken {
         pub let totalSupply: UInt64
 
         init(id: UInt32) {
-            let item = &IrNFT.items[id] as &IrNFT.IrItem
+            let item = (&IrNFT.items[id] as &IrNFT.IrItem?)!
 
-            let collection = &IrNFT.collections[item.collectionID] as &IrNFT.IrCollection
+            let collection = (&IrNFT.collections[item.collectionID] as &IrNFT.IrCollection?)!
 
             self.collectionID = collection.id
             self.collectionPublicID = collection.publicID
@@ -676,7 +676,7 @@ pub contract IrNFT: NonFungibleToken {
             IrNFT.items[id] != nil: "Cannot borrow item, no such ID"
         }
 
-        let item = &IrNFT.items[id] as &IrNFT.IrItem
+        let item = (&IrNFT.items[id] as &IrNFT.IrItem?)!
 
         // Find Item Rarity
         var itemRarity: IrNFT.IrRarity? = nil
@@ -729,7 +729,7 @@ pub contract IrNFT: NonFungibleToken {
         pub var totalSupply: UInt64
 
         init(id: UInt32) {
-            let drop = &IrNFT.drops[id] as! &IrNFT.IrDrop
+            let drop = (&IrNFT.drops[id] as &IrNFT.IrDrop?)!
 
             self.collectionID = drop.collectionID
             self.id = drop.id
@@ -785,7 +785,7 @@ pub contract IrNFT: NonFungibleToken {
             recipient: &{NonFungibleToken.CollectionPublic},
             paymentVault: @FungibleToken.Vault
         ) {
-            let drop = &IrNFT.drops[self.id] as! &IrNFT.IrDrop
+            let drop = (&IrNFT.drops[self.id] as &IrNFT.IrDrop?)!
 
             drop.purchaseVoucher(
                 recipient: recipient,
@@ -797,7 +797,7 @@ pub contract IrNFT: NonFungibleToken {
             recipient: &{NonFungibleToken.CollectionPublic},
             token: @NonFungibleToken.NFT
         ) {
-            let drop = &IrNFT.drops[self.id] as! &IrNFT.IrDrop
+            let drop = (&IrNFT.drops[self.id] as &IrNFT.IrDrop?)!
 
             drop.redeemVoucher(
                 recipient: recipient,
@@ -904,7 +904,7 @@ pub contract IrNFT: NonFungibleToken {
                 items.length == supplyPerItem.keys.length: "Provided item amount doesnt match supply items"
             }
 
-            var collection = &IrNFT.collections[collectionID] as &IrCollection
+            var collection = (&IrNFT.collections[collectionID] as &IrCollection?)!
 
             self.collectionID = collection.id
             self.id = IrNFT.nextDropID
@@ -943,7 +943,7 @@ pub contract IrNFT: NonFungibleToken {
 
                 let itemSupply: UInt64 = supplyPerItem[itemID]!
 
-                let item = &IrNFT.items[itemID] as &IrItem
+                let item = (&IrNFT.items[itemID] as &IrItem?)!
                 
                 assert(
                     item.collectionID == collectionID,
@@ -1148,9 +1148,9 @@ pub contract IrNFT: NonFungibleToken {
 
             let randomItemID = remainingItems[randomIndex]
 
-            let item = &IrNFT.items[randomItemID] as! &IrItem
+            let item = (&IrNFT.items[randomItemID] as &IrItem?)!
 
-            let collection = &IrNFT.collections[item.collectionID] as! &IrNFT.IrCollection
+            let collection = (&IrNFT.collections[item.collectionID] as &IrNFT.IrCollection?)!
 
             let newNFT <- IrNFT.mintDropNFT(
                 collectionID: collection.id,
@@ -1368,13 +1368,13 @@ pub contract IrNFT: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowIrNFT
         pub fun borrowIrNFT(id: UInt64): &IrNFT.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 
                 return ref as! &IrNFT.NFT
             } else {
@@ -1488,7 +1488,7 @@ pub contract IrNFT: NonFungibleToken {
             }
             
             // Return a reference (&) of the requested Collection
-            return &IrNFT.collections[collectionID] as &IrCollection
+            return (&IrNFT.collections[collectionID] as &IrCollection?)!
         }
 
         // createItem
@@ -1507,7 +1507,7 @@ pub contract IrNFT: NonFungibleToken {
                 IrNFT.collections.containsKey(collectionID): "No such collectionID"
             }
 
-            let collection = &IrNFT.collections[collectionID] as &IrNFT.IrCollection
+            let collection = (&IrNFT.collections[collectionID] as &IrNFT.IrCollection?)!
 
             // Create new Item
             let newItem <- create IrItem(
@@ -1542,7 +1542,7 @@ pub contract IrNFT: NonFungibleToken {
             }
             
             // Return a reference (&) of the requested Collection
-            return &IrNFT.items[itemID] as &IrItem
+            return (&IrNFT.items[itemID] as &IrItem?)!
         }
 
         // createDrop
@@ -1564,7 +1564,7 @@ pub contract IrNFT: NonFungibleToken {
                 IrNFT.collections.containsKey(collectionID): "No such collectionID"
             }
 
-            let collection = &IrNFT.collections[collectionID] as &IrNFT.IrCollection
+            let collection = (&IrNFT.collections[collectionID] as &IrNFT.IrCollection?)!
 
             // Create new Drop
             let newDrop <- create IrDrop(
@@ -1601,7 +1601,7 @@ pub contract IrNFT: NonFungibleToken {
             }
             
             // Return a reference (&) of the requested Collection
-            return &IrNFT.drops[dropID] as &IrDrop
+            return (&IrNFT.drops[dropID] as &IrDrop?)!
         }
 
         // giveawayVoucher
@@ -1618,7 +1618,7 @@ pub contract IrNFT: NonFungibleToken {
                 !IrNFT.getDropData(id: dropID).hasEnded(): "Drop has ended"
             }
 
-            let drop = &IrNFT.drops[dropID] as! &IrNFT.IrDrop
+            let drop = (&IrNFT.drops[dropID] as &IrNFT.IrDrop?)!
 
             let voucherNFT <- drop.mintVoucher()
 
@@ -1658,8 +1658,8 @@ pub contract IrNFT: NonFungibleToken {
                 IrNFT.items.containsKey(itemID): "No such itemID"
             }
 
-            let collection = &IrNFT.collections[collectionID] as! &IrNFT.IrCollection
-            let item = &IrNFT.items[itemID] as! &IrNFT.IrItem
+            let collection = (&IrNFT.collections[collectionID] as &IrNFT.IrCollection?)!
+            let item = (&IrNFT.items[itemID] as &IrNFT.IrItem?)!
             
             assert(
                 collection.items.contains(itemID),
@@ -1757,9 +1757,9 @@ pub contract IrNFT: NonFungibleToken {
                 IrNFT.drops.containsKey(dropID): "No such dropID"
             }
 
-            let collection = &IrNFT.collections[collectionID] as! &IrNFT.IrCollection
-            let item = &IrNFT.items[itemID] as! &IrNFT.IrItem
-            let drop = &IrNFT.drops[dropID] as! &IrNFT.IrDrop
+            let collection = (&IrNFT.collections[collectionID] as &IrNFT.IrCollection?)!
+            let item = (&IrNFT.items[itemID] as &IrNFT.IrItem?)!
+            let drop = (&IrNFT.drops[dropID] as &IrNFT.IrDrop?)!
             
             assert(
                 collection.items.contains(itemID),
@@ -1914,4 +1914,3 @@ pub contract IrNFT: NonFungibleToken {
         emit ContractInitialized()
 	}
 }
- 
