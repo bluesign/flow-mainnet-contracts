@@ -371,7 +371,7 @@ pub contract AAOpenBid {
 
         pub fun borrowBid(bidResourceID: UInt64): &Bid{BidPublic}? {
             if self.bids[bidResourceID] != nil {
-                return &self.bids[bidResourceID] as! &Bid{BidPublic}
+                return (&self.bids[bidResourceID] as! &Bid{BidPublic}?)!
             } else {
                 return nil
             }
