@@ -1,7 +1,6 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import FlowToken from 0x1654653399040a61
-
 import Tickets from 0x7c11edb826692404
 
 pub contract TicketsAuction {
@@ -295,7 +294,7 @@ pub contract TicketsAuction {
             if let bids <- TicketsAuction.unclaimedBids.remove(key: address) {
                 var i = 0
                 while i < bids.length {
-                    let ref = &bids[i] as &TicketsAuction.Bid
+                    let ref = (&bids[i] as &TicketsAuction.Bid?)!
                     assert(ref.doRefund(), message: "Can't not refund")
 
                     i = i + 1
@@ -333,7 +332,7 @@ pub contract TicketsAuction {
 
     pub fun borrow(auctionID: UInt64): &Auction{AuctionPublic}? {
         if self.auctions[auctionID] != nil {
-            return &self.auctions[auctionID] as! &Auction{AuctionPublic}
+            return (&self.auctions[auctionID] as! &Auction{AuctionPublic}?)!
         } else {
             return nil
         }
