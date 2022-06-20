@@ -279,7 +279,6 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
         variant: String,
         nftMetadataId: UInt64?,
         typeRestrictions: [Type]?,
-        accessList: [Address],
         promotionAccessIds: [UInt64]?,
         pathString: String
     )
@@ -1662,7 +1661,6 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
                 variant: publicMinter.variant,
                 nftMetadataId: publicMinter.nftMetadataId,
                 typeRestrictions: promotion.getTypeRestrictions(),
-                accessList: promotion.getAccessList(),
                 promotionAccessIds: promotion.getPromotionAccessIds(),
                 pathString: pathString
             )
