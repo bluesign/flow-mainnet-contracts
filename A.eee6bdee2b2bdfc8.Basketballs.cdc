@@ -162,7 +162,7 @@ pub contract Basketballs: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowBasketball
@@ -172,7 +172,7 @@ pub contract Basketballs: NonFungibleToken {
         //
         pub fun borrowBasketball(id: UInt64): &Basketballs.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Basketballs.NFT
             } else {
                 return nil
