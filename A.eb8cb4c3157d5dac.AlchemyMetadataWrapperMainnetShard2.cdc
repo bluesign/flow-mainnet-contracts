@@ -178,6 +178,7 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "GogoroCollectible": continue
                     case "YahooCollectible": continue
                     case "YahooPartnersCollectible": continue
+                    case "BlindBoxRedeemVoucher": continue
                     case "SomePlaceCollectible": continue
                     case "ARTIFACTPack": continue
                     case "ARTIFACT": continue
