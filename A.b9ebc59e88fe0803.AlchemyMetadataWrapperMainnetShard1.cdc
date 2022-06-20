@@ -16,6 +16,7 @@ import Mynft from 0xf6fcbef550d97aa5
 import NonFungibleToken from 0x1d7e57aa55817448
 import RaceDay_NFT from 0x329feb3ab062d289
 import RareRooms_NFT from 0x329feb3ab062d289
+import Shard from 0x82b54037a8f180cf
 import StarlyCard from 0x5b82f21c0edf76e3
 import TopShot from 0x0b2a3299cc857e29
 import TuneGO from 0x0d9bc5af3fc0c2e3
@@ -128,7 +129,7 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
                     case "TopShot": d = self.getTopShot(owner: owner, id: id)
                     case "MatrixWorldFlowFestNFT": d = self.getMatrixWorldFlowFest(owner: owner, id: id)
                     case "StarlyCard": d = self.getStarlyCard(owner: owner, id: id)
-                    case "EternalShard": continue
+                    case "EternalShard": d = self.getEternalShard(owner: owner, id: id)
                     case "Mynft": d = self.getMynft(owner: owner, id: id)
                     case "Vouchers": d = self.getVoucher(owner: owner, id: id)
                     case "MusicBlock": continue
@@ -181,6 +182,7 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
                     case "GogoroCollectible": continue
                     case "YahooCollectible": continue
                     case "YahooPartnersCollectible": continue
+                    case "BlindBoxRedeemVoucher": continue
                     case "SomePlaceCollectible": continue
                     case "ARTIFACTPack": continue
                     case "ARTIFACT": continue
@@ -560,6 +562,44 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
     }
     
     // https://flow-view-source.com/mainnet/account/0x82b54037a8f180cf/contract/Shard
+    
+    
+    pub fun getEternalShard(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Shard",
+            address: 0x82b54037a8f180cf,
+            storage_path: "/storage/EternalShardCollection",
+            public_path: "/public/EternalShardCollection",
+            public_collection_name: "Shard.ShardCollectionPublic",
+            external_domain: "https://eternal.gg/"
+        )
+    
+        let col = owner.getCapability(/public/EternalShardCollection)
+            .borrow<&{Shard.ShardCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowShardNFT(id: id)
+        if nft == nil { return nil }
+    
+        let clip = Shard.getClip(clipID: nft!.clipID)
+        let clipMetadata = Shard.getClipMetadata(clipID: nft!.clipID)
+        let momentMetadata = Shard.getMomentMetadata(momentID: clip!.momentID)
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: clipMetadata!["title"],
+            description: "Deposit your Shard at Eternal.gg to merge them into a Crystal!",
+            external_domain_view_url: "https://eternal.gg/shards/".concat(nft!.id.toString()),
+            token_uri: nil,
+            media: [NFTMedia(uri: clipMetadata!["video_url"], mimetype: "video")],
+            metadata: {
+            },
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x2e1ee1e7a96826ce/contract/FantastecNFT
     
     
     pub fun getVoucher(owner: PublicAccount, id: UInt64): NFTData? {
@@ -1183,6 +1223,10 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
         if let col = owner.getCapability(CricketMoments.CollectionPublicPath)
             .borrow<&{CricketMoments.CricketMomentsCollectionPublic}>() {
                 ids["CricketMoments"] = col.getIDs()
+            }
+        if let col = owner.getCapability(/public/EternalShardCollection)
+            .borrow<&{Shard.ShardCollectionPublic}>() {
+                ids["EternalShard"] = col.getIDs()
             }
         if let col = owner.getCapability(Vouchers.CollectionPublicPath)
             .borrow<&{Vouchers.CollectionPublic}>() {
