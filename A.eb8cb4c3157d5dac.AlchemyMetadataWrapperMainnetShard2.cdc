@@ -7,6 +7,7 @@ import Canes_Vault_NFT from 0x329feb3ab062d289
 import Costacos_NFT from 0x329feb3ab062d289
 import DayNFT from 0x1600b04bf033fb99
 import DieselNFT from 0x497153c597783bc3
+import GeniaceNFT from 0xabda6627c70c7f52
 import GooberXContract from 0x34f2bf4a80bb0f69
 import HaikuNFT from 0xf61e40c19db2a9e2
 import MetadataViews from 0x1d7e57aa55817448
@@ -141,7 +142,7 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "Gooberz": d = self.getGooberz(owner: owner, id: id)
                     case "MintStoreItem": d = self.getMintStoreItem(owner: owner, id: id)
                     case "BiscuitsNGroovy": continue
-                    case "GeniaceNFT": continue
+                    case "GeniaceNFT": d = self.getGeniaceNFT(owner: owner, id: id)
                     case "Xtingles": continue
                     case "Beam": continue
                     case "KOTD": continue
@@ -456,6 +457,64 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
     }
     
     // https://flow-view-source.com/mainnet/account/0x7859c48816bfea3c/contract/BnGNFT
+    
+    
+    pub fun getGeniaceNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Geniace",
+            address: 0xabda6627c70c7f52,
+            storage_path: "GeniaceNFT.CollectionStoragePath",
+            public_path: "GeniaceNFT.CollectionPublicPath",
+            public_collection_name: "GeniaceNFT.GeniaceNFTCollectionPublic",
+            external_domain: "https://www.geniace.com/"
+        )
+    
+        let col = owner.getCapability(GeniaceNFT.CollectionPublicPath)
+            .borrow<&{GeniaceNFT.GeniaceNFTCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowGeniaceNFT(id: id)
+        if nft == nil { return nil }
+    
+        fun getNFTMedia(): [NFTMedia?] {
+            if(nft!.metadata!.data!["mimetype"] == nil){
+                return []
+            }
+            else{
+                return [NFTMedia(
+                    uri: nft!.metadata!.imageUrl,
+                    mimetype: nft!.metadata!.data!["mimetype"]
+                )]
+            }
+        }
+    
+        fun getRarity(): String? {
+            switch nft!.metadata.rarity {
+                case GeniaceNFT.Rarity.Collectible: return "Collectible"
+                case GeniaceNFT.Rarity.Rare: return "Rare"
+                case GeniaceNFT.Rarity.UltraRare: return "UltraRare"
+                default: return ""
+            }
+        }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nft!.metadata!.name,
+            description: nft!.metadata!.description,
+            external_domain_view_url: "https://www.geniace.com/product/".concat(nft!.id.toString()),
+            token_uri: nil,
+            media: getNFTMedia(),
+            metadata: {
+                "celebrityName": nft!.metadata!.celebrityName,
+                "artist": nft!.metadata!.artist,
+                "rarity": getRarity()
+            },
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0xf5b0eb433389ac3f/contract/Collectible
     
     
     pub fun getTheFabricantMysteryBox_FF1(owner: PublicAccount, id: UInt64): NFTData? {
@@ -982,6 +1041,10 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                 }
         }
     
+        if let col = owner.getCapability(GeniaceNFT.CollectionPublicPath)
+            .borrow<&{GeniaceNFT.GeniaceNFTCollectionPublic}>() {
+                ids["GeniaceNFT"] = col.getIDs()
+        }
         if let col = owner.getCapability(TheFabricantMysteryBox_FF1.CollectionPublicPath)
         .borrow<&{TheFabricantMysteryBox_FF1.FabricantCollectionPublic}>() {
             ids["TheFabricantMysteryBox_FF1"] = col.getIDs()
