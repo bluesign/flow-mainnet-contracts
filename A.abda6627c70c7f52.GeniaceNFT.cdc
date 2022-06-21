@@ -167,21 +167,17 @@ pub contract GeniaceNFT: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
-        // borrowKittyItem
+        // borrow GeniaceNFT
         // Gets a reference to an NFT in the collection as a GeniaceNFT,
         // exposing all of its fields, this reference will be used to retrive the meta info.
-        // This is safe as there are no functions that can be called on the KittyItem.
+        // This is safe as there are no functions that can be called on the GeniaceNFT.
         //
         pub fun borrowGeniaceNFT(id: UInt64): &GeniaceNFT.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &GeniaceNFT.NFT
-            } else {
-                return nil
-            }
+            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+            return ref as! &GeniaceNFT.NFT?
         }
 
 
