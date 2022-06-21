@@ -442,7 +442,7 @@ pub contract GeniaceMarketplace {
         //
         pub fun borrowSaleOffer(saleOfferResourceID: UInt64): &SaleOffer{SaleOfferPublic}? {
             if self.saleOffers[saleOfferResourceID] != nil {
-                return &self.saleOffers[saleOfferResourceID] as! &SaleOffer{SaleOfferPublic}
+                return &self.saleOffers[saleOfferResourceID] as &SaleOffer{SaleOfferPublic}?
             } else {
                 return nil
             }
