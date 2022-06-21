@@ -8,6 +8,7 @@ import MotoGPCard from 0xa49cc0ee46c54bfb
 import NFTContract from 0x1e075b24abe6eca6
 import NonFungibleToken from 0x1d7e57aa55817448
 import PartyMansionDrinksContract from 0x34f2bf4a80bb0f69
+import QRLNFT from 0xa4e9020ad21eb30b
 import TheFabricantS2ItemNFT from 0x7752ea736384322f
 import TicalUniverse from 0xfef48806337aabf1
 import UFC_NFT from 0x329feb3ab062d289
@@ -343,6 +344,44 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
     }
     
     // https://flow-view-source.com/mainnet/account/0x5dfbd0d5aba6acf7/contract/SwaychainNFT
+    
+    
+    pub fun getQRLNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "QRL",
+            address: 0x5dfbd0d5aba6acf7,
+            storage_path: "QRLNFT.CollectionStoragePath",
+            public_path: "QRLNFT.CollectionPublicPath",
+            public_collection_name: "ShawychainNFT.QRLNFTCollectionPublic",
+            external_domain: "https://swaychain.com/"
+        )
+    
+        let col = owner.getCapability(QRLNFT.CollectionPublicPath)
+            .borrow<&{QRLNFT.QRLNFTCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowQRLNFT(id: id)
+        if nft == nil { return nil }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nft!.name,
+            description: nft!.description,
+            external_domain_view_url: nft!.thumbnail,
+            token_uri: nil,
+            media: [NFTMedia(uri: nft!.thumbnail, mimetype: "image")],
+            metadata: {
+                "name": nft!.name,
+                // "message": nft!.title,
+                "description": nft!.description,
+                "thumbnail": nft!.thumbnail
+            }
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x7752ea736384322f/contract/TheFabricantS2ItemNFT
     
     
     pub fun getTheFabricantS2ItemNFT(owner: PublicAccount, id: UInt64): NFTData? {
@@ -812,6 +851,11 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         if let col = owner.getCapability(NFTContract.CollectionPublicPath)
         .borrow<&{NonFungibleToken.CollectionPublic}>() {
             ids["NFTContract"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(QRLNFT.CollectionPublicPath)
+        .borrow<&{QRLNFT.QRLNFTCollectionPublic}>() {
+            ids["QRL"] = col.getIDs()
         }
     
         if let col = owner.getCapability(TheFabricantS2ItemNFT.CollectionPublicPath)
