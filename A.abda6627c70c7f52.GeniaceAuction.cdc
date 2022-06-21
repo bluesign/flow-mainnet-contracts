@@ -573,7 +573,7 @@ pub contract GeniaceAuction {
 
         pub fun extendAllAuctionsWith(_ amount: UFix64) {
             for id in self.auctionItems.keys {
-                let itemRef = &self.auctionItems[id] as? &AuctionItem
+                let itemRef = (&self.auctionItems[id] as? &AuctionItem?)!
                 itemRef.extendWith(amount)
             }
             
@@ -632,7 +632,7 @@ pub contract GeniaceAuction {
             let priceList: {UInt64: AuctionStatus} = {}
 
             for id in self.auctionItems.keys {
-                let itemRef = &self.auctionItems[id] as? &AuctionItem
+                let itemRef = (&self.auctionItems[id] as? &AuctionItem?)!
                 priceList[id] = itemRef.getAuctionStatus()
             }
             
@@ -646,7 +646,7 @@ pub contract GeniaceAuction {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             return itemRef.getAuctionStatus()
 
         }
@@ -654,7 +654,7 @@ pub contract GeniaceAuction {
         // settleAuction sends the auction item to the highest bidder
         // and deposits the FungibleTokens into the auction owner's account
         pub fun settleAuction(_ id: UInt64) {
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.settleAuction()
 
         }
@@ -666,7 +666,7 @@ pub contract GeniaceAuction {
             tokens: @FungibleToken.Vault,
             collectionCap: Capability<&GeniaceNFT.Collection{NonFungibleToken.Receiver}>
             ) {
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.buyNow(tokens: <- tokens, collectionCap: collectionCap)
 
         }
@@ -676,7 +676,7 @@ pub contract GeniaceAuction {
                 self.auctionItems[id] != nil:
                     "Auction does not exist"
             }
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.returnAuctionItemToOwner()
             emit Canceled(tokenID: id)
         }
@@ -695,7 +695,7 @@ pub contract GeniaceAuction {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.placeBid(bidTokens: <- bidTokens, 
               vaultCap:vaultCap, 
               collectionCap:collectionCap)
