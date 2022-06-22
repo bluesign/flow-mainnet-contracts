@@ -145,8 +145,8 @@ pub contract MarketPlace {
 
         pub fun borrowCollectible(id: UInt64): &Collectible.NFT? {
             if self.forSale[id] != nil {
-                let ref = &self.forSale[id] as auth &NonFungibleToken.NFT
-                return ref as! &Collectible.NFT
+                let ref = &self.forSale[id] as auth &NonFungibleToken.NFT?
+                return ref as! &Collectible.NFT?
             } else {
                 return nil
             }
