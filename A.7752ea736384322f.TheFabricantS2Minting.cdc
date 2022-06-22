@@ -195,7 +195,7 @@ pub contract TheFabricantS2Minting{
                 }
             }
 
-            let edition = (TheFabricantS2ItemNFT.totalSupply - 486).toString() // change this to 486 on mainnet since 487 items were minted for StephyFung
+            let edition = (TheFabricantS2ItemNFT.totalSupply - 486).toString() 
 
             // create the metadata for the item
             let metadatas: {String: TheFabricantS2ItemNFT.Metadata} = {}
