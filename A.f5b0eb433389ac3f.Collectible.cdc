@@ -139,7 +139,7 @@ pub contract Collectible: NonFungibleToken {
         }
 
         pub fun getNFT(id: UInt64): &Collectible.NFT {        
-            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
             return ref as! &Collectible.NFT     
         }
   
@@ -159,13 +159,13 @@ pub contract Collectible: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowCollectible(id: UInt64): &Collectible.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &Collectible.NFT
+                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+                return ref as! &Collectible.NFT?
             } else {
                 return nil
             }
