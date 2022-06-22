@@ -603,8 +603,8 @@ pub contract AuctionV2 {
             let priceList: {UInt64: AuctionStatus} = {}
 
             for id in self.auctionItems.keys {
-                let itemRef = &self.auctionItems[id] as? &AuctionItem
-                priceList[id] = itemRef.getAuctionStatus()
+                let itemRef = &self.auctionItems[id] as? &AuctionItem?
+                priceList[id] = itemRef!.getAuctionStatus()
             }
             
             return priceList
@@ -617,8 +617,8 @@ pub contract AuctionV2 {
             }        
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
-            return itemRef.getAuctionStatus()
+            let itemRef = &self.auctionItems[id] as &AuctionItem?
+            return itemRef!.getAuctionStatus()
         }
 
         pub fun getTimeLeft(_ id: UInt64): Fix64? {
@@ -627,8 +627,8 @@ pub contract AuctionV2 {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
-            return itemRef.timeRemaining()
+            let itemRef = &self.auctionItems[id] as &AuctionItem?
+            return itemRef!.timeRemaining()
         }
 
         // settleAuction sends the auction item to the highest bidder
@@ -638,16 +638,16 @@ pub contract AuctionV2 {
                 self.auctionItems[id] != nil: "Auction does not exist"
             }
 
-            let itemRef = &self.auctionItems[id] as &AuctionItem
-            itemRef.settleAuction()
+            let itemRef = &self.auctionItems[id] as &AuctionItem?
+            itemRef!.settleAuction()
         }
 
         pub fun cancelAuction(_ id: UInt64) {
             pre {
                 self.auctionItems[id] != nil: "Auction does not exist"
             }
-            let itemRef = &self.auctionItems[id] as &AuctionItem           
-            itemRef.cancelAuction()
+            let itemRef = &self.auctionItems[id] as &AuctionItem?        
+            itemRef!.cancelAuction()
             emit Canceled(auctionID: id)
         }
 
@@ -660,8 +660,8 @@ pub contract AuctionV2 {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
-            itemRef.placeBid(
+            let itemRef = &self.auctionItems[id] as &AuctionItem?
+            itemRef!.placeBid(
                 bidTokens: <- bidTokens, 
                 vaultCap : vaultCap, 
                 collectionCap:collectionCap
@@ -673,17 +673,17 @@ pub contract AuctionV2 {
                 self.auctionItems[id] != nil:
                     "Auction does not exist"
             }
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = &self.auctionItems[id] as &AuctionItem?
 
-            itemRef.addNFT(NFT: <- NFT)
+            itemRef!.addNFT(NFT: <- NFT)
         }
 
         pub fun reclaimSendNFT(id: UInt64, collectionCap: Capability<&{Collectible.CollectionPublic}>) {
             pre {
                 self.auctionItems[id] != nil: "Auction does not exist"
             }
-            let itemRef = &self.auctionItems[id] as &AuctionItem           
-            itemRef.reclaimSendNFT(collectionCap: collectionCap)   
+            let itemRef = &self.auctionItems[id] as &AuctionItem?          
+            itemRef!.reclaimSendNFT(collectionCap: collectionCap)   
         }
 
         destroy() {
