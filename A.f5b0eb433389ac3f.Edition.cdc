@@ -182,8 +182,8 @@ pub contract Edition {
             }         
 
             // Get the edition item resources
-            let itemRef = &self.editionItems[id] as &EditionItem
-            return itemRef.getEdition()
+            let itemRef = &self.editionItems[id] as &EditionItem?
+            return itemRef!.getEdition()
         }
 
         //Change commission
@@ -197,9 +197,9 @@ pub contract Edition {
           
             self.validateRoyalty(royalty: royalty) 
             
-            let itemRef = &self.editionItems[id] as &EditionItem
+            let itemRef = &self.editionItems[id] as &EditionItem?
             
-            itemRef.changeCommission(
+            itemRef!.changeCommission(
                 royalty: royalty            
             )
         }
@@ -213,8 +213,8 @@ pub contract Edition {
                 self.editionItems[id] != nil: "Edition does not exist"
             }
             
-            let itemRef = &self.editionItems[id] as &EditionItem
-            itemRef.changeMaxEdition(
+            let itemRef = &self.editionItems[id] as &EditionItem?
+            itemRef!.changeMaxEdition(
                 maxEdition: maxEdition        
             )
         }
