@@ -192,7 +192,7 @@ pub contract PopsyclAuction {
                                 .borrow<&{FungibleToken.Receiver}>()
                                 ?? panic("failed to borrow reference to Marketplace vault")
 
-                    // let itemRef = &self.auctionItems[id] as? &AuctionItem
+                    // let itemRef = (
 
                   
                     let influencerVaultRef =  getAccount(self.influencer!!)
@@ -201,20 +201,19 @@ pub contract PopsyclAuction {
                                 ?? panic("failed to borrow reference to owner vault")
 
                     PopsyclvaultRef.deposit(from: <-marketCut)
-                    influencerVaultRef.deposit(from: <-royalityCut)
-
                     
 
-                } else {
-                    balance = bidVaultRef.balance
-                }              
+                   if(self.resale) {
+                    influencerVaultRef.deposit(from: <-royalityCut)    
+                    } else {
+                        influencerVaultRef.deposit(from: <-royalityCut)
+                    } 
 
-            if(self.resale) {
-                vaultRef.deposit(from: <-bidVaultRef.withdraw(amount:balance))      
-                } else {
-                    influencerVaultRef.deposit(from: <-bidVaultRef.withdraw(amount:balance))
-                }
-                
+                    } else {
+                            balance = bidVaultRef.balance
+                    }              
+
+                vaultRef.deposit(from: <-bidVaultRef.withdraw(amount:balance))
             } else {
                 panic("couldn't get vault ref")
             }
@@ -473,7 +472,7 @@ pub contract PopsyclAuction {
             let auctionList: {UInt64: AuctionStatus} = {}
 
             for id in self.auctionItems.keys {
-                let itemRef = &self.auctionItems[id] as? &AuctionItem
+                let itemRef = (&self.auctionItems[id] as? &AuctionItem?)!
                 auctionList[id] = itemRef.getAuctionStatus()
             }
 
@@ -489,7 +488,7 @@ pub contract PopsyclAuction {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             let status = itemRef.getAuctionStatus()
             return status
         }
@@ -512,7 +511,7 @@ pub contract PopsyclAuction {
                     "Auction doesn't exist"
             }
 
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.settleAuction()
         }
 
@@ -522,7 +521,7 @@ pub contract PopsyclAuction {
                     "Auction does not exist"
             }
 
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
             itemRef.cancelAuction()
           
         }
@@ -537,7 +536,7 @@ pub contract PopsyclAuction {
             }
 
             // Get the auction item resources
-            let itemRef = &self.auctionItems[id] as &AuctionItem
+            let itemRef = (&self.auctionItems[id] as &AuctionItem?)!
 
             itemRef.placeBid(bidTokens: <- bidTokens, vaultCap: vaultCap, collectionCap: collectionCap)
 
@@ -561,4 +560,3 @@ pub contract PopsyclAuction {
         self.auctionPublicPath= /public/PopsyclAuction
     }   
 }
- 
