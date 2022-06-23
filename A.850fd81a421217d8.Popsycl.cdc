@@ -54,7 +54,9 @@ pub contract Popsycl: NonFungibleToken {
         pub let influencer:Address?
 
         // In current store static dict in meta data
-        init( id : UInt64, content : String, royality:UFix64, creator:Address?, influencer:Address,  name:String, description:String, previewContent:String, mimeType:String) {
+        init( id : UInt64, content : String, royality:UFix64, creator:Address?, influencer:Address, 
+        name:String, description:String, previewContent:String, mimeType:String, 
+          ) {
             self.id = id
             self.metaData = {"content" : content, "title": name, "description": description, "PreviewContent":previewContent, "mimeType":mimeType}
             self.royality = royality
@@ -62,7 +64,7 @@ pub contract Popsycl: NonFungibleToken {
             self.influencer = influencer
         }
 
-           access(self) fun getFlowRoyaltyReceiverPublicPath(): PublicPath {
+         access(self) fun getFlowRoyaltyReceiverPublicPath(): PublicPath {
          return /public/flowTokenReceiver
         }
 
@@ -141,7 +143,7 @@ pub contract Popsycl: NonFungibleToken {
     } 
 
     // NFT Collection resource
-    pub resource Collection : PopsyclCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic,  MetadataViews.ResolverCollection {
+    pub resource Collection : PopsyclCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic,  MetadataViews.ResolverCollection  {
         
         // Contains caller's list of NFTs
         pub var ownedNFTs: @{UInt64 : NonFungibleToken.NFT}
@@ -171,7 +173,7 @@ pub contract Popsycl: NonFungibleToken {
 
         // function returns token data of token id
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // function to check wether the owner have token or not
@@ -192,7 +194,7 @@ pub contract Popsycl: NonFungibleToken {
         // exposing all of its fields.
         pub fun borrowPopsycl(id: UInt64): &Popsycl.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &Popsycl.NFT
             } else {
                 return nil
@@ -200,7 +202,7 @@ pub contract Popsycl: NonFungibleToken {
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let Popsycl = nft as! &Popsycl.NFT
             return Popsycl as &AnyResource{MetadataViews.Resolver}
         }
@@ -214,7 +216,8 @@ pub contract Popsycl: NonFungibleToken {
     pub resource NFTMinter {
 
         // Function to mint group of tokens
-        pub fun GroupMint(recipient: &{PopsyclCollectionPublic}, influencerRecipient: Address, content:String, edition:UInt, tokenGroupId: UInt64, royality:UFix64,name: String, description: String,  previewContent: String, mimeType: String) {
+        pub fun GroupMint(recipient: &{PopsyclCollectionPublic}, influencerRecipient: Address, content:String, edition:UInt, tokenGroupId: UInt64, royality:UFix64,name: String, description: String,  previewContent: String, mimeType: String
+        ) {
             pre {
                 Popsycl.editionLimit >= edition : "Edition count exceeds the limit"
                 edition >=2 : "Edition count should be greater than or equal to 2"
