@@ -214,12 +214,12 @@ pub contract CryptoZooNFT: NonFungibleToken {
     }
 
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-      return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+      return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
     }
 
     pub fun borrowCryptoZooNFT(id: UInt64): &CryptoZooNFT.NFT? {
       if self.ownedNFTs[id] != nil {
-        let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
         return ref as! &CryptoZooNFT.NFT
       } else {
         return nil
@@ -231,7 +231,7 @@ pub contract CryptoZooNFT: NonFungibleToken {
         self.ownedNFTs[packID] != nil:
           "invalid packID."
       }
-      let packRef = (&self.ownedNFTs[packID] as auth &NonFungibleToken.NFT) as! &CryptoZooNFT.NFT
+      let packRef = (&self.ownedNFTs[packID] as auth &NonFungibleToken.NFT?) as! &CryptoZooNFT.NFT
       let packTemplateInfo = packRef.getNFTTemplate()!
       if (!packTemplateInfo.isPack) {
         panic("NFT is not a pack.")
