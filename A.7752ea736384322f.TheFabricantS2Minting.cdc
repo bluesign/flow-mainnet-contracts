@@ -12,7 +12,7 @@ import TheFabricantS2GarmentNFT from 0x7752ea736384322f
 import TheFabricantS2MaterialNFT from 0x7752ea736384322f
 import TheFabricantS2ItemNFT from 0x7752ea736384322f
 import ItemNFT from 0xfc91de5e6566cc7c
-import TheFabricantS1ItemNFT from 0x9e03b1f871b3513
+import TheFabricantS1ItemNFT from 0x09e03b1f871b3513
 import TheFabricantMysteryBox_FF1 from 0xa0cbe021821c0965
 import FlowToken from 0x1654653399040a61
 import TheFabricantAccessPass from 0x7752ea736384322f
@@ -195,7 +195,7 @@ pub contract TheFabricantS2Minting{
                 }
             }
 
-            // testnet: 181
+            // testnet: 161
             // mainnet: 486
             // for test purposes we use 1, so before this 2 items were minted,
             // edition for next season at 1
@@ -205,11 +205,11 @@ pub contract TheFabricantS2Minting{
             let metadatas: {String: TheFabricantS2ItemNFT.Metadata} = {}
             metadatas["itemImage"] = 
             TheFabricantS2ItemNFT.Metadata(
-                metadataValue: "https://leela.mypinata.cloud/ipfs/Qmf8VBBYSQBWBzqUvCu8Ko5qgxCf1RrwKyrXCBGJ9dZ24B/LOOP.png",
+                metadataValue: "https://leela.mypinata.cloud/ipfs/QmcQHb28TADJjzTkJgXKekWs5WFbyFsNwEez8Msc9uZ248/s2_WoW_nft_placeholder.png",
                 mutable: true)
             metadatas["itemVideo"] =
             TheFabricantS2ItemNFT.Metadata(
-                metadataValue: "https://leela.mypinata.cloud/ipfs/Qmf8VBBYSQBWBzqUvCu8Ko5qgxCf1RrwKyrXCBGJ9dZ24B/LOOP.mp4",
+                metadataValue: "https://leela.mypinata.cloud/ipfs/QmcQHb28TADJjzTkJgXKekWs5WFbyFsNwEez8Msc9uZ248/WoW_unboxing_LOOP.mp4",
                 mutable: true)
             metadatas["itemImage2"] =     
             TheFabricantS2ItemNFT.Metadata(
