@@ -4,19 +4,34 @@
     This contract lets users mint TheFabricantS2ItemNFT NFTs for a specified amount of FLOW
 */
 
+// NOTE: WHEN PUSHING TO MN OR TN FOR WOW, YOU MUST SET THE EDITION CORRECTLY!!!!!!
+
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import TheFabricantS2GarmentNFT from 0x7752ea736384322f
 import TheFabricantS2MaterialNFT from 0x7752ea736384322f
 import TheFabricantS2ItemNFT from 0x7752ea736384322f
 import ItemNFT from 0xfc91de5e6566cc7c
-import TheFabricantS1ItemNFT from 0x09e03b1f871b3513
+import TheFabricantS1ItemNFT from 0x9e03b1f871b3513
 import TheFabricantMysteryBox_FF1 from 0xa0cbe021821c0965
 import FlowToken from 0x1654653399040a61
 import TheFabricantAccessPass from 0x7752ea736384322f
 pub contract TheFabricantS2Minting{
 
-    pub event ItemMintedAndTransferred(recipientAddr: Address, garmentDataID: UInt32, materialDataID: UInt32, primaryColor: String, secondaryColor: String, itemID: UInt64, itemDataID: UInt32, name: String, eventName: String, edition: String, variant: String, season: String)
+    pub event ItemMintedAndTransferred(
+        recipientAddr: Address, 
+        garmentDataID: UInt32, 
+        materialDataID: UInt32, 
+        primaryColor: String, 
+        secondaryColor: String, 
+        itemID: UInt64, 
+        itemDataID: UInt32, 
+        name: String, 
+        eventName: String, 
+        edition: String, 
+        variant: String, 
+        season: String
+    )
 
     pub event EventAdded(eventName: String, eventDetail: EventDetail)
 
@@ -92,41 +107,21 @@ pub contract TheFabricantS2Minting{
     }
 
     // check if an address holds certain nfts to allow mint
-    pub fun doesAddressHoldNFTs(address: Address): Bool {
-        var hasTheFabricantMysteryBox_FF1: Bool = false
-        var hasItemNFT: Bool = false
-        var hasTheFabricantS1ItemNFT: Bool = false
-        var hasTheFabricantS2ItemNFT: Bool = false
-        if (getAccount(address).getCapability<&{TheFabricantMysteryBox_FF1.FabricantCollectionPublic}>(TheFabricantMysteryBox_FF1.CollectionPublicPath).check()) {
-            let collectionRef = getAccount(address).getCapability(TheFabricantMysteryBox_FF1.CollectionPublicPath)
-                                .borrow<&{TheFabricantMysteryBox_FF1.FabricantCollectionPublic}>()!
-            hasTheFabricantMysteryBox_FF1 = collectionRef.getIDs().length > 0
+    pub fun doesAddressHoldAccessPass(address: Address): Bool {
+        var hasTheFabricantAccessPass: Bool = false
+        
+        if (getAccount(address).getCapability<&{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic}>(TheFabricantAccessPass.TheFabricantAccessPassCollectionPublicPath).check()) {
+            let collectionRef = getAccount(address).getCapability(TheFabricantAccessPass.TheFabricantAccessPassCollectionPublicPath)
+                                .borrow<&{TheFabricantAccessPass.TheFabricantAccessPassCollectionPublic}>()!
+            hasTheFabricantAccessPass = collectionRef.getIDs().length > 0
         }
 
-        if (getAccount(address).getCapability<&{ItemNFT.ItemCollectionPublic}>(ItemNFT.CollectionPublicPath).check()) {
-            let collectionRef = getAccount(address).getCapability(ItemNFT.CollectionPublicPath)
-                                .borrow<&{ItemNFT.ItemCollectionPublic}>()!
-            hasItemNFT = collectionRef.getIDs().length > 0
-        }
-
-        if (getAccount(address).getCapability<&{TheFabricantS1ItemNFT.ItemCollectionPublic}>(TheFabricantS1ItemNFT.CollectionPublicPath).check()) {
-            let collectionRef = getAccount(address).getCapability(TheFabricantS1ItemNFT.CollectionPublicPath)
-                                .borrow<&{TheFabricantS1ItemNFT.ItemCollectionPublic}>()!
-            hasTheFabricantS1ItemNFT = collectionRef.getIDs().length > 0
-        }
-        if (getAccount(address).getCapability<&{TheFabricantS2ItemNFT.ItemCollectionPublic}>(TheFabricantS2ItemNFT.CollectionPublicPath).check()) {
-            let collectionRef = getAccount(address).getCapability(TheFabricantS2ItemNFT.CollectionPublicPath)
-                                .borrow<&{TheFabricantS2ItemNFT.ItemCollectionPublic}>()!
-            hasTheFabricantS2ItemNFT = collectionRef.getIDs().length > 0
-        }
-
-        return hasTheFabricantMysteryBox_FF1 || hasItemNFT || hasTheFabricantS1ItemNFT || hasTheFabricantS2ItemNFT
+        return hasTheFabricantAccessPass
     }
 
     pub resource Minter{
         
         //call S2ItemNFT's mintItem function
-        //each address can only mint 5 times
         pub fun mintAndTransferItem(
             garmentDataID: UInt32,
             materialDataID: UInt32,
@@ -134,7 +129,8 @@ pub contract TheFabricantS2Minting{
             secondaryColor: String,
             payment: @FungibleToken.Vault,
             eventName: String,
-            accessPassRef: &TheFabricantAccessPass.NFT?): @TheFabricantS2ItemNFT.NFT {
+            accessPassRef: &TheFabricantAccessPass.NFT
+            ): @TheFabricantS2ItemNFT.NFT {
     
             pre {
                 TheFabricantS2Minting.eventsDetail[eventName] != nil:
@@ -143,19 +139,23 @@ pub contract TheFabricantS2Minting{
                 "minting is closed"
                 payment.isInstance(TheFabricantS2Minting.eventsDetail[eventName]!.paymentType): 
                 "payment vault is not requested fungible token"
-                (accessPassRef != nil && payment.balance == 0.0) || 
-                (TheFabricantS2Minting.doesAddressHoldNFTs(address: self.owner!.address) && accessPassRef == nil && payment.balance == TheFabricantS2Minting.eventsDetail[eventName]!.paymentAmount): 
-                "Payment is free if you have a valid access pass, otherwise you must pay the mint fee and hold a Fabricant NFT"
+                TheFabricantS2Minting.doesAddressHoldAccessPass(address: self.owner!.address):
+                "address does not have an accesspass" 
+                (accessPassRef != nil && payment.balance == 0.0) || (accessPassRef != nil && payment.balance == TheFabricantS2Minting.eventsDetail[eventName]!.paymentAmount): 
+                "Payment is free if you use a free mint from your access pass, otherwise you must pay the mint fee and hold an access pass"
                 garmentDataID > 12 && materialDataID > 15:
                 "garmentData and materialData not available for this event"
             }
 
-            // If the user has provided an accessPassRef, then they wish to mint by spending an access unit 
-            if let _accessPassRef = accessPassRef {
-                assert(_accessPassRef.accessUnits > 0, message: "You have spent all of your access units!" )
-                assert(_accessPassRef.campaignName == eventName, message: "You must use the correct AccessPass to mint" )
-                assert(_accessPassRef.owner!.address == self.owner!.address, message: "accessPass does not belong to owner")
-                destroy _accessPassRef.spendAccessUnit()
+
+
+            // If the user has provided an accessPassRef and 0.0 FLOW, 
+            // then they wish to mint by spending an access unit 
+            if payment.balance == 0.0 {
+                assert(accessPassRef.accessUnits > 0, message: "You have spent all of your access units!" )
+                assert(accessPassRef.campaignName == eventName, message: "You must use the correct AccessPass to mint" )
+                assert(accessPassRef.owner!.address == self.owner!.address, message: "accessPass does not belong to owner")
+                destroy accessPassRef.spendAccessUnit()
                 // Access unit has now been spent and payment vault balance is 0, so the mint will be free
             }
 
@@ -195,6 +195,10 @@ pub contract TheFabricantS2Minting{
                 }
             }
 
+            // testnet: 181
+            // mainnet: 486
+            // for test purposes we use 1, so before this 2 items were minted,
+            // edition for next season at 1
             let edition = (TheFabricantS2ItemNFT.totalSupply - 486).toString() 
 
             // create the metadata for the item
@@ -226,10 +230,6 @@ pub contract TheFabricantS2Minting{
             metadatas["edition"] =     
             TheFabricantS2ItemNFT.Metadata(
                 metadataValue: edition, 
-                mutable: false)
-            metadatas["variant"] =     
-            TheFabricantS2ItemNFT.Metadata(
-                metadataValue: "PinkPurse",
                 mutable: false)
             metadatas["eventName"] =     
             TheFabricantS2ItemNFT.Metadata(
