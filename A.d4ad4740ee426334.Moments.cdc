@@ -1039,7 +1039,7 @@ pub contract Moments: NonFungibleToken {
     //
     pub fun fetch(_ from: Address, momentID: UInt64): &Moments.NFT? {
         let collection = getAccount(from)
-            .getCapability<&Moments.Collection{Moments.CollectionPublic}>(Moments.CollectionPublicPath)
+            .getCapability<&{Moments.CollectionPublic}>(Moments.CollectionPublicPath)
             .borrow() ?? panic("Couldn't get collection")
         // We trust Moments.Collection.borrowMoment to get the correct itemID
         // (it checks it before returning it).
