@@ -96,7 +96,7 @@ pub contract LeofyNFT: NonFungibleToken {
         pub fun getIDs(): [UInt64]
         pub fun getItemsLength(): Int
         pub fun getItemMetaDataByField(itemID: UInt64, field: String): String?
-        pub fun borrowItem(itemID: UInt64): &Item{ItemPublic}
+        pub fun borrowItem(itemID: UInt64): &Item{ItemPublic}?
     }
 
     pub resource ItemCollection: ItemCollectionPublic {
@@ -126,12 +126,12 @@ pub contract LeofyNFT: NonFungibleToken {
             return newID            
         }
 
-        pub fun borrowItem(itemID: UInt64): &Item{ItemPublic} {
+        pub fun borrowItem(itemID: UInt64): &Item{ItemPublic}? {
             pre {
                 self.items[itemID] != nil: "Cannot borrow Item: The Item doesn't exist"
             }
 
-            return &self.items[itemID] as &Item{ItemPublic};
+            return &self.items[itemID] as &Item{ItemPublic}?;
         }
 
         // getIDs returns an array of the IDs that are in the Item Collection
@@ -156,13 +156,8 @@ pub contract LeofyNFT: NonFungibleToken {
         // Returns: The metadata field as a String Optional
         pub fun getItemMetaDataByField(itemID: UInt64, field: String): String? {
             // Don't force a revert if the itemID or field is invalid
-            if( self.items[itemID] != nil){
-            let item = &self.items[itemID] as &Item
+            let item = (&self.items[itemID] as &Item?)!
             return item.metadata[field]
-            }
-            else{
-                return nil;
-            }
         }
         
         destroy(){
@@ -401,13 +396,13 @@ pub contract LeofyNFT: NonFungibleToken {
         // borrowNFT gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowLeofyNFT(id: UInt64): &LeofyNFT.NFT? {
             if self.ownedNFTs[id] != nil {
                 // Create an authorized reference to allow downcasting
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &LeofyNFT.NFT
             }
 
@@ -415,7 +410,7 @@ pub contract LeofyNFT: NonFungibleToken {
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             return nft as! &LeofyNFT.NFT
         }
 
