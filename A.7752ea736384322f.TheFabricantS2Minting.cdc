@@ -259,8 +259,8 @@ pub contract TheFabricantS2Minting{
             //update event detail for eventName with new detail
             TheFabricantS2Minting.eventsDetail[eventName] = eventDetails
 
-            //set initial name of item to "S2 Zodiac Collection #:id"
-            let name = "Season 2 Zodiac Collection #".concat((TheFabricantS2ItemNFT.totalSupply + 1).toString())
+            //set initial name of item to "Season 2 WoW Collection #:id"
+            let name = "Season 2 WoW Collection #".concat(edition)
 
             //user mints the item
             let item <- TheFabricantS2ItemNFT.mintNFT(
