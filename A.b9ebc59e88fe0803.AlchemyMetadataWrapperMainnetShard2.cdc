@@ -4,9 +4,12 @@ import Andbox_NFT from 0x329feb3ab062d289
 import BarterYardClubWerewolf from 0x28abb9f291cadaf2
 import BarterYardPackNFT from 0xa95b021cf8a30d80
 import Canes_Vault_NFT from 0x329feb3ab062d289
+import Collectible from 0xf5b0eb433389ac3f
 import Costacos_NFT from 0x329feb3ab062d289
+import CryptoZooNFT from 0x8ea44ab931cac762
 import DayNFT from 0x1600b04bf033fb99
 import DieselNFT from 0x497153c597783bc3
+import FlowChinaBadge from 0x99fed1e8da4c3431
 import GeniaceNFT from 0xabda6627c70c7f52
 import GooberXContract from 0x34f2bf4a80bb0f69
 import HaikuNFT from 0xf61e40c19db2a9e2
@@ -143,7 +146,7 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "MintStoreItem": d = self.getMintStoreItem(owner: owner, id: id)
                     case "BiscuitsNGroovy": continue
                     case "GeniaceNFT": d = self.getGeniaceNFT(owner: owner, id: id)
-                    case "Xtingles": continue
+                    case "Xtingles": d = self.getXtinglesNFT(owner: owner, id: id)
                     case "Beam": continue
                     case "KOTD": continue
                     case "KlktnNFT": continue
@@ -152,13 +155,13 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "Crave": continue
                     case "CricketMoments": continue
                     case "SportsIconCollectible": continue
-                    case "InceptionAnimals": continue
+                    case "InceptionAnimals": d = self.getInceptionAnimals(owner: owner, id: id)
                     case "OneFootballCollectible": continue
                     case "TheFabricantMysteryBox_FF1": d = self.getTheFabricantMysteryBox_FF1(owner: owner, id: id)
                     case "DieselNFT": d = self.getDieselNFT(owner: owner, id: id)
                     case "MiamiNFT": d = self.getMiamiNFT(owner: owner, id: id)
                     case "Bitku": d = self.getBitku(owner: owner, id: id)
-                    case "FlowFans": continue
+                    case "FlowFans": d = self.getFlowFansNFT(owner: owner, id: id)
                     case "AllDay": d = self.getAllDay(owner: owner, id: id)
                     case "PackNFT": d = self.getAllDayPackNFT(owner: owner, id: id)
                     case "ItemNFT": continue
@@ -517,6 +520,80 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
     // https://flow-view-source.com/mainnet/account/0xf5b0eb433389ac3f/contract/Collectible
     
     
+    pub fun getXtinglesNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Xtingles",
+            address: 0xf5b0eb433389ac3f,
+            storage_path: "Collectible.CollectionStoragePath",
+            public_path: "Collectible.CollectionPublicPath",
+            public_collection_name: "Collectible.CollectionPublicPath",
+            external_domain: "https://www.xtingles.com/"
+        )
+    
+        let col = owner.getCapability(Collectible.CollectionPublicPath)
+            .borrow<&{Collectible.CollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowCollectible(id: id)
+        if nft == nil { return nil }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nft!.metadata!.name,
+            description: nft!.metadata!.description,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: [NFTMedia(uri: nft!.metadata!.link, mimetype: "video")],
+            metadata: {
+                "author": nft!.metadata!.author,
+                "edition": nft!.metadata!.edition.toString()
+            },
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x8ea44ab931cac762
+    
+    
+    pub fun getInceptionAnimals(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "InceptionAnimals",
+            address: 0x8ea44ab931cac762,
+            storage_path: "CryptoZooNFT.CollectionStoragePath",
+            public_path: "CryptoZooNFT.CollectionPublicPath",
+            public_collection_name: "CryptoZooNFT.CryptoZooNFTCollectionPublic",
+            external_domain: "https://www.inceptionanimals.com/"
+        )
+    
+        let col = owner.getCapability(CryptoZooNFT.CollectionPublicPath)
+            .borrow<&{CryptoZooNFT.CryptoZooNFTCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowCryptoZooNFT(id: id)
+        if nft == nil { return nil }
+    
+        let rawMetadata: {String:String?} = {}
+        for key in nft!.getNFTTemplate()!.getMetadata()!.keys {
+            rawMetadata.insert(key: key, nft!.getNFTTemplate()!.getMetadata()![key])
+        }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nft!.name,
+            description: nft!.getNFTTemplate()!.description,
+            external_domain_view_url: nil,
+            token_uri: nft!.getNFTTemplate()!.getMetadata()["uri"]!,
+            media: [NFTMedia(uri: nft!.getNFTTemplate()!.getMetadata()["uri"]!, mimetype: nft!.getNFTTemplate()!.getMetadata()["mimetype"]!)],
+            metadata: rawMetadata,
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x6831760534292098/contract/OneFootballCollectible
+    
+    
     pub fun getTheFabricantMysteryBox_FF1(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "TheFabricantMysteryBox_FF1",
@@ -658,6 +735,39 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
     }
     
     // https://flow-view-source.com/mainnet/account/0x99fed1e8da4c3431/contract/FlowChinaBadge
+    
+    
+    pub fun getFlowFansNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "FlowFans",
+            address: 0x99fed1e8da4c3431,
+            storage_path: "/storage/FlowChinaBadgeCollection",
+            public_path: "/public/FlowChinaBadgeCollection",
+            public_collection_name: "FlowChinaBadge.FlowChinaBadgeCollectionPublic",
+            external_domain: "https://twitter.com/FlowFansChina"
+        )
+    
+        let col = owner.getCapability(/public/FlowChinaBadgeCollection)
+            .borrow<&{FlowChinaBadge.FlowChinaBadgeCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowFlowChinaBadge(id: id)
+        if nft == nil { return nil }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nil,
+            description: nil,
+            external_domain_view_url: nil,
+            token_uri: nft!.metadata,
+            media: [],
+            metadata: {}
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0xe4cf4bdc1751c65d/contract/AllDay
     
     
     pub fun getAllDay(owner: PublicAccount, id: UInt64): NFTData? {
@@ -1045,6 +1155,14 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
             .borrow<&{GeniaceNFT.GeniaceNFTCollectionPublic}>() {
                 ids["GeniaceNFT"] = col.getIDs()
         }
+        if let col = owner.getCapability(Collectible.CollectionPublicPath)
+            .borrow<&{Collectible.CollectionPublic}>() {
+                ids["Xtingles"] = col.getIDs()
+        }
+        if let col = owner.getCapability(CryptoZooNFT.CollectionPublicPath)
+        .borrow<&{CryptoZooNFT.CryptoZooNFTCollectionPublic}>() {
+            ids["InceptionAnimals"] = col.getIDs()
+        }
         if let col = owner.getCapability(TheFabricantMysteryBox_FF1.CollectionPublicPath)
         .borrow<&{TheFabricantMysteryBox_FF1.FabricantCollectionPublic}>() {
             ids["TheFabricantMysteryBox_FF1"] = col.getIDs()
@@ -1063,6 +1181,11 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
         if let col = owner.getCapability(HaikuNFT.HaikuCollectionPublicPath)
         .borrow<&{HaikuNFT.HaikuCollectionPublic}>() {
             ids["Bitku"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(FlowChinaBadge.CollectionPublicPath)
+        .borrow<&{FlowChinaBadge.FlowChinaBadgeCollectionPublic}>() {
+            ids["FlowFans"] = col.getIDs()
         }
     
         if let col = owner.getCapability(AllDay.CollectionPublicPath)
