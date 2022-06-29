@@ -11,6 +11,7 @@ import PartyMansionDrinksContract from 0x34f2bf4a80bb0f69
 import QRLNFT from 0xa4e9020ad21eb30b
 import TheFabricantS2ItemNFT from 0x7752ea736384322f
 import TicalUniverse from 0xfef48806337aabf1
+import TrartContractNFT from 0x6f01a4b0046c1f87
 import UFC_NFT from 0x329feb3ab062d289
 import VnMiss from 0x7c11edb826692404
 
@@ -198,7 +199,7 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
                     case "VnMiss": d = self.getVnMiss(owner: owner, id: id)
                     case "AvatarArt": d = self.getAvatarArt(owner: owner, id: id)
                     case "Dooverse": d = self.getDooverseNFT(owner: owner, id: id)
-                    case "TrartContractNFT": continue
+                    case "TrartContractNFT": d = self.getTrartContractNFT(owner: owner, id: id)
                     case "SturdyItems": continue
                     case "PartyMansionDrinksContract": d = self.getPartyMansionDrinksContractNFT(owner: owner, id: id)
                     case "CryptoPiggo": continue
@@ -578,6 +579,70 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
     // https://flow-view-source.com/mainnet/account/0x6f01a4b0046c1f87/contract/TrartContractNFT
     
     
+    pub fun getTrartContractNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "TrartContractNFT",
+            address: 0x6f01a4b0046c1f87,
+            storage_path: "/storage/TrartContractNFTCollection",
+            public_path: "/public/TrartContractNFTCollection",
+            public_collection_name: "TrartContractNFT.ICardCollectionPublic",
+            external_domain: ""
+        )
+    
+        let col = owner.getCapability(TrartContractNFT.CollectionPublicPath)
+            .borrow<&{TrartContractNFT.ICardCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowCard(id: id)
+        if nft == nil { return nil }
+    
+        let metadata = TrartContractNFT.getMetadataForCardID(cardID: nft!.id)!.data
+        let rawMetadata: {String:String?} = {
+            "editionNumber": metadata["SERIES ID"]??"",
+            "editionCount": metadata["TOTAL ISSUANCE"]??"",
+            "royaltyAddress": "0x416e01b78d5b45ff",
+            "royaltyPercentage": "2.5"
+        }
+        for key in metadata.keys {
+            rawMetadata.insert(key: key, metadata[key])
+        }
+    
+        var nftTitle: String? = metadata["NAME"]
+        if nftTitle == nil && metadata["CARD NUMBER"] != nil {
+           nftTitle = (metadata["CARD SERIES"]!=nil?metadata["CARD SERIES"]!.concat(" - "):"").concat(metadata["CARD NUMBER"]!)
+        }
+    
+        let ipfsScheme = "ipfs://"
+        let httpsScheme = "https://"
+    
+        var ipfsURL: String? = nil
+        let metadataUrl: String = metadata["URI"]?? metadata["URL"]?? ""
+    
+        if metadataUrl.length > ipfsScheme.length && self.stringStartsWith(string: metadataUrl, prefix: ipfsScheme) {
+            ipfsURL = "https://trartgateway.mypinata.cloud/ipfs/".concat(metadataUrl.slice(from: ipfsScheme.length, upTo: metadataUrl.length));
+        } else if metadataUrl.length > httpsScheme.length &&self.stringStartsWith(string: metadataUrl, prefix: httpsScheme) {
+            ipfsURL = metadataUrl
+        }
+    
+        let mediaArray:[NFTMedia] = ipfsURL!=nil?[NFTMedia(uri: ipfsURL, mimetype: "image")]:[]
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.id,
+            title: nftTitle,
+            description: nil,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: mediaArray,
+            metadata: rawMetadata,
+        )
+    }
+    
+    
+    // https://flow-view-source.com/mainnet/account/0x427ceada271aa0b1/contract/SturdyItems
+    
+    
     pub fun getPartyMansionDrinksContractNFT(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "PartyMansionDrinksContract",
@@ -883,6 +948,10 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         if let col = owner.getCapability(PartyMansionDrinksContract.CollectionPublicPath)
         .borrow<&{NonFungibleToken.CollectionPublic}>() {
             ids["PartyMansionDrinksContract"] = col.getIDs()
+        }
+        if let col = owner.getCapability(TrartContractNFT.CollectionPublicPath)
+        .borrow<&{TrartContractNFT.ICardCollectionPublic}>() {
+            ids["TrartContractNFT"] = col.getIDs()
         }
         if let col = owner.getCapability(TicalUniverse.CollectionPublicPath)
         .borrow<&{TicalUniverse.TicalUniverseCollectionPublic}>() {
