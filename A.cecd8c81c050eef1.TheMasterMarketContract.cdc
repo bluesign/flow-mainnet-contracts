@@ -109,7 +109,7 @@ pub contract TheMasterMarketContract {
 
             for tokenID in tokenIDs {
               recipientSectorRef.deposit(token: <- self.forSale.remove(key: tokenID)!, color: sectorRef.removeColor(id: tokenID))
-              totalPrice = totalPrice + self.prices[tokenID]!
+              totalPrice = totalPrice + self.prices.remove(key: tokenID)!
             }
 
             (self.creatorVault.borrow()!).deposit(from: <- vaultRef.withdraw(amount: totalPrice * 0.025))
