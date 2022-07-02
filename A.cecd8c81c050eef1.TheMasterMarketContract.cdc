@@ -48,11 +48,6 @@ pub contract TheMasterMarketContract {
 
     // ########################################################################################
 
-    // access(contract) fun withdraw(tokenID: UInt32): @TheMasterPixelContract.TheMasterPixel {
-    //self.prices.remove(key: tokenID)
-    //let token
-    // ?? panic("The pixel you are trying to buy has been sold.")
-
     pub resource TheMasterMarketSector {
         priv var forSale: @{UInt32: TheMasterPixelContract.TheMasterPixel}
         priv var prices: {UInt32: UFix64}
@@ -72,10 +67,6 @@ pub contract TheMasterMarketContract {
             self.sectorsRef = sectorsRef
         }
 
-        // priv fun withdraw(tokenID: UInt32): @TheMasterPixelContract.TheMasterPixel {
-        //     return <- self.forSale.remove(key: tokenID)!
-        // }
-
         pub fun listForSale(tokenIDs: [UInt32], price: UFix64) {
             pre {
               TheMasterMarketContract.isOpened(ownerAddress: (self.owner!).address):
@@ -86,12 +77,11 @@ pub contract TheMasterMarketContract {
             let sectorRef = sectorsRef.getSectorRef(sectorId: self.sectorId)
 
             TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(self.forSale.length + tokenIDs.length))
-            TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(sectorsRef.getIds(sectorId: self.sectorId).length - tokenIDs.length))
+            TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(sectorRef.getIds().length - tokenIDs.length))
 
             for tokenID in tokenIDs {
               self.prices[tokenID] = price
-              let oldToken <- self.forSale[tokenID] <- sectorRef.withdraw(withdrawID: tokenID)
-              destroy oldToken
+              sectorRef.withdraw(id: tokenID)
             }
 
             emit ForSale(sectorId: self.sectorId, ids: tokenIDs, price: UFix64(tokenIDs.length) * price)
@@ -104,11 +94,11 @@ pub contract TheMasterMarketContract {
             let sectorRef : &TheMasterPixelContract.TheMasterSector = sectorsRef.getSectorRef(sectorId: self.sectorId)
             let recipientSectorRef : &TheMasterPixelContract.TheMasterSector = recipient.getSectorRef(sectorId: self.sectorId)
 
-            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(self.forSale.length - tokenIDs.length))
+            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(self.prices.length - tokenIDs.length))
             TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (recipient.owner!).address, size: UInt16(recipientSectorRef.getIds().length + tokenIDs.length))
 
             for tokenID in tokenIDs {
-              recipientSectorRef.deposit(token: <- self.forSale.remove(key: tokenID)!, color: sectorRef.removeColor(id: tokenID))
+              recipientSectorRef.deposit(id: tokenID)
               totalPrice = totalPrice + self.prices.remove(key: tokenID)!
             }
 
@@ -127,7 +117,9 @@ pub contract TheMasterMarketContract {
         }
 
         pub fun unSell() {
-            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: 0)
+            let sectorsRef = (self.sectorsRef.borrow()!)
+            let sectorRef : &TheMasterPixelContract.TheMasterSector = sectorsRef.getSectorRef(sectorId: self.sectorId)
+            TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(sectorRef.getIds().length + self.forSale.length))
         }
 
         destroy() {
@@ -166,10 +158,6 @@ pub contract TheMasterMarketContract {
         pub fun purchase(sectorId: UInt16, tokenIDs: [UInt32], recipient: &AnyResource{TheMasterPixelContract.TheMasterSectorsInterface}, vaultRef: &AnyResource{FungibleToken.Provider}) {
             ((&self.saleSectors[sectorId] as &TheMasterMarketSector?)!).purchase(tokenIDs: tokenIDs, recipient: recipient, vaultRef: vaultRef)
         }
-
-        // pub fun withdraw(sectorId: UInt16, tokenID: UInt32): @TheMasterPixelContract.TheMasterPixel {
-        //   return <- ((&(self.saleSectors[sectorId]) as &TheMasterMarketSector?)!).withdraw(tokenID: tokenID)!
-        // }
 
         pub fun getPrices(sectorId: UInt16): {UInt32: UFix64} {
             if (self.saleSectors.containsKey(sectorId)) {
