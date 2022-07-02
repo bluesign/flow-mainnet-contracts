@@ -116,12 +116,6 @@ pub contract TheMasterMarketContract {
             return self.prices
         }
 
-        pub fun unSell(size: UInt16) {
-            let sectorsRef = (self.sectorsRef.borrow()!)
-            let sectorRef : &TheMasterPixelContract.TheMasterSector = sectorsRef.getSectorRef(sectorId: self.sectorId)
-            TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (self.owner!).address, size: size)
-        }
-
         destroy() {
             destroy self.forSale
         }
@@ -164,12 +158,6 @@ pub contract TheMasterMarketContract {
               return ((&(self.saleSectors[sectorId]) as &TheMasterMarketSector?)!).getPrices()
             } else {
               return {}
-            }
-        }
-
-        pub fun unSellSector(sectorId: UInt16, size: UInt16) {
-            if (self.saleSectors.containsKey(sectorId)) {
-                ((&(self.saleSectors[sectorId]) as &TheMasterMarketSector?)!).unSell(size: size)
             }
         }
 
