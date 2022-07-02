@@ -126,6 +126,10 @@ pub contract TheMasterMarketContract {
             return self.prices
         }
 
+        pub fun unSell() {
+            self.prices = {}
+        }
+
         destroy() {
             destroy self.forSale
         }
@@ -172,6 +176,12 @@ pub contract TheMasterMarketContract {
               return ((&(self.saleSectors[sectorId]) as &TheMasterMarketSector?)!).getPrices()
             } else {
               return {}
+            }
+        }
+
+        pub fun unSellSector(sectorId: UInt16) {
+            if (self.saleSectors.containsKey(sectorId)) {
+                ((&(self.saleSectors[sectorId]) as &TheMasterMarketSector?)!).unSell()
             }
         }
 
