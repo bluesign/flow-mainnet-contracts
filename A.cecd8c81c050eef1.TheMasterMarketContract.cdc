@@ -127,7 +127,7 @@ pub contract TheMasterMarketContract {
         }
 
         pub fun unSell() {
-            self.prices = {}
+            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: 0)
         }
 
         destroy() {
