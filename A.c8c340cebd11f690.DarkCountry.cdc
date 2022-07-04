@@ -264,7 +264,7 @@ pub contract DarkCountry: NonFungibleToken {
         // so that the caller can read its metadata and call its methods
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowDarkCountry
@@ -274,7 +274,7 @@ pub contract DarkCountry: NonFungibleToken {
         //
         pub fun borrowDarkCountryNFT(id: UInt64): &DarkCountry.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = &self.ownedNFTs[id] as! auth &NonFungibleToken.NFT?
                 return ref as! &DarkCountry.NFT
             } else {
                 return nil
@@ -366,7 +366,7 @@ pub contract DarkCountry: NonFungibleToken {
     //
     pub fun fetch(_ from: Address, itemID: UInt64): &DarkCountry.NFT? {
         let collection = getAccount(from)
-            .getCapability(DarkCountry.CollectionPublicPath)!
+            .getCapability(DarkCountry.CollectionPublicPath)
             .borrow<&DarkCountry.Collection{DarkCountry.DarkCountryCollectionPublic}>()
             ?? panic("Couldn't get collection")
         // We trust DarkCountry.Collection.borowDarkCountryNFT to get the correct itemID
