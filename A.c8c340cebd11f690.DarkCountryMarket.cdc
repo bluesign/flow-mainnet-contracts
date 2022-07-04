@@ -88,7 +88,7 @@ pub contract DarkCountryMarket {
     // the beneficiary's cut of every sale
     // The beneficiary is set at the Dark Country Market level by the Market's admin and be the same
     // for all the DarkCountry NFTs
-    access(self) var beneficiaryCapability: Capability
+    access(account) var beneficiaryCapability: Capability
 
     // The percentage that is taken from every purchase for the beneficiary
     // For example, if the percentage is 15%, cutPercentage = 0.15
@@ -374,7 +374,7 @@ pub contract DarkCountryMarket {
             if self.saleOffers[itemID] == nil {
                 return nil
             } else {
-                return &self.saleOffers[itemID] as &SaleOffer{SaleOfferPublicView}
+                return &self.saleOffers[itemID] as &SaleOffer{SaleOfferPublicView}?
             }
         }
 
