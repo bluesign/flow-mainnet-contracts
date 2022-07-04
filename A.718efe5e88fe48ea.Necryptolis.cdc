@@ -298,7 +298,7 @@ pub contract Necryptolis: NonFungibleToken {
             pre {
                 buyerPayment.balance == Necryptolis.plotSalesInfo.candlePrice : "Payment does not equal price of the candle."
             }
-             
+
             Necryptolis.plotSalesInfo.servicesProviderVault!.borrow()!.deposit(from: <- buyerPayment)
 
             self.candles.append(CandleBuy(buyerAddress: buyerAddress, timestamp: getCurrentBlock().timestamp))
@@ -610,12 +610,12 @@ pub contract Necryptolis: NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as! &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowCemeteryPlot(id: UInt64): &Necryptolis.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as! auth &NonFungibleToken.NFT?)!
                 return ref as! &Necryptolis.NFT
             } else {
                 return nil
@@ -623,7 +623,7 @@ pub contract Necryptolis: NonFungibleToken {
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+            let nft = (&self.ownedNFTs[id] as! auth &NonFungibleToken.NFT?)!
             let necryptolisNft = nft as! &Necryptolis.NFT
             return necryptolisNft as &AnyResource{MetadataViews.Resolver}
         }
