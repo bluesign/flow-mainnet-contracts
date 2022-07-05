@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Unlicense
 
-// import FungibleToken from "./FungibleToken.cdc"
-// import NonFungibleToken from "./NonFungibleToken.cdc"
-
-import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
+import NonFungibleToken from 0x1d7e57aa55817448
 
 // NFTStorefront
 //
 // A general purpose sale support contract for Flow NonFungibleTokens.
-// 
+//
 // Each account that wants to list NFTs for sale installs a Storefront,
 // and lists individual sales within that Storefront as Listings.
 // There is one Storefront per account, it handles sales of all NFT types
@@ -20,7 +17,7 @@ import FungibleToken from 0xf233dcee88fe0abe
 // or other considerations.
 // Each NFT may be listed in one or more Listings, the validity of each
 // Listing can easily be checked.
-// 
+//
 // Purchasers can watch for Listing events and check the NFT type and
 // ID to see if they wish to buy the listed item.
 // Marketplaces and other aggregators can watch for Listing events
@@ -42,7 +39,7 @@ pub contract NFTStorefront {
     // ListingAvailable events can be used to determine the address
     // of the owner of the Storefront (...its location) at the time of
     // the listing but only at that precise moment in that precise transaction.
-    // If the seller moves the Storefront while the listing is valid, 
+    // If the seller moves the Storefront while the listing is valid,
     // that is on them.
     //
     pub event StorefrontInitialized(storefrontResourceID: UInt64)
@@ -74,13 +71,13 @@ pub contract NFTStorefront {
     // The listing has been resolved. It has either been purchased, or removed and destroyed.
     //
     pub event ListingCompleted(
-        listingResourceID: UInt64, 
-        storefrontResourceID: UInt64, 
+        listingResourceID: UInt64,
+        storefrontResourceID: UInt64,
         purchased: Bool,
         nftType: Type
     )
 
-    /// Event used on Listing is purchased 
+    /// Event used on Listing is purchased
     // TOKEN RUNNERS: New event to signal that listing was purchased, used when listing has more than 1 nftID
     pub event ListingPurchased(listingID: UInt64, databaseID: String, nftType: Type, nftID: UInt64, owner: Address)
 
@@ -191,6 +188,20 @@ pub contract NFTStorefront {
             self.preSaleBuyerMaxLimit = whitelist
         }
 
+
+        pub fun getBuyer(address: Address): UInt64? {
+            return self.buyers[address]
+        }
+
+        pub fun setBuyer(address: Address, buyer:UInt64) {
+            self.buyers[address] = buyer
+        }
+
+        pub fun removeNftID(index:UInt64): UInt64 {
+            return self.nftID.remove(at: index)
+        }
+
+
         // initializer
         //
         init (
@@ -247,7 +258,7 @@ pub contract NFTStorefront {
         // This will assert in the same way as the NFT standard borrowNFT()
         // if the NFT is absent, for example if it has been sold via another listing.
         //
-        pub fun borrowNFT(nftID : UInt64): &NonFungibleToken.NFT 
+        pub fun borrowNFT(nftID : UInt64): &NonFungibleToken.NFT
 
         // purchaseLiveSale
         // Purchase the listing, buying the token.
@@ -272,7 +283,7 @@ pub contract NFTStorefront {
     // Listing
     // A resource that allows an NFT to be sold for an amount of a given FungibleToken,
     // and for the proceeds of that sale to be split between several recipients.
-    // 
+    //
     pub resource Listing: ListingPublic {
         // The simple (non-Capability, non-complex) details of the sale
         access(self) let details: ListingDetails
@@ -299,12 +310,12 @@ pub contract NFTStorefront {
         // getDetails
         // Get the details of the current state of the Listing as a struct.
         // This avoids having more public variables and getter methods for them, and plays
-        // nicely with scripts (which cannot return resources). 
+        // nicely with scripts (which cannot return resources).
         //
         pub fun getDetails(): ListingDetails {
             return self.details
         }
-        
+
         // purchasePreSale
         // Purchase the listing, buying the token.
         // This pays the beneficiaries and returns the token to the buyer.
@@ -315,12 +326,13 @@ pub contract NFTStorefront {
                 self.details.preSaleBuyerMaxLimit.containsKey(address) : "sale available for users in whitelist"
                 self.checkBuyerMaxLimit(address: address) : "pre-sale offer is not available for this wallet"
             }
-            
-            if self.details.buyers[address] == nil {
-                self.details.buyers[address] = 0
+
+            if self.details.getBuyer(address:address) == nil {
+                self.details.setBuyer(address:address, buyer:0)
             }
 
-            self.details.buyers[address] = self.details.buyers[address]! + UInt64(1)
+            let buyer = self.details.getBuyer(address:address)! + UInt64(1)
+            self.details.setBuyer(address:address, buyer:buyer)
 
             return <- self.purchase(payment: <- payment, databaseID: databaseID, address: address)
         }
@@ -345,7 +357,7 @@ pub contract NFTStorefront {
         access(contract) fun purchase(payment: @FungibleToken.Vault, databaseID: String, address: Address): @NonFungibleToken.NFT {
             pre {
                 self.details.purchased == false: "listing has already been purchased"
-                // TOKEN RUNNERS: availableAtTimestamp validation, can't be purchase before this time 
+                // TOKEN RUNNERS: availableAtTimestamp validation, can't be purchase before this time
                 self.details.availableAtTimestamp < getCurrentBlock().timestamp: "listing is not available now"
                 payment.isInstance(self.details.salePaymentVaultType): "payment vault is not requested fungible token"
                 payment.balance == self.details.salePrice: "payment vault does not contain requested price"
@@ -364,8 +376,8 @@ pub contract NFTStorefront {
                 )
             }
 
-            let nftId = self.details.nftID.remove(at: 0)
-        
+            let nftId = self.details.removeNftID(index: 0)
+
             // Fetch the token to return to the purchaser.
             let nft <-self.nftProviderCapability.borrow()!.withdraw(withdrawID: nftId)
             // Neither receivers nor providers are trustworthy, they must implement the correct
@@ -400,15 +412,15 @@ pub contract NFTStorefront {
             residualReceiver!.deposit(from: <-payment)
 
             // If the listing is purchased, we regard it as completed here.
-            // Otherwise we regard it as completed in the destructor.        
-            
+            // Otherwise we regard it as completed in the destructor.
+
             emit ListingPurchased(listingID: self.uuid, databaseID: databaseID, nftType: self.details.nftType, nftID: nft.id, owner: address)
 
             return <-nft
         }
 
         // checkBuyerMaxLimit function to check if wallet can buy on pre-sale
-        access(self) fun checkBuyerMaxLimit(address: Address): Bool {            
+        access(self) fun checkBuyerMaxLimit(address: Address): Bool {
             if (self.details.preSaleBuyerMaxLimit.containsKey(address)) {
                 var quantityBuyer: UInt64 = 0
                 if self.details.buyers.containsKey(address) {
@@ -425,14 +437,14 @@ pub contract NFTStorefront {
         // Change the pre sale status
         //
         pub fun changePreSaleStatus(isPreSale: Bool) {
-            self.details.changePreSaleStatus(isPreSale: isPreSale) 
+            self.details.changePreSaleStatus(isPreSale: isPreSale)
         }
 
         // updateWhitelist
         // Change the whitelist
         //
         pub fun updateWhitelist(whitelist: {Address: UInt64}) {
-            self.details.updateWhitelist(whitelist: whitelist) 
+            self.details.updateWhitelist(whitelist: whitelist)
         }
 
         // destructor
@@ -593,7 +605,7 @@ pub contract NFTStorefront {
 
             return listingResourceID
         }
-        
+
 
         // removeListing
         // Remove a Listing that has not yet been purchased from the collection and destroy it.
@@ -601,7 +613,7 @@ pub contract NFTStorefront {
         pub fun removeListing(listingResourceID: UInt64) {
             let listing <- self.listings.remove(key: listingResourceID)
                 ?? panic("missing Listing")
-    
+
             // This will emit a ListingCompleted event.
             destroy listing
         }
@@ -617,11 +629,7 @@ pub contract NFTStorefront {
         // Returns a read-only view of the SaleItem for the given listingID if it is contained by this collection.
         //
         pub fun borrowListing(listingResourceID: UInt64): &Listing{ListingPublic}? {
-            if self.listings[listingResourceID] != nil {
-                return &self.listings[listingResourceID] as! &Listing{ListingPublic}
-            } else {
-                return nil
-            }
+            return &self.listings[listingResourceID] as! &Listing{ListingPublic}?
         }
 
         // cleanup
@@ -647,21 +655,21 @@ pub contract NFTStorefront {
                 self.listings[listingResourceID] != nil: "could not find listing with given id"
             }
 
-            let listing = &self.listings[listingResourceID] as! &Listing
+            let listing = (&self.listings[listingResourceID] as! &Listing?)!
 
-            listing.changePreSaleStatus(isPreSale: isPreSale)            
+            listing.changePreSaleStatus(isPreSale: isPreSale)
         }
 
         // updateWhitelist
-        // Update listing whitelist 
+        // Update listing whitelist
         pub fun updateWhitelist(listingResourceID: UInt64, whitelist: {Address: UInt64}) {
             pre {
                 self.listings[listingResourceID] != nil: "could not find listing with given id"
             }
 
-            let listing = &self.listings[listingResourceID] as! &Listing
+            let listing = (&self.listings[listingResourceID] as! &Listing?)!
 
-            listing.updateWhitelist(whitelist: whitelist)            
+            listing.updateWhitelist(whitelist: whitelist)
         }
 
         // destructor
