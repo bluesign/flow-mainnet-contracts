@@ -1,6 +1,7 @@
 import TopShot from 0x0b2a3299cc857e29
 import Ashes from 0xe2a89587100c6096
 import UFC_NFT from 0x329feb3ab062d289
+import AllDay from 0xe4cf4bdc1751c65d
 
 pub contract AshesV2 {
     access(contract) var recentBurn: [AshData?]
@@ -215,6 +216,18 @@ pub contract AshesV2 {
 
         let res <- create Ash(nftType: ufcNFT.getType(), nftID: ufcNFT.uuid, ashMeta: ashMeta, serial: 0, overwriteSerial: false)
         destroy ufcNFT
+        return <-res
+    }
+
+    pub fun mintFromNFLAllDay(alldayNFT: @AllDay.NFT, msg: String): @Ash {
+        let ashMeta: {String:String} = {}
+        ashMeta["alldayID"] = alldayNFT.id.toString()
+        ashMeta["alldayEditionID"] = alldayNFT.editionID.toString()
+        ashMeta["alldaySerialNumber"] = alldayNFT.serialNumber.toString()
+        ashMeta["alldayMintingDate"] = alldayNFT.mintingDate.toString()
+
+        let res <- create Ash(nftType: alldayNFT.getType(), nftID: alldayNFT.uuid, ashMeta: ashMeta, serial: 0, overwriteSerial: false)
+        destroy alldayNFT
         return <-res
     }
 
