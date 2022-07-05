@@ -76,7 +76,7 @@ pub contract TheMasterMarketContract {
             let sectorsRef = (self.sectorsRef.borrow()!)
             let sectorRef = sectorsRef.getSectorRef(sectorId: self.sectorId)
 
-            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(self.forSale.length + tokenIDs.length))
+            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(self.prices.length + tokenIDs.length))
             TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(sectorRef.getIds().length - tokenIDs.length))
 
             for tokenID in tokenIDs {
@@ -106,6 +106,19 @@ pub contract TheMasterMarketContract {
             (self.ownerVault.borrow()!).deposit(from: <- vaultRef.withdraw(amount: totalPrice * 0.975))
 
             emit TokenPurchased(sectorId: self.sectorId, ids: tokenIDs, price: totalPrice)
+        }
+
+        pub fun cancelListForSale(tokenIDs: [UInt32]) {
+            let sectorsRef = (self.sectorsRef.borrow()!)
+            let sectorRef : &TheMasterPixelContract.TheMasterSector = sectorsRef.getSectorRef(sectorId: self.sectorId)
+
+            TheMasterPieceContract.setSaleSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(self.prices.length - tokenIDs.length))
+            TheMasterPieceContract.setWalletSize(sectorId: self.sectorId, address: (self.owner!).address, size: UInt16(sectorRef.getIds().length + tokenIDs.length))
+
+            for tokenID in tokenIDs {
+              sectorRef.deposit(id: tokenID)
+              self.prices.remove(key: tokenID)
+            }
         }
 
         pub fun idPrice(tokenID: UInt32): UFix64? {
@@ -151,6 +164,12 @@ pub contract TheMasterMarketContract {
 
         pub fun purchase(sectorId: UInt16, tokenIDs: [UInt32], recipient: &AnyResource{TheMasterPixelContract.TheMasterSectorsInterface}, vaultRef: &AnyResource{FungibleToken.Provider}) {
             ((&self.saleSectors[sectorId] as &TheMasterMarketSector?)!).purchase(tokenIDs: tokenIDs, recipient: recipient, vaultRef: vaultRef)
+        }
+
+        pub fun cancelListForSale(sectorId: UInt16, tokenIDs: [UInt32]) {
+            if self.saleSectors[sectorId] != nil {
+              ((&self.saleSectors[sectorId] as &TheMasterMarketSector?)!).cancelListForSale(tokenIDs: tokenIDs)
+            }
         }
 
         pub fun getPrices(sectorId: UInt16): {UInt32: UFix64} {
