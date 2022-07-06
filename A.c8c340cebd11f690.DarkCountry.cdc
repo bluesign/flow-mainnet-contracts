@@ -274,7 +274,7 @@ pub contract DarkCountry: NonFungibleToken {
         //
         pub fun borrowDarkCountryNFT(id: UInt64): &DarkCountry.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as! auth &NonFungibleToken.NFT?
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &DarkCountry.NFT
             } else {
                 return nil
