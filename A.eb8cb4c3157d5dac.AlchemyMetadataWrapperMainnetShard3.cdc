@@ -15,6 +15,7 @@ import MatrixWorldAssetsNFT from 0xf20df769e658c257
 import MetadataViews from 0x1d7e57aa55817448
 import Metaverse from 0x256599e1b091be12
 import Momentables from 0x9d21537544d9123d
+import Necryptolis from 0x718efe5e88fe48ea
 import NftReality from 0x5892036f9111fbb8
 import NonFungibleToken from 0x1d7e57aa55817448
 import NowggNFT from 0x85b8bbf926dcddfa
@@ -196,13 +197,14 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
                     case "GoatedGoats": d = self.getGoatedGoats(owner: owner, id: id)
                     case "GoatedGoatsTrait": d = self.getGoatedGoatsTrait(owner: owner, id: id)
                     case "DropzToken": continue
-                    case "Necryptolis": continue
+                    case "Necryptolis": d = self.getNecryptolisNFT(owner: owner, id: id)
                     case "FLOAT" : d = self.getFLOAT(owner: owner, id: id)
                     case "BreakingT_NFT": d = self.getBreakingTNFT(owner: owner, id: id)
                     case "Owners": continue
                     case "Metaverse": d = self.getOzoneMetaverseNFT(owner: owner, id: id)
                     case "NFTContract": continue
                     case "Swaychain": continue
+                    case "Maxar": continue
                     case "TheFabricantS2ItemNFT": continue
                     case "VnMiss": continue
                     case "AvatarArt": continue
@@ -215,6 +217,9 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
                     case "Moments": continue
                     case "MotoGPCard": continue
                     case "UFC_NFT": continue
+                    case "Flovatar": continue
+                    case "FlovatarComponent": continue
+                    case "ByteNextMedalNFT": continue
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
@@ -1141,6 +1146,42 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
     // https://flow-view-source.com/mainnet/account/0x2ba17360b76f0143/contract/DropzToken
     
     
+    pub fun getNecryptolisNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Necryptolis",
+            address: 0x718efe5e88fe48ea,
+            storage_path: "Necryptolis.CollectionStoragePath",
+            public_path: "Necryptolis.CollectionPublicPath",
+            public_collection_name: "Necryptolis.NecryptolisCollectionPublic",
+            external_domain: "https://www.necryptolis.com"
+        )
+    
+        let col = owner.getCapability(Necryptolis.CollectionPublicPath)
+            .borrow<&{Necryptolis.NecryptolisCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowCemeteryPlot(id: id)
+        if nft == nil { return nil }
+    
+        let display = nft!.resolveView(Type<MetadataViews.Display>())! as! MetadataViews.Display
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: display.name,
+            description: display.description,
+            external_domain_view_url: "https://www.necryptolis.com/nft/".concat(nft!.id.toString()),
+            token_uri: nil,
+            media: [NFTMedia(uri: display.thumbnail.uri(), mimetype: "image")],
+            metadata: {
+            }
+        )
+    }
+    
+    //https://flow-view-source.com/mainnet/account/0x2d4c3caffbeab845/contract/FLOAT
+    
+    
     pub fun getFLOAT(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "FLOAT",
@@ -1392,6 +1433,11 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
         if let col = owner.getCapability(GoatedGoatsTrait.CollectionPublicPath)
         .borrow<&{NonFungibleToken.CollectionPublic}>() {
             ids["GoatedGoatsTrait"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(Necryptolis.CollectionPublicPath)
+        .borrow<&{Necryptolis.NecryptolisCollectionPublic}>() {
+            ids["Necryptolis"] = col.getIDs()
         }
     
         if let col = owner.getCapability(FLOAT.FLOATCollectionPublicPath)
