@@ -130,8 +130,8 @@ pub contract SportsIconCollectible : NonFungibleToken {
             self.metadata = metadata
             self.maxNumberOfEditions = maxNumberOfEditions
             self.editionCount = 0
-            SportsIconBeneficiaries.mintBeneficiaries[setID] = mintBeneficiaries
-            SportsIconBeneficiaries.marketBeneficiaries[setID] = marketBeneficiaries
+            SportsIconBeneficiaries.setMintBeneficiaries(setID: setID, beneficiaries: mintBeneficiaries)
+            SportsIconBeneficiaries.setMarketBeneficiaries(setID: setID, beneficiaries: marketBeneficiaries)
             self.publicFUSDSalePrice = nil
             self.publicFLOWSalePrice = nil
             self.publicSaleStartTime = nil
@@ -199,8 +199,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
         // sale price listing, current time is after start time, and current time is before end time 
         pub fun isPublicSaleActive(): Bool {
             let curBlockTime = getCurrentBlock().timestamp
-            return (self.publicFUSDSalePrice != nil || self.publicFLOWSalePrice != nil) &&
-                        (self.publicSaleStartTime != nil && curBlockTime >= self.publicSaleStartTime!) &&
+            return (self.publicSaleStartTime != nil && curBlockTime >= self.publicSaleStartTime!) &&
                         (self.publicSaleEndTime == nil || curBlockTime < self.publicSaleEndTime!)
         }
 
@@ -352,14 +351,14 @@ pub contract SportsIconCollectible : NonFungibleToken {
         }
 
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         pub fun borrowCollectible(id: UInt64) : &SportsIconCollectible.NFT? {
             if self.ownedNFTs[id] == nil {
                 return nil
             } else {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &SportsIconCollectible.NFT
             }
         }
