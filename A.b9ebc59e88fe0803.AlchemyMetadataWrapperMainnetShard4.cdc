@@ -1,7 +1,12 @@
 // AUTO-GENERATED CONTRACT
 import AADigital from 0x39eeb4ee6f30fc3f
+import ByteNextMedalNFT from 0x3b16cb9f5c036412
 import DooverseItems from 0x66ad29c7d7465437
 import Evolution from 0xf4264ac8f3256818
+import Flovatar from 0x921ea449dffec68a
+import FlovatarComponent from 0x921ea449dffec68a
+import FlovatarComponentTemplate from 0x921ea449dffec68a
+import MaxarNFT from 0xa4e9020ad21eb30b
 import MetadataViews from 0x1d7e57aa55817448
 import Moments from 0xd4ad4740ee426334
 import MotoGPCard from 0xa49cc0ee46c54bfb
@@ -195,6 +200,7 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
                     case "Metaverse": continue
                     case "NFTContract": d = self.getNFTContract(owner: owner, id: id)
                     case "Swaychain": continue
+                    case "Maxar": d = self.getMaxarNFT(owner: owner, id: id)
                     case "TheFabricantS2ItemNFT": d = self.getTheFabricantS2ItemNFT(owner: owner, id: id)
                     case "VnMiss": d = self.getVnMiss(owner: owner, id: id)
                     case "AvatarArt": d = self.getAvatarArt(owner: owner, id: id)
@@ -207,6 +213,9 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
                     case "Moments": d = self.getMomentsNFT(owner: owner, id: id)
                     case "MotoGPCard": d = self.getMotoGPCardNFT(owner: owner, id: id)
                     case "UFC_NFT": d = self.getUFCNFT(owner: owner, id: id)
+                    case "Flovatar": d = self.getFlovatarNFT(owner: owner, id: id)
+                    case "FlovatarComponent": d = self.getFlovatarComponentNFT(owner: owner, id: id)
+                    case "ByteNextMedalNFT": d = self.getByteNextMedalNFT(owner: owner, id: id)
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
@@ -362,6 +371,44 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         if col == nil { return nil }
     
         let nft = col!.borrowQRLNFT(id: id)
+        if nft == nil { return nil }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nft!.name,
+            description: nft!.description,
+            external_domain_view_url: nft!.thumbnail,
+            token_uri: nil,
+            media: [NFTMedia(uri: nft!.thumbnail, mimetype: "image")],
+            metadata: {
+                "name": nft!.name,
+                // "message": nft!.title,
+                "description": nft!.description,
+                "thumbnail": nft!.thumbnail
+            }
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x5dfbd0d5aba6acf7/contract/MaxarNFT
+    
+    
+    pub fun getMaxarNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Maxar",
+            address: 0x5dfbd0d5aba6acf7,
+            storage_path: "MaxarNFT.CollectionStoragePath",
+            public_path: "MaxarNFT.CollectionPublicPath",
+            public_collection_name: "ShawychainNFT.MaxarNFTCollectionPublic",
+            external_domain: "https://nft.maxar.com/"
+        )
+    
+        let col = owner.getCapability(MaxarNFT.CollectionPublicPath)
+            .borrow<&{MaxarNFT.MaxarNFTCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowMaxarNFT(id: id)
         if nft == nil { return nil }
     
         return NFTData(
@@ -906,6 +953,137 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         )
     }
     
+    // https://flow-view-source.com/mainnet/account/0x921ea449dffec68a/contract/Flovatar
+    
+    
+    pub fun getFlovatarNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Flovatar",
+            address: 0x921ea449dffec68a,
+            storage_path: "Flovatar.CollectionStoragePath",
+            public_path: "Flovatar.CollectionPublicPath",
+            public_collection_name: "Flovatar.CollectionPublic",
+            external_domain: "https://www.flovatar.com"
+        )
+    
+        let col = owner.getCapability(Flovatar.CollectionPublicPath)
+            .borrow<&{Flovatar.CollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowFlovatar(id: id)
+        if nft == nil { return nil }
+    
+        let rawMetadata: {String : String?} = {}
+        let metadata = nft!.getMetadata()
+        rawMetadata["series"] = metadata.series.toString()
+        rawMetadata["combination"] = metadata.combination
+        rawMetadata["creatorAddress"] = metadata.creatorAddress.toString()
+        rawMetadata["rareCount"] = metadata.rareCount.toString()
+        rawMetadata["epicCount"] = metadata.epicCount.toString()
+        rawMetadata["legendaryCount"] = metadata.legendaryCount.toString()
+        rawMetadata["accessoryId"] = nft!.getAccessory() != nil  ? nft!.getAccessory()!.toString() : ""
+        rawMetadata["hatId"] = nft!.getHat() != nil  ? nft!.getHat()!.toString() : ""
+        rawMetadata["eyeglassesId"] = nft!.getEyeglasses() != nil ? nft!.getEyeglasses()!.toString() : ""
+        rawMetadata["backgroundId"] = nft!.getBackground() != nil  ? nft!.getBackground()!.toString() : ""
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.id,
+            title: "Flovatar",
+            description: nil,
+            external_domain_view_url: "https://flovatar.com/flovatars/".concat(nft!.id.toString()),
+            token_uri: nil,
+            media: [NFTMedia(uri: "https://flovatar.com/api/image/".concat(nft!.id.toString()), mimetype: "video" )],
+            metadata: rawMetadata
+        )
+    }
+    
+    
+    
+    // https://flow-view-source.com/mainnet/account/0x921ea449dffec68a/contract/FlovatarComponent
+    
+    
+    pub fun getFlovatarComponentNFT(owner: PublicAccount, id: UInt64): NFTData? {
+    
+        let col = owner.getCapability(FlovatarComponent.CollectionPublicPath)
+            .borrow<&{FlovatarComponent.CollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowComponent(id: id)
+        if nft == nil { return nil }
+    
+        let rawMetadata: {String : String?} = {}
+        let componentTemplate = FlovatarComponentTemplate.getComponentTemplate(id: nft!.templateId)!
+        rawMetadata["templateId"] = componentTemplate.id.toString()
+        rawMetadata["name"] = componentTemplate.name
+        rawMetadata["description"] = componentTemplate.description
+        rawMetadata["category"] = componentTemplate.category
+        rawMetadata["rarity"] = componentTemplate.rarity
+    
+    
+        let contract = NFTContractData(
+            name: "Flovatar Flobit - ".concat(componentTemplate.name),
+            address: 0x921ea449dffec68a,
+            storage_path: "FlovatarComponent.CollectionStoragePath",
+            public_path: "FlovatarComponent.CollectionPublicPath",
+            public_collection_name: "FlovatarComponent.CollectionPublic",
+            external_domain: "https://www.flovatar.com"
+        )
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.mint,
+            uuid: nft!.id,
+            title: "Flovatar Flobit",
+            description: nil,
+            external_domain_view_url: "https://flovatar.com/components/".concat(nft!.id.toString()),
+            token_uri: nil,
+            media: [NFTMedia(uri: "https://flovatar.com/api/image/template/".concat(nft!.templateId.toString()), mimetype: "image" )],
+            metadata: rawMetadata
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x3b16cb9f5c036412/contract/ByteNextMedalNFT
+    
+    
+    pub fun getByteNextMedalNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "ByteNextMedalNFT",
+            address: 0x3b16cb9f5c036412,
+            storage_path: "ByteNextMedalNFT.CollectionStoragePath",
+            public_path: "ByteNextMedalNFT.CollectionPublicPath",
+            public_collection_name: "ByteNextMedalNFT.CollectionPublic",
+            external_domain: "https://app.bytenext.io"
+        )
+    
+        let col = owner.getCapability(ByteNextMedalNFT.CollectionPublicPath)
+            .borrow<&{ByteNextMedalNFT.CollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowMedalNFT(id: id)
+        if nft == nil { return nil }
+    
+        let rawMetadata: {String : String} = {}
+        let metadata = nft!.getMetadata()
+        rawMetadata["name"] = metadata["name"] ?? ""
+        rawMetadata["level"] = metadata["level"] ?? ""
+        rawMetadata["metaURI"] = metadata["metaURI"] ?? ""
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: rawMetadata["name"],
+            description: rawMetadata["name"],
+            external_domain_view_url: metadata["metaURI"],
+            token_uri: nil,
+            media: [NFTMedia(uri: metadata["metaURI"], mimetype: "image")],
+            metadata: rawMetadata
+        )
+    }
+    
+    
 
     // Same method signature as getNFTIDs.cdc for backwards-compatability.
     pub fun getNFTIDs(ownerAddress: Address): {String: [UInt64]} {
@@ -921,6 +1099,11 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         if let col = owner.getCapability(QRLNFT.CollectionPublicPath)
         .borrow<&{QRLNFT.QRLNFTCollectionPublic}>() {
             ids["QRL"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(MaxarNFT.CollectionPublicPath)
+        .borrow<&{MaxarNFT.MaxarNFTCollectionPublic}>() {
+            ids["Maxar"] = col.getIDs()
         }
     
         if let col = owner.getCapability(TheFabricantS2ItemNFT.CollectionPublicPath)
@@ -970,6 +1153,21 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         .borrow<&{NonFungibleToken.CollectionPublic}>() {
             ids["UFC_NFT"] = col.getIDs()
         }
+    
+        if let col = owner.getCapability(Flovatar.CollectionPublicPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["Flovatar"] = col.getIDs()
+        }
+        if let col = owner.getCapability(FlovatarComponent.CollectionPublicPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["FlovatarComponent"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(ByteNextMedalNFT.CollectionPublicPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["ByteNextMedalNFT"] = col.getIDs()
+        }
+    
         return ids
     }
 }
