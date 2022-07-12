@@ -482,7 +482,7 @@ pub contract SportsIconNFTStorefront {
         //
         pub fun borrowListing(listingResourceID: UInt64): &Listing{ListingPublic}? {
             if self.listings[listingResourceID] != nil {
-                return &self.listings[listingResourceID] as! &Listing{ListingPublic}
+                return &self.listings[listingResourceID] as! &Listing{ListingPublic}?
             } else {
                 return nil
             }
