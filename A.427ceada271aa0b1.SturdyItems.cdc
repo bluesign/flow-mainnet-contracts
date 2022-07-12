@@ -1,4 +1,7 @@
+import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+import HoodlumsMetadata from 0x427ceada271aa0b1
 
 // SturdyItems
 // NFT items for Sturdy!
@@ -8,6 +11,7 @@ pub contract SturdyItems: NonFungibleToken {
     // Events
     //
     pub event ContractInitialized()
+    pub event AccountInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
     pub event Minted(id: UInt64, 
@@ -34,7 +38,7 @@ pub contract SturdyItems: NonFungibleToken {
     // NFT
     // A Sturdy Item as an NFT
     //
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
         // The token's ID
         pub let id: UInt64
         // The token's type, e.g. 3 == Hat
@@ -53,6 +57,50 @@ pub contract SturdyItems: NonFungibleToken {
         pub let platformMintedOn: String
         // Token Price
         // pub let price: UInt64
+
+        pub fun getViews(): [Type] {
+            let metadata = HoodlumsMetadata.getMetadata(tokenID: self.id)
+            if (metadata == nil) {
+                return []
+            }
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            let metadata = HoodlumsMetadata.getMetadata(tokenID: self.id)
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: self.tokenTitle,
+                        description: self.tokenDescription,
+                        thumbnail: MetadataViews.IPFSFile(
+                            cid: metadata != nil && metadata!["imageCID"] != nil ? metadata!["imageCID"]! : "",
+                            path: nil
+                        )
+                    )
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties(
+                        [
+                            MetadataViews.Royalty(
+                            receiver: getAccount(HoodlumsMetadata.sturdyRoyaltyAddress)
+                                    .getCapability<&{FungibleToken.Receiver}>(/public/dapperUtilityCoinReceiver),
+                                cut: HoodlumsMetadata.sturdyRoyaltyCut,
+                                description: "Sturdy Royalty"
+                            ),
+                            MetadataViews.Royalty(
+                                receiver: getAccount(HoodlumsMetadata.artistRoyaltyAddress)
+                                    .getCapability<&{FungibleToken.Receiver}>(/public/dapperUtilityCoinReceiver),
+                                cut: HoodlumsMetadata.artistRoyaltyCut,
+                                description: "Artist Royalty"
+                            )
+                        ]
+                    )
+            }
+            return nil
+        }
 
         // initializer
         //
@@ -175,6 +223,7 @@ pub contract SturdyItems: NonFungibleToken {
     // public function that anyone can call to create a new empty collection
     //
     pub fun createEmptyCollection(): @NonFungibleToken.Collection {
+        emit AccountInitialized()
         return <- create Collection()
     }
 
