@@ -202,6 +202,7 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "Metaverse": continue
                     case "NFTContract": continue
                     case "Swaychain": continue
+                    case "Maxar": continue
                     case "TheFabricantS2ItemNFT": continue
                     case "VnMiss": continue
                     case "AvatarArt": continue
@@ -214,6 +215,9 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "Moments": continue
                     case "MotoGPCard": continue
                     case "UFC_NFT": continue
+                    case "Flovatar": continue
+                    case "FlovatarComponent": continue
+                    case "ByteNextMedalNFT": continue
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
