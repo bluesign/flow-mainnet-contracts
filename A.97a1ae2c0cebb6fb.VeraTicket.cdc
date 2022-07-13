@@ -149,6 +149,7 @@ pub contract VeraTicket: NonFungibleToken {
             return self.ownedNFTs.keys
         }
 
+
         // borrowNFT
         // Gets a reference to an NFT in the collection
         // so that the caller can read its metadata and call its methods
@@ -171,13 +172,14 @@ pub contract VeraTicket: NonFungibleToken {
             }
         }
 
+
         // destructor
         pub fun destroyTicket(eventID: UInt64, id: UInt64, tier: UInt64, subtier: UInt64) {
             if self.ownedNFTs[id] != nil {
                 let token <- self.ownedNFTs.remove(key: id) ?? panic("missing NFT")
                 destroy token
-                let eventCollection = VeraTicket.account.borrow<&VeraEvent.EventCollection>(from: VeraEvent.VeraEventStorage)!
-                eventCollection.decrementTicketMinted(eventId: eventID, tier: tier, subtier: subtier)
+               // let eventCollection = VeraTicket.account.borrow<&VeraEvent.EventCollection>(from: VeraEvent.VeraEventStorage)!
+                //eventCollection.decrementTicketMinted(eventId: eventID, tier: tier, subtier: subtier)
                 emit Destroy(id: id)
             }
         }
@@ -288,6 +290,22 @@ pub contract VeraTicket: NonFungibleToken {
 			    recipient.deposit(token: <-create VeraTicket.NFT(initID: VeraTicket.totalSupply, initEventID: eventID, initType: nft.type, initTier: nft.tier, initSubTier: nft.subtier, initTokenURI: nft.tokenURI))
                 emit Minted(id: VeraTicket.totalSupply)
                 eventCollection.incrementTicketMinted(eventId: eventID, tier: nft.tier, subtier: nft.subtier)
+                VeraTicket.totalSupply = VeraTicket.totalSupply + (1 as UInt64)
+            }
+	    }
+
+
+
+        pub fun mintMultipleNFTV2(recipient: &{NonFungibleToken.CollectionPublic, VeraTicket.TicketsCollectionPublic}, eventID: UInt64, tickets:[VeraTicket.NFTStruct], gatickets: UInt64, astickets: UInt64) {
+            if (tickets.length > 100) {
+              panic("Cannot Mint Tickets more than 100 in one batch")
+            }
+
+            for nft in tickets {
+                // deposit it in the recipient's account using their reference
+			    recipient.deposit(token: <-create VeraTicket.NFT(initID: VeraTicket.totalSupply, initEventID: eventID, initType: nft.type, initTier: nft.tier, initSubTier: nft.subtier, initTokenURI: nft.tokenURI))
+                emit Minted(id: VeraTicket.totalSupply)
+              ///  eventCollection.incrementTicketMinted(eventId: eventID, tier: nft.tier, subtier: nft.subtier)
                 VeraTicket.totalSupply = VeraTicket.totalSupply + (1 as UInt64)
             }
 	    }
