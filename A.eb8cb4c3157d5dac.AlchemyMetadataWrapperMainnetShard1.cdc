@@ -19,6 +19,7 @@ import RareRooms_NFT from 0x329feb3ab062d289
 import Shard from 0x82b54037a8f180cf
 import SportsIconCollectible from 0x8de96244f54db422
 import StarlyCard from 0x5b82f21c0edf76e3
+import TopShot from 0x0b2a3299cc857e29
 import TuneGO from 0x0d9bc5af3fc0c2e3
 import Vouchers from 0x444f5ea22c6ea12c
 
@@ -126,7 +127,7 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
                 switch key {
                     case "CNN": d = self.getCnnNFT(owner: owner, id: id)
                     case "Gaia": d = self.getGaia(owner: owner, id: id)
-                    case "TopShot": continue
+                    case "TopShot": d = self.getTopShot(owner: owner, id: id)
                     case "MatrixWorldFlowFestNFT": d = self.getMatrixWorldFlowFest(owner: owner, id: id)
                     case "StarlyCard": d = self.getStarlyCard(owner: owner, id: id)
                     case "EternalShard": d = self.getEternalShard(owner: owner, id: id)
@@ -1158,6 +1159,47 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
     // https://flow-view-source.com/mainnet/account/0x0b2a3299cc857e29/contract/TopShot
     
     
+    pub fun getTopShot(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "TopShot",
+            address: 0x0b2a3299cc857e29,
+            storage_path: "/storage/MomentCollection",
+            public_path: "/public/MomentCollection",
+            public_collection_name: "TopShot.MomentCollectionPublic",
+            external_domain: ""
+        )
+    
+        let col = owner.getCapability(/public/MomentCollection)
+            .borrow<&{TopShot.MomentCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowMoment(id: id)
+        if nft == nil { return nil }
+    
+        let metadata = TopShot.getPlayMetaData(playID: nft!.data.playID)!
+        let rawMetadata: {String:String?} = {}
+        for key in metadata.keys {
+            rawMetadata.insert(key: key, metadata[key])
+        }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: metadata["FullName"],
+            description: nil,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: [],
+            metadata: rawMetadata,
+        )
+    }
+    
+    
+    
+    // https://flow-view-source.com/mainnet/account/0x233eb012d34b0070/contract/Domains
+    
+    
     pub fun getFlownsDomain(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "FlownsDomain",
@@ -1277,6 +1319,10 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
         if let col = owner.getCapability(MatrixWorldFlowFestNFT.CollectionPublicPath)
             .borrow<&{MatrixWorldFlowFestNFT.MatrixWorldFlowFestNFTCollectionPublic}>() {
                 ids["MatrixWorldFlowFestNFT"] = col.getIDs()
+            }
+        if let col = owner.getCapability(/public/MomentCollection)
+            .borrow<&{TopShot.MomentCollectionPublic}>() {
+                ids["TopShot"] = col.getIDs()
             }
         if let col = owner.getCapability(Domains.CollectionPublicPath)
             .borrow<&{Domains.CollectionPublic}>() {
