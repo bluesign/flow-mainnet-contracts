@@ -17,7 +17,6 @@ import NonFungibleToken from 0x1d7e57aa55817448
 import RaceDay_NFT from 0x329feb3ab062d289
 import RareRooms_NFT from 0x329feb3ab062d289
 import Shard from 0x82b54037a8f180cf
-import SportsIconCollectible from 0x8de96244f54db422
 import StarlyCard from 0x5b82f21c0edf76e3
 import TopShot from 0x0b2a3299cc857e29
 import TuneGO from 0x0d9bc5af3fc0c2e3
@@ -155,7 +154,7 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
                     case "RareRooms_NFT": d = self.getRareRooms(owner: owner, id: id)
                     case "Crave": d = self.getCrave(owner: owner, id: id)
                     case "CricketMoments": d = self.getCricketMoments(owner: owner, id: id)
-                    case "SportsIconCollectible": d = self.getSportsIconCollectible(owner: owner, id: id)
+                    case "SportsIconCollectible": continue
                     case "InceptionAnimals": continue
                     case "OneFootballCollectible": continue
                     case "TheFabricantMysteryBox_FF1": continue
@@ -203,6 +202,7 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
                     case "Metaverse": continue
                     case "NFTContract": continue
                     case "Swaychain": continue
+                    case "Maxar": continue
                     case "TheFabricantS2ItemNFT": continue
                     case "VnMiss": continue
                     case "AvatarArt": continue
@@ -215,6 +215,9 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
                     case "Moments": continue
                     case "MotoGPCard": continue
                     case "UFC_NFT": continue
+                    case "Flovatar": continue
+                    case "FlovatarComponent": continue
+                    case "ByteNextMedalNFT": continue
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
@@ -954,49 +957,6 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
     // https://flow-view-source.com/mainnet/account/0x8de96244f54db422/contract/SportsIconCollectible
     
     
-    pub fun getSportsIconCollectible(owner: PublicAccount, id: UInt64): NFTData? {
-        let contract = NFTContractData(
-            name: "SportsIconCollectible",
-            address: 0x8de96244f54db422,
-            storage_path: "SportsIconCollectible.CollectionStoragePath",
-            public_path: "SportsIconCollectible.CollectionPublicPath",
-            public_collection_name: "SportsIconCollectible.CollectibleCollectionPublic",
-            external_domain: ""
-        )
-    
-        let col = owner.getCapability(SportsIconCollectible.CollectionPublicPath)
-            .borrow<&{SportsIconCollectible.CollectibleCollectionPublic}>()
-        if col == nil { return nil }
-    
-        let collectible = col!.borrowCollectible(id: id)
-        let nft = col!.borrowNFT(id: id)
-        if nft == nil { return nil }
-    
-        let setData = SportsIconCollectible.getSetMetadataForNFTByUUID(uuid: nft!.uuid)!
-        let editionData = SportsIconCollectible.getCollectibleDataForNftByUUID(uuid: nft!.uuid)!
-        let setMetadata = setData.getMetadata()
-    
-        let rawMetadata: {String:String?} = {}
-        for key in setMetadata.keys {
-            rawMetadata.insert(key: key, setMetadata[key])
-        }
-    
-        return NFTData(
-            contract: contract,
-            id: nft!.id,
-            uuid: nft!.uuid,
-            title: setMetadata["title"],
-            description: setMetadata["description"],
-            external_domain_view_url: "https://app.sportsicon.com/collectible/".concat(editionData.getSetID().toString()).concat("/").concat(editionData.getEditionNumber().toString()),
-            token_uri: nil,
-            media: [NFTMedia(uri: setMetadata!["contentURL"], mimetype: "video/mp4")],
-            metadata: rawMetadata,
-        )
-    }
-    
-    // https://flow-view-source.com/mainnet/account/0x5b82f21c0edf76e3/contract/StarlyCard
-    
-    
     pub fun getStarlyCard(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "StarlyCard",
@@ -1014,18 +974,29 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
         let nft = col!.borrowStarlyCard(id: id)
         if nft == nil { return nil }
     
+        let metadata = nft!.getMetadata()!
+    
         return NFTData(
             contract: contract,
             id: nft!.id,
             uuid: nft!.uuid,
-            title: nil,
-            description: nil,
-            external_domain_view_url: nil,
+            title: metadata.card.title,
+            description: metadata.card.description,
+            external_domain_view_url: metadata.url,
             token_uri: nil,
-            media: [],
+            media: [NFTMedia(uri: metadata.card.mediaSizes[0].url, mimetype: metadata.card.mediaType)],
             metadata: {
-                "id": nft!.starlyID
-            },
+                "id": nft!.starlyID,
+                "rarity": metadata.card.rarity,
+                "collectionID": metadata.collection.id,
+                "collectionTitle": metadata.collection.title,
+                "cardID": metadata.card.id.toString(),
+                "edition": metadata.edition.toString(),
+                "editions": metadata.card.editions.toString(),
+                "previewUrl": metadata.previewUrl,
+                "creatorName": metadata.collection.creator.name,
+                "creatorUsername": metadata.collection.creator.username
+            }
         )
     }
     
@@ -1299,10 +1270,6 @@ pub contract AlchemyMetadataWrapperMainnetShard1 {
         if let col = owner.getCapability(RareRooms_NFT.CollectionPublicPath)
             .borrow<&{RareRooms_NFT.RareRooms_NFTCollectionPublic}>() {
                 ids["RareRooms_NFT"] = col.getIDs()
-            }
-        if let col = owner.getCapability(SportsIconCollectible.CollectionPublicPath)
-            .borrow<&{SportsIconCollectible.CollectibleCollectionPublic}>() {
-                ids["SportsIconCollectible"] = col.getIDs()
             }
         if let col = owner.getCapability(StarlyCard.CollectionPublicPath)
             .borrow<&{StarlyCard.StarlyCardCollectionPublic}>() {
