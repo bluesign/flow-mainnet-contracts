@@ -57,6 +57,7 @@ pub contract Everbloom2: NonFungibleToken {
 		artworkID: UInt32,
 		galleryID: UInt32,
 		serialNumber: UInt32,
+		externalPrintID: String,
 		signature: String?,
 		metadata: {String: String}
 	)
@@ -199,6 +200,7 @@ pub contract Everbloom2: NonFungibleToken {
 				artworkID: self.data.artworkID,
 				galleryID: self.data.galleryID,
 				serialNumber: self.data.serialNumber,
+				externalPrintID: self.data.externalPrintID,
 				signature: signature,
 				metadata: metadata
 			)
