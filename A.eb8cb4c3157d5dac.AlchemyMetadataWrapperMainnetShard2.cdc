@@ -12,7 +12,6 @@ import DieselNFT from 0x497153c597783bc3
 import FlowChinaBadge from 0x99fed1e8da4c3431
 import GeniaceNFT from 0xabda6627c70c7f52
 import GooberXContract from 0x34f2bf4a80bb0f69
-import HaikuNFT from 0xf61e40c19db2a9e2
 import MetadataViews from 0x1d7e57aa55817448
 import MiamiNFT from 0x429a19abea586a3e
 import MintStoreItem from 0x20187093790b9aef
@@ -160,7 +159,7 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "TheFabricantMysteryBox_FF1": d = self.getTheFabricantMysteryBox_FF1(owner: owner, id: id)
                     case "DieselNFT": d = self.getDieselNFT(owner: owner, id: id)
                     case "MiamiNFT": d = self.getMiamiNFT(owner: owner, id: id)
-                    case "Bitku": d = self.getBitku(owner: owner, id: id)
+                    case "Bitku": continue
                     case "FlowFans": d = self.getFlowFansNFT(owner: owner, id: id)
                     case "AllDay": d = self.getAllDay(owner: owner, id: id)
                     case "PackNFT": d = self.getAllDayPackNFT(owner: owner, id: id)
@@ -202,7 +201,6 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "Metaverse": continue
                     case "NFTContract": continue
                     case "Swaychain": continue
-                    case "Maxar": continue
                     case "TheFabricantS2ItemNFT": continue
                     case "VnMiss": continue
                     case "AvatarArt": continue
@@ -215,9 +213,6 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
                     case "Moments": continue
                     case "MotoGPCard": continue
                     case "UFC_NFT": continue
-                    case "Flovatar": continue
-                    case "FlovatarComponent": continue
-                    case "ByteNextMedalNFT": continue
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
@@ -706,41 +701,6 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
     // https://flow-view-source.com/mainnet/account/0xf61e40c19db2a9e2/contract/HaikuNFT
     
     
-    pub fun getBitku(owner: PublicAccount, id: UInt64): NFTData? {
-        let contract = NFTContractData(
-            name: "Bitku",
-            address: 0xf61e40c19db2a9e2,
-            storage_path: "/storage/BitkuCollection",
-            public_path: "/public/BitkuCollection",
-            public_collection_name: "HaikuNFT.HaikuCollectionPublic",
-            external_domain: "bitku.art"
-        )
-    
-        let col = owner.getCapability(HaikuNFT.HaikuCollectionPublicPath)
-            .borrow<&{HaikuNFT.HaikuCollectionPublic}>()
-        if col == nil { return nil }
-    
-        let nft = col!.borrowHaiku(id: id)
-        if nft == nil { return nil }
-    
-        return NFTData(
-            contract: contract,
-            id: nft!.id,
-            uuid: nft!.uuid,
-            title: nil,
-            description: nft!.text,
-            external_domain_view_url: "https://bitku.art/#".concat(owner.address.toString()).concat("/").concat(nft!.id.toString()),
-            token_uri: nil,
-            media: [],
-            metadata: {
-                "text": nft!.text
-            },
-        )
-    }
-    
-    // https://flow-view-source.com/mainnet/account/0x99fed1e8da4c3431/contract/FlowChinaBadge
-    
-    
     pub fun getFlowFansNFT(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "FlowFans",
@@ -1180,11 +1140,6 @@ pub contract AlchemyMetadataWrapperMainnetShard2 {
         if let col = owner.getCapability(MiamiNFT.CollectionPublicPath)
         .borrow<&{MiamiNFT.MiamiCollectionPublic}>() {
             ids["MiamiNFT"] = col.getIDs()
-        }
-    
-        if let col = owner.getCapability(HaikuNFT.HaikuCollectionPublicPath)
-        .borrow<&{HaikuNFT.HaikuCollectionPublic}>() {
-            ids["Bitku"] = col.getIDs()
         }
     
         if let col = owner.getCapability(FlowChinaBadge.CollectionPublicPath)
