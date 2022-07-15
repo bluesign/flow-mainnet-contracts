@@ -161,7 +161,7 @@ pub contract JoyridePayments {
             return false
         }
 
-        let vault <- accountManager!.EscrowWithdraw(playerID:playerID, amount:debit, tokenContext: tokenContext)
+        let vault <- accountManager!.EscrowWithdrawWithTnxId(playerID:playerID, txID: txID, amount:debit, tokenContext: tokenContext)
         if(vault == nil) {
           emit TxFailed_ByTxTypeAndTxID(txID: txID, txType: "DebitTX", notes: txID.concat(": player withdraw vault failed"))
           destroy vault
