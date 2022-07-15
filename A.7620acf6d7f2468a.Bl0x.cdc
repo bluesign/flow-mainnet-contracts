@@ -96,16 +96,15 @@ pub contract Bl0x: NonFungibleToken {
 		pub fun getViews(): [Type] {
 			return  [
 			Type<MetadataViews.Display>(),
-			Type<MetadataViews.Media>(),
+			Type<MetadataViews.Medias>(),
 			Type<MetadataViews.Royalties>(),
 			Type<MetadataViews.ExternalURL>(),
 			Type<Data>(),
 			Type<Metadata>(),
 			Type<MetadataViews.NFTCollectionData>(),
-			Type<MetadataViews.NFTCollectionDisplay>()
-			//Type<FindViews.Rarity>(),
-			//Type<FindViews.Tag>(),
-			//Type<FindViews.Nounce>()
+			Type<MetadataViews.NFTCollectionDisplay>(),
+			Type<MetadataViews.Rarity>(),
+			Type<MetadataViews.Traits>()
 			]
 		}
 
@@ -151,8 +150,8 @@ pub contract Bl0x: NonFungibleToken {
 			case Type<MetadataViews.Royalties>():
 				return self.royalties
 
-			case Type<MetadataViews.Media>():
-				return fullMedia
+			case Type<MetadataViews.Medias>():
+				return MetadataViews.Medias([fullMedia])
 
 			case Type<Data>():
 				return Data(
@@ -175,17 +174,11 @@ pub contract Bl0x: NonFungibleToken {
 					serial:self.serial,
 					traits:self.getAllTraitsMetadataAsArray()
 				)
-
-				/*
-			case Type<FindViews.Nounce>():
-				return FindViews.Nounce(self.nounce)
-				*/
-
 			case Type<MetadataViews.NFTCollectionDisplay>():
 				let externalURL = MetadataViews.ExternalURL("https://bl0x.xyz")
 				let squareImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://bl0x.xyz/assets/home/Bl0xlogo.webp"), mediaType: "image")
-				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://bl0x.xyz/assets/home/Bl0xlogo.webp"), mediaType: "image")
-				return MetadataViews.NFTCollectionDisplay(name: "bl0x", description: "Bl0x", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: {})
+				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://pbs.twimg.com/profile_banners/1535883931777892352/1655241022/1500x500"), mediaType: "image")
+				return MetadataViews.NFTCollectionDisplay(name: "bl0x", description: "Minting a Bl0x triggers the catalyst moment of a big bang scenario. Generating a treasure that is designed to relate specifically to its holder.", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: { "discord": MetadataViews.ExternalURL("https://t.co/iY7AhEumR9"), "twitter" : MetadataViews.ExternalURL("https://twitter.com/Bl0xNFT")})
 
 			case Type<MetadataViews.NFTCollectionData>():
 				return MetadataViews.NFTCollectionData(storagePath: Bl0x.CollectionStoragePath,
@@ -196,13 +189,11 @@ pub contract Bl0x: NonFungibleToken {
 				providerLinkedType: Type<&Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
 				createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- Bl0x.createEmptyCollection()})
 
-				/*
-			case Type<FindViews.Rarity>(): 
-				return FindViews.Rarity(rarity:0.0, rarityName: self.getRarity(), parts: {})
+			case Type<MetadataViews.Rarity>(): 
+			return MetadataViews.Rarity(score:nil, max:nil, description: self.getRarity()) 
 
-			case Type<FindViews.Tag>():
-				return self.getTraitsAsTags()
-				*/
+			case Type<MetadataViews.Traits>():
+				return self.getTraitsAsTraits()
 			}
 			return nil
 		}
@@ -228,19 +219,19 @@ pub contract Bl0x: NonFungibleToken {
 			return rarity 
 		}
 
-		/*
-		pub fun getTraitsAsTags() : FindViews.Tag {
+		pub fun getTraitsAsTraits() : MetadataViews.Traits {
 			let traits=self.getAllTraitsMetadata()
 
-			let tags : {String:String}={}
+			let mvt : [MetadataViews.Trait] = []
 			for trait in traits.keys{
 				let traitValue = traits[trait]!
-				tags[trait]= traitValue.getName().concat(" : ").concat(traitValue.getRarity())
+				mvt.append(MetadataViews.Trait(name:trait, value: traitValue.getName(), displayType: "String", rarity: MetadataViews.Rarity(
+					score:nil, max:nil, description: traitValue.getRarity()
+				)))
 			}
 
-			return FindViews.Tag(tags)
+			return MetadataViews.Traits(mvt)
 		}
-		*/
 
 		pub fun getAllTraitsMetadataAsArray() : [{String : String}] {
 			let traits = self.traits
