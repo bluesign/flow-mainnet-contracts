@@ -12,6 +12,9 @@ Much thanks to all the Dapper resouces and Discord help used in the adaptation o
  */
 
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+import FungibleToken from 0xf233dcee88fe0abe
+import FlowToken from 0x1654653399040a61
 
 pub contract KOTD: NonFungibleToken {
 
@@ -88,7 +91,7 @@ pub contract KOTD: NonFungibleToken {
     pub var nextSetID: UInt32
     
     // totalSupply
-    // The total number of KOTD Collectibles that have been minted
+    // The total number of Collectibles that have been minted
     pub var totalSupply: UInt64
 
     // -----------------------------------------------------------------------
@@ -191,7 +194,11 @@ pub contract KOTD: NonFungibleToken {
         pub var numberMintedPerCollectibleItem: {UInt32: UInt32}
 
         init(setID: UInt32) {
-            var referencedSet = (&KOTD.sets[setID] as &Set?)!
+            pre {
+                KOTD.sets[setID] != nil: "Cannot borrow Set: The Set doesn't exist"
+            }
+
+            let referencedSet = (&KOTD.sets[setID] as &Set?)!
 
             self.setID = referencedSet.setID
             self.name = referencedSet.name
@@ -542,13 +549,62 @@ pub contract KOTD: NonFungibleToken {
     }
 
     // The resource that represents the Collectible NFTs
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 
         // Global unique collectibleItem ID
         pub let id: UInt64
         
         // Struct of Collectible metadata
         pub let data: CollectibleData
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.NFTCollectionData>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    let collectibleItemID = self.data.collectibleItemID
+                    let metadata = KOTD.getCollectibleItemMetaData(collectibleItemID: collectibleItemID)!
+                    return MetadataViews.Display(
+                        name: metadata["title"] ?? "KOTD NFT",
+                        description: metadata["description"] ?? "Official KOTD NFT",
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: metadata["posterUrl"] 
+                                ?? "ipfs://bafybeidy62mofvdpzr5gujq57kcpm27pciqx33pahxbfuwgzea646k2nay/s1_poster.jpg",
+                        )
+                    )
+                case Type<MetadataViews.Royalties>():
+                    let receiver = KOTD
+                        .account
+                        .getCapability<&AnyResource{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+                    let royalty = MetadataViews.Royalty(
+                        receiver: receiver,
+                        cut: 0.05,
+                        description: "KOTD / Niftory Fees"
+                    )
+                    return MetadataViews.Royalties(
+                        [royalty]
+                    )
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: KOTD.CollectionStoragePath,
+                        publicPath: KOTD.CollectionPublicPath,
+                        providerPath: /private/NiftoryCollectibleCollection001,
+                        publicCollection: Type<&KOTD.Collection{KOTD.NiftoryCollectibleCollectionPublic}>(),
+                        publicLinkedType: Type<&KOTD.Collection{KOTD.NiftoryCollectibleCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&KOTD.Collection{KOTD.NiftoryCollectibleCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-KOTD.createEmptyCollection()
+                        })
+                    )
+            }
+            return nil
+        }
 
         init(serialNumber: UInt32, collectibleItemID: UInt32, setID: UInt32) {
             // Increment the global Collectible IDs
@@ -586,11 +642,18 @@ pub contract KOTD: NonFungibleToken {
                     "Cannot borrow Collectible reference: The ID of the returned reference is incorrect"
             }
         }
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver}
     }
 
     // Collection is a resource that every user who owns NFTs 
     // will store in their account to manage their NFTS
-    pub resource Collection: NiftoryCollectibleCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic { 
+    pub resource Collection:
+        NiftoryCollectibleCollectionPublic,
+        NonFungibleToken.Provider,
+        NonFungibleToken.Receiver,
+        NonFungibleToken.CollectionPublic,
+        MetadataViews.ResolverCollection
+    { 
         // Dictionary of Collectible conforming tokens
         // NFT is a resource type with a UInt64 ID field
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
@@ -713,6 +776,12 @@ pub contract KOTD: NonFungibleToken {
             } else {
                 return nil
             }
+
+        }
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nftRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let fullNft = nftRef as! &NFT
+            return fullNft as &AnyResource{MetadataViews.Resolver}
         }
 
         // If a transaction destroys the Collection object,
