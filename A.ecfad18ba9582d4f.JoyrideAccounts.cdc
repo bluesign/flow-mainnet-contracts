@@ -12,7 +12,7 @@ pub contract JoyrideAccounts {
     pub event AccountCreated(playerID: String, referralID: String?, accountAddress: Address)
     pub event LinkDeveloperAccount(accountAddress: Address, gameID: String)
     pub event AccountAlreadyExists(playerID: String, accountAddress: Address)
-
+    pub event InsufficientBalance(playerID: String, txID: String, amount: UFix64, currentBalance: UFix64)
     init() {
         self.playerIDToPlayer = {}
         self.gameToDeveloperAccount = {}
@@ -82,7 +82,7 @@ pub contract JoyrideAccounts {
             JoyrideAccounts.playerIdByAddress[address] = self.playerID
         }
 
-        access(contract) fun WithdrawTokensForPayment(amount: UFix64, tokenContext: String): @FungibleToken.Vault? {
+        access(contract) fun WithdrawTokensForPayment(playerID: String, txID: String, amount: UFix64, tokenContext: String): @FungibleToken.Vault? {
             if(self.vaultCapability == nil) {
                 return nil
             }
@@ -90,6 +90,11 @@ pub contract JoyrideAccounts {
             let vault = self.vaultCapability!.borrow()
             if(vault == nil) {
                 return nil
+            }
+            let currentBalance: UFix64 = vault?.balanceOf(tokenContext: tokenContext) ?? 0.0;
+            if(currentBalance < amount){
+                emit InsufficientBalance(playerID:playerID, txID:txID, amount:amount, currentBalance:currentBalance)
+                return nil;
             }
 
             let withdrawal <- vault?.withdrawToken(tokenContext: tokenContext, amount: amount)
@@ -130,6 +135,7 @@ pub contract JoyrideAccounts {
          pub fun AddPlayerAccount(playerID: String, referralID: String?, account: PublicAccount)
          pub fun EscrowWithdraw(playerID: String, amount:UFix64, tokenContext: String): @FungibleToken.Vault?
          pub fun PlayerDeposit(playerID: String, vault:@FungibleToken.Vault) : @FungibleToken.Vault?
+         pub fun EscrowWithdrawWithTnxId(playerID: String, txID: String, amount:UFix64, tokenContext: String): @FungibleToken.Vault?
     }
 
     pub resource JoyrideAccountsAdmin : GrantsTokenRewards, SharesProfits, PlayerAccounts {
@@ -207,7 +213,15 @@ pub contract JoyrideAccounts {
             if(playerAccount == nil) {
                 return nil
             }
-            return <- playerAccount!.WithdrawTokensForPayment(amount:amount, tokenContext: tokenContext)
+            return <- playerAccount!.WithdrawTokensForPayment(playerID: playerID, txID:"", amount:amount, tokenContext: tokenContext)
+        }
+
+        pub fun EscrowWithdrawWithTnxId(playerID: String, txID: String, amount:UFix64, tokenContext: String): @FungibleToken.Vault? {
+           let playerAccount = self.GetPlayerJRXAccount(playerID:playerID)
+           if(playerAccount == nil) {
+              return nil
+           }
+           return <- playerAccount!.WithdrawTokensForPayment(playerID: playerID, txID:txID, amount:amount, tokenContext: tokenContext)
         }
 
         pub fun PlayerDeposit(playerID: String, vault:@FungibleToken.Vault) : @FungibleToken.Vault? {
