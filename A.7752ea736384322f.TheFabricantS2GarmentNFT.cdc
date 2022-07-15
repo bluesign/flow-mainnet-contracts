@@ -106,10 +106,13 @@ pub contract TheFabricantS2GarmentNFT: NonFungibleToken {
             
             TheFabricantS2GarmentNFT.isGarmentDataRetired[self.garmentDataID] = false
 
-            // Increment the ID so that it isn't used again
             TheFabricantS2GarmentNFT.nextGarmentDataID = TheFabricantS2GarmentNFT.nextGarmentDataID + 1
 
             emit GarmentDataCreated(garmentDataID: self.garmentDataID, designerAddress: designerAddress, metadata: self.metadata)
+        }
+
+        pub fun updateGarmentMetadata(key: String, value: String) {
+            self.metadata[key] = value
         }
 
         pub fun getMetadata(): {String: String}{
@@ -192,6 +195,18 @@ pub contract TheFabricantS2GarmentNFT: NonFungibleToken {
             TheFabricantS2GarmentNFT.numberMintedPerGarment[newID] = 0 as UInt32
 
             return newID
+        }
+
+        pub fun updateGarmentMetadata(id: UInt32, key: String, value: String) {
+            assert(
+                TheFabricantS2GarmentNFT.garmentDatas[id] != nil, 
+                message: "garment data does not exist"
+            )
+            TheFabricantS2GarmentNFT.garmentDatas[id]!.updateGarmentMetadata(key: key, value: value)
+        }
+
+        pub fun removeGarmentData(id: UInt32) {
+            TheFabricantS2GarmentNFT.garmentDatas.remove(key: id) 
         }
         
         // createNewAdmin creates a new Admin resource
