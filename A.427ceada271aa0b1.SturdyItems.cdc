@@ -144,7 +144,7 @@ pub contract SturdyItems: NonFungibleToken {
     // Collection
     // A collection of SturdyItem NFTs owned by an account
     //
-    pub resource Collection: SturdyItemsCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: SturdyItemsCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
         //
@@ -205,6 +205,12 @@ pub contract SturdyItems: NonFungibleToken {
             } else {
                 return nil
             }
+        }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let exampleNFT = nft as! &SturdyItems.NFT
+            return exampleNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         // destructor
