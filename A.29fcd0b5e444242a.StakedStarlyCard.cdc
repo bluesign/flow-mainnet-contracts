@@ -153,7 +153,7 @@ pub contract StakedStarlyCard: NonFungibleToken {
 
             let claimedResource = remainingResourceAtStakeTimestamp - remainingResource
             let claimResourcePerSecond = initialResource / 0.31556952 // using scale factor of 10*9 to avoid precision errors
-            let unlockedResource = stakedSeconds * claimResourcePerSecond / 100000000.0 - claimedResource
+            let unlockedResource = stakedSeconds / 10000.0 * claimResourcePerSecond / 10000.0 - claimedResource
             return unlockedResource > remainingResource ? remainingResource : unlockedResource
         }
 
