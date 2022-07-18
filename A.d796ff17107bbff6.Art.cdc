@@ -131,10 +131,15 @@ pub contract Art: NonFungibleToken {
 			views.append(Type<MetadataViews.Display>())
 			views.append(Type<MetadataViews.Royalties>())
 			views.append(Type<MetadataViews.Edition>())
+			views.append(Type<MetadataViews.ExternalURL>())
 			return views
 		}
 
 		pub fun resolveView(_ type: Type): AnyStruct? {
+
+			if type == Type<MetadataViews.ExternalURL>() {
+				 return MetadataViews.ExternalURL("https://www.versus.auction/piece/".concat(self.owner!.address.toString()).concat("/").concat(self.id.toString()))
+			}
 
 			if type == Type<MetadataViews.NFTCollectionDisplay>() {
 				let externalURL = MetadataViews.ExternalURL("https://versus.auction")
