@@ -45,7 +45,21 @@ pub contract StarlyCard: NonFungibleToken {
         }
 
         pub fun resolveView(_ view: Type): AnyStruct? {
-            return StarlyMetadata.resolveView(starlyID: self.starlyID, view: view)
+            switch view {
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: StarlyCard.CollectionStoragePath,
+                        publicPath: StarlyCard.CollectionPublicPath,
+                        providerPath: /private/starlyCardCollection,
+                        publicCollection: Type<&StarlyCard.Collection{StarlyCard.StarlyCardCollectionPublic}>(),
+                        publicLinkedType: Type<&StarlyCard.Collection{StarlyCard.StarlyCardCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&StarlyCard.Collection{StarlyCard.StarlyCardCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Provider, MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-StarlyCard.createEmptyCollection()
+                        }))
+                default:
+                    return StarlyMetadata.resolveView(starlyID: self.starlyID, view: view)
+            }
         }
     }
 
