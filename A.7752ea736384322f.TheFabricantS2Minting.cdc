@@ -5,6 +5,9 @@
 */
 
 // NOTE: WHEN PUSHING TO MN OR TN FOR WOW, YOU MUST SET THE EDITION CORRECTLY!!!!!!
+// For Testnet: 161
+// MN 486
+// for testing: 1
 
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
@@ -180,7 +183,13 @@ pub contract TheFabricantS2Minting{
             let paymentAmount = payment.balance
 
             for key in garmentRoyalties.keys {
-                let paymentSplit = (paymentAmount*0.45)/garmentRoyaltyCount
+                var paymentSplit: UFix64 = (paymentAmount*0.45)/garmentRoyaltyCount
+                if (key == "The Fabricant") {
+                    paymentSplit = (paymentAmount*0.3)
+                }
+                if (key as! String == "World Of Women") {
+                    paymentSplit = (paymentAmount*0.15)
+                }
                 if let garmentRoyaltyReceiver = garmentRoyalties[key]!.wallet.borrow() {
                    let garmentRoyaltyPaymentCut <- payment.withdraw(amount: paymentSplit)
                    garmentRoyaltyReceiver.deposit(from: <- garmentRoyaltyPaymentCut)
@@ -205,7 +214,7 @@ pub contract TheFabricantS2Minting{
             let metadatas: {String: TheFabricantS2ItemNFT.Metadata} = {}
             metadatas["itemImage"] = 
             TheFabricantS2ItemNFT.Metadata(
-                metadataValue: "https://leela.mypinata.cloud/ipfs/QmcQHb28TADJjzTkJgXKekWs5WFbyFsNwEez8Msc9uZ248/s2_WoW_nft_placeholder.png",
+                metadataValue: "https://leela.mypinata.cloud/ipfs/QmU5aYSJ7js6KpuJNw7R7pTBvGmJoucX9GWBWfB6rJFrfa",
                 mutable: true)
             metadatas["itemVideo"] =
             TheFabricantS2ItemNFT.Metadata(
