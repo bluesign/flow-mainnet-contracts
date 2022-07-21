@@ -19,6 +19,7 @@
 // import TheFabricantMysteryBox_FF1 from "../nftdrops/TheFabricantMysteryBox_FF1.cdc"
 // import FlowToken from "../fungibletoken/FlowToken.cdc"
 // import TheFabricantAccessPass from "../generic/TheFabricantAccessPass.cdc"
+
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import TheFabricantS2GarmentNFT from 0x7752ea736384322f
@@ -158,8 +159,6 @@ pub contract TheFabricantS2Minting{
                 "Payment is free if you use a free mint from your access pass, otherwise you must pay the mint fee and hold an access pass"
                 garmentDataID > 12 && materialDataID > 15:
                 "garmentData and materialData not available for this event"
-                (accessPassRef.owner!.address == 0xdc496a70f3b89c08):
-                "Only the archive account can mint during mint test" 
             }
 
 
