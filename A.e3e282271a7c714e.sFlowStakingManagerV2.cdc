@@ -120,7 +120,7 @@ pub contract sFlowStakingManagerV2 {
 		let sFlowPrice = self.getsFlowPrice()
 		let flowUnstakeAmount = from.balance * sFlowPrice
 		let delegationInfo = self.getDelegatorInfo()
-		let notAvailableForFastUnstake: UFix64 = flowUnstakeAmount - delegationInfo.tokensCommitted
+		let notAvailableForFastUnstake: Fix64 = Fix64(flowUnstakeAmount - delegationInfo.tokensCommitted)
 
 		// Burn sFlow tokens
 		// NOTE: I dont think we have to do this step?
@@ -156,7 +156,7 @@ pub contract sFlowStakingManagerV2 {
 			self.unstakeRequests.append({"address": accountAddress, "amount": notAvailableForFastUnstake })
 		
 			let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath)  ?? panic("Could not borrow ref to StakingCollection")
-			stakingCollectionRef.requestUnstaking(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: notAvailableForFastUnstake)
+			stakingCollectionRef.requestUnstaking(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: UFix64(notAvailableForFastUnstake))
 		}
 	}
 
