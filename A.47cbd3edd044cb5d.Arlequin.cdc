@@ -6,6 +6,7 @@ import FlowToken from 0x1654653399040a61
 import ArleePartner from 0x47cbd3edd044cb5d
 import ArleeScene from 0x47cbd3edd044cb5d
 import ArleeSceneVoucher from 0x47cbd3edd044cb5d
+import FLOAT from 0x2d4c3caffbeab845
 
 // testnet
 // import FungibleToken from 0x9a0766d93b6608b7
@@ -15,6 +16,7 @@ import ArleeSceneVoucher from 0x47cbd3edd044cb5d
 // import ArleePartner from 0xe7fd8b1148e021b2
 // import ArleeScene from 0xe7fd8b1148e021b2
 // import ArleeSceneVoucher from 0xe7fd8b1148e021b2
+// import FLOAT from 0x0afe396ebc8eee65
 
 // local
 // import FungibleToken from "./FungibleToken"
@@ -24,6 +26,7 @@ import ArleeSceneVoucher from 0x47cbd3edd044cb5d
 // import ArleePartner from "./ArleePartner"
 // import ArleeScene from "./ArleeScene"
 // import ArleeSceneVoucher from "./ArleeSceneVoucher"
+// import FLOAT from "./lib/FLOAT.cdc"
 
 pub contract Arlequin {
     
@@ -227,6 +230,10 @@ pub contract Arlequin {
             ArleeScene.setMintable(mintable: mintable)
         }
 
+        pub fun toggleVoucherIsMintable() {
+            ArleeSceneVoucher.setMintable(mintable: !ArleeSceneVoucher.mintable) 
+        }
+
         // for minting
         pub fun mintSceneNFT(buyer: Address, cid: String, metadata: {String: String}) {
             let recipientCap = getAccount(buyer).getCapability<&ArleeScene.Collection{ArleeScene.CollectionPublic}>(ArleeScene.CollectionPublicPath)
@@ -298,15 +305,15 @@ pub contract Arlequin {
 
     /* Free Minting for ArleeSceneNFT */
     pub fun mintSceneFreeMintNFT(buyer: Address, cid: String, metadata: {String: String}, adminRef: &ArleeSceneAdmin) {
-        pre{
-            Arlequin.getArleeSceneFreeMintQuota(addr: buyer) != nil : "You are not given free mint quotas"
-            Arlequin.getArleeSceneFreeMintQuota(addr: buyer)! > 0 : "You ran out of free mint quotas"
-        }
+        let userQuota = Arlequin.getArleeSceneFreeMintQuota(addr: buyer)!
+
+        assert(userQuota != nil, message: "You are not given free mint quotas")
+        assert(userQuota > 0, message: "You ran out of free mint quotas")
 
         let recipientCap = getAccount(buyer).getCapability<&ArleeScene.Collection{ArleeScene.CollectionPublic}>(ArleeScene.CollectionPublicPath)
         let recipient = recipientCap.borrow() ?? panic("Cannot borrow recipient's Collection Public")
 
-        ArleeScene.deductFreeMintAcct(addr: buyer, mint: 1)
+        ArleeScene.setFreeMintAcctQuota(addr: buyer, mint: userQuota-1)
 
         // deposit
         ArleeScene.mintSceneNFT(recipient:recipient, cid: cid, metadata: metadata)
@@ -359,6 +366,7 @@ pub contract Arlequin {
         return <- ArleeScene.updateCID(arleeSceneNFT: <- arlee, newCID: cid)
     }
 
+    // NOTE: Contract needs to be removed and redeployed (not upgraded) to re-run the initalization.
     init(){
         self.arleepartnerNFTPrice = 10.0
         self.sceneNFTPrice = 10.0
@@ -370,9 +378,11 @@ pub contract Arlequin {
         self.ArleePartnerAdminStoragePath = /storage/ArleePartnerAdmin
         self.ArleeSceneAdminStoragePath = /storage/ArleeSceneAdmin              
         
+        destroy <- self.account.load<@AnyResource>(from: Arlequin.ArleePartnerAdminStoragePath)
+        destroy <- self.account.load<@AnyResource>(from: Arlequin.ArleeSceneAdminStoragePath)
+
         self.account.save(<- create ArleePartnerAdmin(), to:Arlequin.ArleePartnerAdminStoragePath)
-        self.account.save(<- create ArleeSceneAdmin(), to:Arlequin.ArleeSceneAdminStoragePath)
-        
+        self.account.save(<- create ArleeSceneAdmin(), to:Arlequin.ArleeSceneAdminStoragePath)  
     }
 
 
