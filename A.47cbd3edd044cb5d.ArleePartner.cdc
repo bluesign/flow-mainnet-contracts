@@ -209,7 +209,7 @@ import MetadataViews from 0x1d7e57aa55817448
                 return nil
             }
 
-            let nftRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let nftRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
             let ref = nftRef as! &ArleePartner.NFT
 
             return ref
@@ -218,7 +218,7 @@ import MetadataViews from 0x1d7e57aa55817448
 
         //MetadataViews Implementation
         pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
-            let nftRef = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let nftRef = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
             let ArleePartnerRef = nftRef as! &ArleePartner.NFT
 
             return ArleePartnerRef as &{MetadataViews.Resolver}
