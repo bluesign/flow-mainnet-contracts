@@ -120,7 +120,7 @@ pub contract sFlowStakingManagerV2 {
 		let sFlowPrice = self.getsFlowPrice()
 		let flowUnstakeAmount = from.balance * sFlowPrice
 		let delegationInfo = self.getDelegatorInfo()
-		let notAvailableForFastUnstake: Fix64 = Fix64(flowUnstakeAmount - delegationInfo.tokensCommitted)
+		let notAvailableForFastUnstake: Fix64 = Fix64(flowUnstakeAmount) - Fix64(delegationInfo.tokensCommitted)
 
 		// Burn sFlow tokens
 		// NOTE: I dont think we have to do this step?
