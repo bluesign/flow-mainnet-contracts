@@ -143,7 +143,8 @@ pub contract sFlowStakingManagerV2 {
 			// First we unstake committed tokens
 			let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath)  ?? panic("Could not borrow ref to StakingCollection")
 			stakingCollectionRef.requestUnstaking(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: fastUnstakeAmount)
-
+			stakingCollectionRef.withdrawUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: fastUnstakeAmount)
+			
 			let unstakerAccount = getAccount(accountAddress)
 			let unstakerReceiverRef = unstakerAccount.getCapability(/public/flowTokenReceiver).borrow<&{FungibleToken.Receiver}>() ?? panic("Could not borrow receiver reference to recipient's Flow Vault")
 			let managerProviderRef =  self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault) ?? panic("Could not borrow provider reference to the provider's Vault")
