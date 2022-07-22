@@ -84,8 +84,7 @@ pub contract sFlowStakingManagerV2 {
 				info.tokensStaked + 
 				info.tokensUnstaking +
 				info.tokensUnstaked +
-				info.tokensRewarded +
-				info.tokensRequestedToUnstake
+				info.tokensRewarded
 		}
 
 		if (undelegatedFlowBalance + delegatedFlowBalance == 0.0) {
@@ -97,7 +96,6 @@ pub contract sFlowStakingManagerV2 {
 		}
 
 		return (undelegatedFlowBalance + delegatedFlowBalance)/sFlowToken.totalSupply
-		
 	}
 
 	pub fun stake(from: @FungibleToken.Vault): @sFlowToken.Vault {
@@ -144,7 +142,7 @@ pub contract sFlowStakingManagerV2 {
 			let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath)  ?? panic("Could not borrow ref to StakingCollection")
 			stakingCollectionRef.requestUnstaking(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: fastUnstakeAmount)
 			stakingCollectionRef.withdrawUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: fastUnstakeAmount)
-			
+
 			let unstakerAccount = getAccount(accountAddress)
 			let unstakerReceiverRef = unstakerAccount.getCapability(/public/flowTokenReceiver).borrow<&{FungibleToken.Receiver}>() ?? panic("Could not borrow receiver reference to recipient's Flow Vault")
 			let managerProviderRef =  self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault) ?? panic("Could not borrow provider reference to the provider's Vault")
@@ -164,6 +162,8 @@ pub contract sFlowStakingManagerV2 {
 	pub fun updateStakingCollection() {
 		let delegatorInfo = self.getDelegatorInfo()
 		let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath) ?? panic("Could not borrow ref to StakingCollection")
+
+
 
 		stakingCollectionRef.stakeUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensUnstaked)
 		stakingCollectionRef.stakeRewardedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensRewarded)
