@@ -21,6 +21,11 @@ pub contract sFlowStakingManagerV2 {
 	access(contract) var prevNodeID: String
 	access(contract) var prevDelegatorID: UInt32
 
+	pub event StakeDeposited(amount: UFix64)
+	pub event StakeWithdrawn(amount: UFix64)
+	pub event StakeFastWithdrawn(amount: UFix64)
+	pub event FeesTaken(amount: UFix64)
+
 	// getters
 	pub fun getPoolFee(): UFix64 {
 		return sFlowStakingManagerV2.poolFee
@@ -98,18 +103,47 @@ pub contract sFlowStakingManagerV2 {
 		return (undelegatedFlowBalance + delegatedFlowBalance)/sFlowToken.totalSupply
 	}
 
+	// Convinience Methods
+	access(self) fun borrowFlowVault(): &FlowToken.Vault  {
+		let flowVault = self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)  ?? panic("Could not borrow Manager's Flow Vault")
+		return flowVault
+	}
+
+	access(self) fun borrowStakingCollection(): &FlowStakingCollection.StakingCollection {
+		let stakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath) ?? panic("Could not borrow ref to StakingCollection")
+		return stakingCollection
+	}
+
+	access(self) fun borrowsFlowMinterVault(): &sFlowToken.Minter {
+		let minterVault = self.account.borrow<&sFlowToken.Minter>(from: /storage/sFlowTokenMinter) ?? panic("Could not borrow Manager's Minter Vault")
+		return minterVault
+	}
+
+	access(self) fun borrowsFlowVault(): &sFlowToken.Vault {
+		let sFlowVault = self.account.borrow<&sFlowToken.Vault>(from: /storage/sFlowTokenVault) ?? panic("Could not borrow sFlow Token Vault")
+		return sFlowVault
+	}
+
+	access(self) fun borrowsFlowBurner(): &sFlowToken.Burner {
+		let sFlowBurner = self.account.borrow<&sFlowToken.Burner>(from: /storage/sFlowTokenBurner) ?? panic("Could not borrow provider reference to the provider's Burner")
+		return sFlowBurner
+	}
+
+
 	pub fun stake(from: @FungibleToken.Vault): @sFlowToken.Vault {
 		let vault <- from as! @FlowToken.Vault
         let sFlowPrice: UFix64 = self.getsFlowPrice()
         let amount: UFix64 = vault.balance / sFlowPrice
 
-        let managerFlowVault =  self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)  ?? panic("Could not borrow Manager's Flow Vault")
+        let managerFlowVault =  self.borrowFlowVault()
         managerFlowVault.deposit(from: <-vault)
 
-		let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath) ?? panic("Could not borrow ref to StakingCollection")
+		let stakingCollectionRef = self.borrowStakingCollection()
 		stakingCollectionRef.stakeNewTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: (amount * sFlowPrice))
 
-        let managerMinterVault =  self.account.borrow<&sFlowToken.Minter>(from: /storage/sFlowTokenMinter) ?? panic("Could not borrow Manager's Minter Vault")
+		emit StakeDeposited(amount: amount)
+
+        let managerMinterVault = self.borrowsFlowMinterVault()
         return <- managerMinterVault.mintTokens(amount: amount);
 	}
 
@@ -119,15 +153,11 @@ pub contract sFlowStakingManagerV2 {
 		let flowUnstakeAmount = from.balance * sFlowPrice
 		let delegationInfo = self.getDelegatorInfo()
 		let notAvailableForFastUnstake: Fix64 = Fix64(flowUnstakeAmount) - Fix64(delegationInfo.tokensCommitted)
-
-		// Burn sFlow tokens
-		// NOTE: I dont think we have to do this step?
-		// let burningVault: @FungibleToken.Vault <- managersFlowTokenVault.withdraw(amount: from.balance)
-		let managersFlowTokenBurnerVault =  self.account.borrow<&sFlowToken.Burner>(from: /storage/sFlowTokenBurner) ?? panic("Could not borrow provider reference to the provider's Vault")
-		managersFlowTokenBurnerVault.burnTokens(from: <- from)
+		let managersFlowTokenVault = self.borrowsFlowVault()
+		let managersFlowTokenBurnerVault =  self.borrowsFlowBurner()
 
 		
-		if (delegationInfo.tokensCommitted >= 0.0) {
+		if (delegationInfo.tokensCommitted > 0.0) {
 			var fastUnstakeAmount = 0.0
 
 			if (delegationInfo.tokensCommitted > flowUnstakeAmount) {
@@ -138,40 +168,62 @@ pub contract sFlowStakingManagerV2 {
 				fastUnstakeAmount = delegationInfo.tokensCommitted
 			}
 		
-			// First we unstake committed tokens
+			// unstake committed tokens
 			let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath)  ?? panic("Could not borrow ref to StakingCollection")
 			stakingCollectionRef.requestUnstaking(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: fastUnstakeAmount)
 			stakingCollectionRef.withdrawUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: fastUnstakeAmount)
 
+			// withdraw token vault from protocol
+			// send to user
 			let unstakerAccount = getAccount(accountAddress)
 			let unstakerReceiverRef = unstakerAccount.getCapability(/public/flowTokenReceiver).borrow<&{FungibleToken.Receiver}>() ?? panic("Could not borrow receiver reference to recipient's Flow Vault")
-			let managerProviderRef =  self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault) ?? panic("Could not borrow provider reference to the provider's Vault")
+			let managerProviderRef =  self.borrowFlowVault()
 			let	managerFlowVault: @FungibleToken.Vault <- managerProviderRef.withdraw(amount: fastUnstakeAmount)
-
 			unstakerReceiverRef.deposit(from: <- managerFlowVault)
+
+			// Burn sFlow tokens
+			let tokensToBurn <- from.withdraw(amount: fastUnstakeAmount)
+			let tokensToKeep <- from
+
+			managersFlowTokenVault.deposit(from: <- tokensToKeep)
+			managersFlowTokenBurnerVault.burnTokens(from: <- tokensToBurn)
+
+			emit StakeFastWithdrawn(amount: fastUnstakeAmount)
+		} else {
+
+			// If there are not tokens committed, we 
+			// deposit the sFlow tokens back to the protocol
+			// the sFlow tokens will be burned at a later date
+			managersFlowTokenVault.deposit(from: <- from)
 		}
 		
+		// Executed if a portion of the requested stake cannot be
+		// "fastUnstaked". We create an unstakeRequest ticket to be
+		// processed on the next epoch
 		if (notAvailableForFastUnstake > 0.0) {
 			self.unstakeRequests.append({"address": accountAddress, "amount": notAvailableForFastUnstake })
 		
-			let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath)  ?? panic("Could not borrow ref to StakingCollection")
+			let stakingCollectionRef = self.borrowStakingCollection()
 			stakingCollectionRef.requestUnstaking(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: UFix64(notAvailableForFastUnstake))
 		}
 	}
 
 	pub fun updateStakingCollection() {
 		let delegatorInfo = self.getDelegatorInfo()
-		let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath) ?? panic("Could not borrow ref to StakingCollection")
+		let stakingCollectionRef = self.borrowStakingCollection()
+		let storageAmount = 0.001
 
-
-
-		stakingCollectionRef.stakeUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensUnstaked)
+		// stakeUnstakedTokens is not needed to be called
+		// as it will cancel out the tokenRequestedToUnstake
+		// stakingCollectionRef.stakeUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensUnstaked)
 		stakingCollectionRef.stakeRewardedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensRewarded)
+		stakingCollectionRef.stakeNewTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: self.getAccountFlowBalance() - storageAmount)
 	}
 
 	pub fun processUnstakeRequests() {
+		let minFlowBalance = 0.001
 		let delegatorInfo = self.getDelegatorInfo()
-		let stakingCollectionRef: &FlowStakingCollection.StakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath) ?? panic("Could not borrow ref to StakingCollection")
+		let stakingCollectionRef = self.borrowStakingCollection()
 
 		if (delegatorInfo.tokensUnstaked > 0.0) {
 			stakingCollectionRef.withdrawUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensUnstaked)
@@ -188,20 +240,25 @@ pub contract sFlowStakingManagerV2 {
 
 			let withdrawAmount = requestAmount * self.getsFlowPrice()
 
-			let unstakerReceiverRef = stakingAccount.getCapability(/public/flowTokenReceiver).borrow<&{FungibleToken.Receiver}>() ?? panic("Could not borrow receiver reference to recipient's Flow Vault")
-			let providerRef =  self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault) ?? panic("Could not borrow provider reference to the provider's Vault")
-			let managersFlowTokenVault =  self.account.borrow<&sFlowToken.Vault>(from: /storage/sFlowTokenVault) ?? panic("Could not borrow provider reference to the provider's Vault")
-			let managersFlowTokenBurnerVault =  self.account.borrow<&sFlowToken.Burner>(from: /storage/sFlowTokenBurner) ?? panic("Could not borrow provider reference to the provider's Vault")
+			if (self.getAccountFlowBalance() > withdrawAmount + minFlowBalance) {
+				let unstakerReceiverRef = stakingAccount.getCapability(/public/flowTokenReceiver).borrow<&{FungibleToken.Receiver}>() ?? panic("Could not borrow receiver reference to recipient's Flow Vault")
+				let providerRef =  self.borrowFlowVault()
+				let managersFlowTokenVault =  self.borrowsFlowVault()
+				let managersFlowTokenBurnerVault =  self.borrowsFlowBurner()
 
-			let flowVault: @FungibleToken.Vault <- providerRef.withdraw(amount: withdrawAmount)
-			let burnVault: @FungibleToken.Vault <- managersFlowTokenVault.withdraw(amount: withdrawAmount)
+				let flowVault: @FungibleToken.Vault <- providerRef.withdraw(amount: withdrawAmount)
+				let burnVault: @FungibleToken.Vault <- managersFlowTokenVault.withdraw(amount: withdrawAmount)
 
-			unstakerReceiverRef.deposit(from: <- flowVault)
-			managersFlowTokenBurnerVault.burnTokens(from: <- burnVault)
+				unstakerReceiverRef.deposit(from: <- flowVault)
+				managersFlowTokenBurnerVault.burnTokens(from: <- burnVault)
 
-			self.unstakeRequests.remove(at: index)
+				self.unstakeRequests.remove(at: index)
+				emit StakeWithdrawn(amount: withdrawAmount)
+			}
 
 			index = index + 1
+
+			
 		}
 
 	}
