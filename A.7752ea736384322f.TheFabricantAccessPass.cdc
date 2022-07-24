@@ -1218,6 +1218,10 @@ pub contract TheFabricantAccessPass: NonFungibleToken {
             metadataId: UInt64?,
             claimNftUuid: UInt64?
             ): @NFT {
+                pre {
+                    self.isOpen()
+                        : "Promotion is not open"
+                }
                 post{
                     self.totalSupply == before(self.totalSupply) + 1
                 }
