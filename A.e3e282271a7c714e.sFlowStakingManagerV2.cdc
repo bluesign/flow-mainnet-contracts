@@ -104,27 +104,27 @@ pub contract sFlowStakingManagerV2 {
 	}
 
 	// Convinience Methods
-	access(self) fun borrowFlowVault(): &FlowToken.Vault  {
+	access(contract) fun borrowFlowVault(): &FlowToken.Vault  {
 		let flowVault = self.account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)  ?? panic("Could not borrow Manager's Flow Vault")
 		return flowVault
 	}
 
-	access(self) fun borrowStakingCollection(): &FlowStakingCollection.StakingCollection {
+	access(contract) fun borrowStakingCollection(): &FlowStakingCollection.StakingCollection {
 		let stakingCollection = self.account.borrow<&FlowStakingCollection.StakingCollection>(from: FlowStakingCollection.StakingCollectionStoragePath) ?? panic("Could not borrow ref to StakingCollection")
 		return stakingCollection
 	}
 
-	access(self) fun borrowsFlowMinterVault(): &sFlowToken.Minter {
+	access(contract) fun borrowsFlowMinterVault(): &sFlowToken.Minter {
 		let minterVault = self.account.borrow<&sFlowToken.Minter>(from: /storage/sFlowTokenMinter) ?? panic("Could not borrow Manager's Minter Vault")
 		return minterVault
 	}
 
-	access(self) fun borrowsFlowVault(): &sFlowToken.Vault {
+	access(contract) fun borrowsFlowVault(): &sFlowToken.Vault {
 		let sFlowVault = self.account.borrow<&sFlowToken.Vault>(from: /storage/sFlowTokenVault) ?? panic("Could not borrow sFlow Token Vault")
 		return sFlowVault
 	}
 
-	access(self) fun borrowsFlowBurner(): &sFlowToken.Burner {
+	access(contract) fun borrowsFlowBurner(): &sFlowToken.Burner {
 		let sFlowBurner = self.account.borrow<&sFlowToken.Burner>(from: /storage/sFlowTokenBurner) ?? panic("Could not borrow provider reference to the provider's Burner")
 		return sFlowBurner
 	}
