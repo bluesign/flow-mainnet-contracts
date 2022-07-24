@@ -147,7 +147,7 @@ pub contract sFlowStakingManagerV2 {
         return <- managerMinterVault.mintTokens(amount: amount);
 	}
 
-	pub fun unstake(accountAddress: Address, from: @FungibleToken.Vault) {
+	pub fun unstake(accountAddress: Address, from: @sFlowToken.Vault) {
 		var withdrawableFlowAmount = 0.0
 		let sFlowPrice = self.getsFlowPrice()
 		let flowUnstakeAmount = from.balance * sFlowPrice
