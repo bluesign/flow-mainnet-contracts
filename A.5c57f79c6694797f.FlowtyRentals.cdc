@@ -1024,7 +1024,7 @@ pub contract FlowtyRentals {
          ): UInt64 {
              pre {
                 FlowtyUtils.isTokenSupported(type: paymentVaultType): "provided payment type is not supported"
-                Flowty.SupportedCollections[nftType.identifier] == nil: "nftType is not supported"
+                Flowty.SupportedCollections[nftType.identifier] != nil : "nftType is not supported"
                 paymentCut.receiver.check() && paymentCut.receiver.borrow()!.getType() == paymentVaultType: "paymentCut receiver type and paymentVaultType do not match"
             }
 
