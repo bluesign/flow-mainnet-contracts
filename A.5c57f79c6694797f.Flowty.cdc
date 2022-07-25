@@ -101,7 +101,11 @@ pub contract Flowty {
     pub event ListingCompleted(
         listingResourceID: UInt64, 
         flowtyStorefrontID: UInt64, 
-        funded: Bool)
+        funded: Bool,
+        nftID: UInt64,
+        nftType: String,
+        flowtyStorefrontAddress: Address
+    )
 
     // FundingAvailable
     // A funding has been created and added to a FlowtyStorefront resource.
@@ -115,6 +119,7 @@ pub contract Flowty {
         borrower: Address,
         lender: Address,
         nftID: UInt64,
+        nftType: String,
         repaymentAmount: UFix64,
         enabledAutoRepayment: Bool
     )
@@ -128,6 +133,7 @@ pub contract Flowty {
         borrower: Address,
         lender: Address,
         nftID: UInt64,
+        nftType: String,
         repaymentAmount: UFix64
     )
 
@@ -140,6 +146,7 @@ pub contract Flowty {
         borrower: Address,
         lender: Address,
         nftID: UInt64,
+        nftType: String,
         repaymentAmount: UFix64
     )
 
@@ -494,7 +501,10 @@ pub contract Flowty {
             emit ListingCompleted(
                 listingResourceID: listingResourceID,
                 flowtyStorefrontID: self.details.flowtyStorefrontID,
-                funded: self.details.funded
+                funded: self.details.funded,
+                nftID: self.details.nftID,
+                nftType: self.details.nftType.identifier,
+                flowtyStorefrontAddress: self.nftPublicCollectionCapability.address
             )
 
             let repaymentAmount = self.details.amount + self.details.amount * self.details.interestRate
@@ -597,7 +607,10 @@ pub contract Flowty {
             emit ListingCompleted(
                 listingResourceID: self.uuid,
                 flowtyStorefrontID: self.details.flowtyStorefrontID,
-                funded: self.details.funded
+                funded: self.details.funded,
+                nftID: self.details.nftID,
+                nftType: self.details.nftType.identifier,
+                flowtyStorefrontAddress: self.nftPublicCollectionCapability.address
             )
         }
     }
@@ -748,17 +761,21 @@ pub contract Flowty {
             }
 
             self.details.setToRepaid()
+            let royaltyAmount = self.royaltyVault != nil ? self.royaltyVault?.balance! : 0.0
 
             let NFT <- self.NFT <- nil
             let nftID = NFT?.id
+            let nftType = NFT?.getType()!
 
             FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.ownerNFTCollection)
 
             let royaltyVault <- self.royaltyVault <- nil
-            let repaymentVault <- payment
-            repaymentVault.deposit(from: <-royaltyVault!)
+            let vault <-! royaltyVault!
+            vault.deposit(from: <-payment.withdraw(amount: self.details.repaymentAmount))
+            destroy payment
+            assert(vault.balance == self.details.repaymentAmount + royaltyAmount, message: "insufficient balance to send to lender" )
 
-            FlowtyUtils.trySendFungibleTokenVault(vault: <-repaymentVault, receiver: self.lenderFungibleTokenReceiver)
+            FlowtyUtils.trySendFungibleTokenVault(vault: <-vault, receiver: self.lenderFungibleTokenReceiver)
 
             let borrower = self.ownerNFTCollection.address
             let lender = self.lenderFungibleTokenReceiver.address
@@ -768,6 +785,7 @@ pub contract Flowty {
                 borrower: borrower,
                 lender: lender,
                 nftID: nftID!,
+                nftType: nftType.identifier,
                 repaymentAmount: self.details.repaymentAmount
             )
         }
@@ -784,9 +802,11 @@ pub contract Flowty {
             }
 
             self.details.setToRepaid()
+            let royaltyAmount = self.royaltyVault != nil ? self.royaltyVault?.balance! : 0.0
 
             let NFT <- self.NFT <- nil
             let nftID = NFT?.id
+            let nftType = NFT?.getType()!
 
             let borrowerVault = self.fusdProviderCapability!.borrow()!
             let payment <- borrowerVault.withdraw(amount: self.details.repaymentAmount)
@@ -794,19 +814,22 @@ pub contract Flowty {
             FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.ownerNFTCollection)
 
             let royaltyVault <- self.royaltyVault <- nil
-            let repaymentVault <- payment
-            repaymentVault.deposit(from: <-royaltyVault!)
+            let vault <-! royaltyVault!
+            vault.deposit(from: <-payment.withdraw(amount: self.details.repaymentAmount))
+            destroy payment
+            assert(vault.balance == self.details.repaymentAmount + royaltyAmount, message: "insufficient balance to send to lender" )
 
-            FlowtyUtils.trySendFungibleTokenVault(vault: <-repaymentVault, receiver: self.lenderFungibleTokenReceiver)
+            FlowtyUtils.trySendFungibleTokenVault(vault: <-vault, receiver: self.lenderFungibleTokenReceiver)
+
             let borrower = self.ownerNFTCollection.address
             let lender = self.lenderFungibleTokenReceiver.address
-
             emit FundingRepaid(
                 fundingResourceID: self.uuid, 
                 listingResourceID: self.details.listingResourceID, 
                 borrower: borrower,
                 lender: lender,
                 nftID: nftID!,
+                nftType: nftType.identifier,
                 repaymentAmount: self.details.repaymentAmount
             )
         }
@@ -827,6 +850,7 @@ pub contract Flowty {
             // Move NFT to the lender account
             let NFT <- self.NFT <- nil
             let nftID = NFT?.id
+            let nftType = NFT?.getType()!
             assert(nftID != nil, message: "NFT is already moved")
 
             let royalty = Flowty.getRoyalty(nftTypeIdentifier: self.getListingDetails().nftType.identifier)
@@ -847,6 +871,7 @@ pub contract Flowty {
                 borrower: borrower,
                 lender: lender,
                 nftID: nftID!,
+                nftType: nftType.identifier,
                 repaymentAmount: self.details.repaymentAmount
             )
         }
@@ -987,6 +1012,7 @@ pub contract Flowty {
          ): UInt64 {
             // FundingAvailable event fields
             let nftID = NFT.id
+            let nftType = NFT.getType()
 
             let lenderVaultCap = lenderFungibleTokenReceiver.borrow()!
             let lender = lenderVaultCap.owner!.address
@@ -1025,6 +1051,7 @@ pub contract Flowty {
                 borrower: borrower,
                 lender: lender,
                 nftID: nftID,
+                nftType: nftType.identifier,
                 repaymentAmount: repaymentAmount,
                 enabledAutoRepayment: enabledAutoRepayment
             )
@@ -1166,7 +1193,7 @@ pub contract Flowty {
                 // make sure that the FUSD vault has at least the listing fee
                 payment.balance == Flowty.ListingFee: "payment vault does not contain requested listing fee amount"
                 // ensure that this nft type is supported
-                Flowty.SupportedCollections[nftType.identifier] == nil: "nftType is not supported"
+                Flowty.SupportedCollections[nftType.identifier] != nil: "nftType is not supported: ".concat(nftType.identifier)
                 // check that the repayment token type is the same as the payment token if repayment is not nil
                 fusdProviderCapability == nil || fusdProviderCapability!.check() && fusdProviderCapability!.borrow()!.getType() == paymentVaultType: "repayment vault type and payment vault type do not match"
                 // There are no listing fees right now so this will ensure that no one attempts to send any
