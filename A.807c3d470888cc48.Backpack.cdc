@@ -107,7 +107,11 @@ pub contract Backpack: NonFungibleToken {
 
     pub fun getViews(): [Type] {
       return [
-        Type<MetadataViews.Display>()
+        Type<MetadataViews.Display>(),
+        Type<MetadataViews.NFTCollectionData>(),
+        Type<MetadataViews.NFTCollectionDisplay>(),
+        Type<MetadataViews.ExternalURL>(),
+        Type<MetadataViews.Royalties>()
       ]
     }
 
@@ -121,6 +125,45 @@ pub contract Backpack: NonFungibleToken {
               url: self.getNFTTemplate().getMetadata()["uri"]!
             )
           )
+
+        case Type<MetadataViews.ExternalURL>():
+          return MetadataViews.ExternalURL(
+            url: "https://flunks.io/"
+          )
+
+        case Type<MetadataViews.NFTCollectionData>():
+          return MetadataViews.NFTCollectionData(
+            storagePath: Backpack.CollectionStoragePath,
+            publicPath: Backpack.CollectionPublicPath,
+            providerPath: /private/BackpackPrivateProvider,
+            publicCollection: Type<&Backpack.Collection{NonFungibleToken.CollectionPublic}>(),
+            publicLinkedType: Type<&Backpack.Collection{NonFungibleToken.CollectionPublic, Backpack.BackpackCollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+            providerLinkedType: Type<&Backpack.Collection{NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+            createEmptyCollection: (fun (): @NonFungibleToken.Collection {
+              return <-Backpack.createEmptyCollection()
+            }),
+          )
+
+        case Type<MetadataViews.NFTCollectionDisplay>():
+          let media = MetadataViews.Media(
+            file: MetadataViews.HTTPFile(
+              url: "https://storage.googleapis.com/flunks_public/website-assets/classroom.png"
+            ),
+            mediaType: "image/png"
+          )
+          return MetadataViews.NFTCollectionDisplay(
+            name: "Backpack",
+            description: "Backpack #onFlow",
+            externalURL: MetadataViews.ExternalURL("https://flunks.io/"),
+            squareImage: media,
+            bannerImage: media,
+            socials: {
+              "twitter": MetadataViews.ExternalURL("https://twitter.com/flunks_nft")
+            }
+          )
+
+        case Type<MetadataViews.Royalties>():
+          return MetadataViews.Royalties(cutInfos: [])
       }
 
       return nil
