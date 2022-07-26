@@ -148,7 +148,7 @@ pub contract TheFabricantS2Minting{
                 "Payment is free if you use a free mint from your access pass, otherwise you must pay the mint fee and hold an access pass"
                 garmentDataID > 12 && materialDataID > 15:
                 "garmentData and materialData not available for this event"
-                (accessPassRef.owner!.address == 0x72d40c78bd6993f1):
+                (accessPassRef.owner!.address == 0xdc496a70f3b89c08):
                 "Only the archive account can mint during mint test"
             }
 
