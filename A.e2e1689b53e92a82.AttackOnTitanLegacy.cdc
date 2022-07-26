@@ -103,11 +103,6 @@ pub contract AttackOnTitanLegacy: NonFungibleToken, Anique {
             }
             self.itemID = AttackOnTitanLegacy.nextItemID
             self.metadata = metadata
-
-            // Increment the ID so that it isn't used again
-            AttackOnTitanLegacy.nextItemID = AttackOnTitanLegacy.nextItemID + (1 as UInt32)
-
-            emit ItemCreated(id: self.itemID, metadata: metadata)
         }
     }
 
@@ -516,10 +511,16 @@ pub contract AttackOnTitanLegacy: NonFungibleToken, Anique {
         pub fun createItem(metadata: {String: String}): UInt32 {
             // Create the new Item
             var newItem = Item(metadata: metadata)
+
+            // Increment the ID so that it isn't used again
+            AttackOnTitanLegacy.nextItemID = AttackOnTitanLegacy.nextItemID + (1 as UInt32)
+
             let newID = newItem.itemID
 
             // Store it in the contract storage
             AttackOnTitanLegacy.itemDatas[newID] = newItem
+
+            emit ItemCreated(id: newItem.itemID, metadata: metadata)
 
             return newID
         }
