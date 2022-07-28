@@ -2,6 +2,8 @@
 import AADigital from 0x39eeb4ee6f30fc3f
 import DooverseItems from 0x66ad29c7d7465437
 import Evolution from 0xf4264ac8f3256818
+import Flunks from 0x807c3d470888cc48
+import MetaPanda from 0xf2af175e411dfff8
 import MetadataViews from 0x1d7e57aa55817448
 import Moments from 0xd4ad4740ee426334
 import MotoGPCard from 0xa49cc0ee46c54bfb
@@ -9,6 +11,8 @@ import NFTContract from 0x1e075b24abe6eca6
 import NonFungibleToken from 0x1d7e57aa55817448
 import PartyMansionDrinksContract from 0x34f2bf4a80bb0f69
 import QRLNFT from 0xa4e9020ad21eb30b
+import RCRDSHPNFT from 0x6c3ff40b90b928ab
+import Seussibles from 0x321d8fcde05f6e8c
 import TheFabricantS2ItemNFT from 0x7752ea736384322f
 import TicalUniverse from 0xfef48806337aabf1
 import TrartContractNFT from 0x6f01a4b0046c1f87
@@ -211,6 +215,10 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
                     case "Flovatar": continue
                     case "FlovatarComponent": continue
                     case "ByteNextMedalNFT": continue
+                    case "RCRDSHPNFT": d = self.getRCRDSHPNFT(owner: owner, id: id)
+                    case "Seussibles": d = self.getSeussibles(owner: owner, id: id)
+                    case "MetaPanda": d = self.getMetaPanda(owner: owner, id: id)
+                    case "Flunks": d = self.getFlunks(owner: owner, id: id)
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
@@ -348,16 +356,16 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         )
     }
     
-    // https://flow-view-source.com/mainnet/account/0x5dfbd0d5aba6acf7/contract/SwaychainNFT
+    // https://flow-view-source.com/mainnet/account/0xa4e9020ad21eb30b/contract/SwaychainNFT
     
     
     pub fun getQRLNFT(owner: PublicAccount, id: UInt64): NFTData? {
         let contract = NFTContractData(
             name: "QRL",
-            address: 0x5dfbd0d5aba6acf7,
+            address: 0xa4e9020ad21eb30b,
             storage_path: "QRLNFT.CollectionStoragePath",
             public_path: "QRLNFT.CollectionPublicPath",
-            public_collection_name: "ShawychainNFT.QRLNFTCollectionPublic",
+            public_collection_name: "QRLNFT.QRLNFTCollectionPublic",
             external_domain: "https://swaychain.com/"
         )
     
@@ -386,7 +394,7 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         )
     }
     
-    // https://flow-view-source.com/mainnet/account/0x5dfbd0d5aba6acf7/contract/MaxarNFT
+    // https://flow-view-source.com/mainnet/account/0xa4e9020ad21eb30b/contract/MaxarNFT
     
     
     pub fun getTheFabricantS2ItemNFT(owner: PublicAccount, id: UInt64): NFTData? {
@@ -912,6 +920,151 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
     
     // https://flow-view-source.com/mainnet/account/0x921ea449dffec68a/contract/Flovatar
     
+    
+    pub fun getRCRDSHPNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "RCRDSHPNFT",
+            address: 0x6c3ff40b90b928ab,
+            storage_path: "RCRDSHPNFT.collectionStoragePath",
+            public_path: "RCRDSHPNFT.collectionPublicPath",
+            public_collection_name: "RCRDSHPNFT.RCRDSHPNFTCollectionPublic",
+            external_domain: "https://app.rcrdshp.com/"
+        )
+    
+        let col = owner.getCapability(RCRDSHPNFT.collectionPublicPath)
+            .borrow<&{RCRDSHPNFT.RCRDSHPNFTCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowRCRDSHPNFT(id: id)
+        if nft == nil { return nil }
+    
+        let displayView = nft!.resolveView(Type<MetadataViews.Display>())!
+        let display = displayView as! MetadataViews.Display
+        let httpFile = display.thumbnail as! MetadataViews.HTTPFile
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: display.name,
+            description: display.description,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: [NFTMedia(uri: httpFile.uri(), mimetype: "image")],
+            metadata: {}
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x321d8fcde05f6e8c/contract/Seussibles
+    
+    
+    pub fun getSeussibles(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Seussibles",
+            address: 0x321d8fcde05f6e8c,
+            storage_path: "Seussibles.CollectionStoragePath",
+            public_path: "Seussibles.PublicCollectionPath",
+            public_collection_name: "",
+            external_domain: "https://seussibles.com/"
+        )
+    
+        let col = owner.getCapability<&AnyResource{MetadataViews.ResolverCollection}>(Seussibles.PublicCollectionPath)
+            .borrow<>()
+        if col == nil { return nil }
+    
+        let nftResolver = col!.borrowViewResolver(id: id)
+        if nftResolver == nil { return nil }
+    
+        let displayView = nftResolver!.resolveView(Type<MetadataViews.Display>())!
+        let display = displayView as! MetadataViews.Display
+        let httpFile = display.thumbnail as! MetadataViews.HTTPFile
+    
+        return NFTData(
+            contract: contract,
+            id: id,
+            uuid: nil,
+            title: display.name,
+            description: display.description,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: [NFTMedia(uri: httpFile.uri(), mimetype: "image")],
+            metadata: {}
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0xf2af175e411dfff8/contract/MetaPanda
+    
+    
+    pub fun getMetaPanda(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "MetaPanda",
+            address: 0xf2af175e411dfff8,
+            storage_path: "MetaPanda.CollectionStoragePath",
+            public_path: "MetaPanda.CollectionPublicPath",
+            public_collection_name: "",
+            external_domain: "https://metapandaclub.com/"
+        )
+    
+        let col = owner.getCapability<&AnyResource{MetadataViews.ResolverCollection}>(MetaPanda.CollectionPublicPath)
+            .borrow<>()
+        if col == nil { return nil }
+    
+        let nftResolver = col!.borrowViewResolver(id: id)
+        if nftResolver == nil { return nil }
+    
+        let displayView = nftResolver!.resolveView(Type<MetadataViews.Display>())!
+        let display = displayView as! MetadataViews.Display
+        let httpFile = display.thumbnail as! MetadataViews.HTTPFile
+    
+        return NFTData(
+            contract: contract,
+            id: id,
+            uuid: nil,
+            title: display.name,
+            description: display.description,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: [NFTMedia(uri: httpFile.uri(), mimetype: "image")],
+            metadata: {}
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x807c3d470888cc48/contract/Flunks
+    
+    
+    pub fun getFlunks(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Flunks",
+            address: 0x807c3d470888cc48,
+            storage_path: "Flunks.CollectionStoragePath",
+            public_path: "Flunks.CollectionPublicPath",
+            public_collection_name: "Flunks.FlunksCollectionPublic",
+            external_domain: "https://flunks.io/"
+        )
+    
+        let col = owner.getCapability(Flunks.CollectionPublicPath)
+            .borrow<&{Flunks.FlunksCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowFlunks(id: id)
+        if nft == nil { return nil }
+    
+        let displayView = nft!.resolveView(Type<MetadataViews.Display>())!
+        let display = displayView as! MetadataViews.Display
+        let httpFile = display.thumbnail as! MetadataViews.HTTPFile
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: display.name,
+            description: display.description,
+            external_domain_view_url: nil,
+            token_uri: nil,
+            media: [NFTMedia(uri: httpFile.uri(), mimetype: "image")],
+            metadata: {}
+        )
+    }
 
     // Same method signature as getNFTIDs.cdc for backwards-compatability.
     pub fun getNFTIDs(ownerAddress: Address): {String: [UInt64]} {
@@ -975,6 +1128,26 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         if let col = owner.getCapability(UFC_NFT.CollectionPublicPath)
         .borrow<&{NonFungibleToken.CollectionPublic}>() {
             ids["UFC_NFT"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(RCRDSHPNFT.collectionPublicPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["RCRDSHPNFT"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(Seussibles.PublicCollectionPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["Seussibles"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(MetaPanda.CollectionPublicPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["MetaPanda"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(Flunks.CollectionPublicPath)
+        .borrow<&{NonFungibleToken.CollectionPublic}>() {
+            ids["Flunks"] = col.getIDs()
         }
     
         return ids
