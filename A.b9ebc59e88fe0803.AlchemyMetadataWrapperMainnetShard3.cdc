@@ -219,6 +219,10 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
                     case "Flovatar": continue
                     case "FlovatarComponent": continue
                     case "ByteNextMedalNFT": continue
+                    case "RCRDSHPNFT": continue
+                    case "Seussibles": continue
+                    case "MetaPanda": continue
+                    case "Flunks": continue
                     default:
                         panic("adapter for NFT not found: ".concat(key))
                 }
