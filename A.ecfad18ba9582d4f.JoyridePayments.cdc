@@ -49,6 +49,8 @@ pub contract JoyridePayments {
 
   pub resource interface WalletAdmin {
     pub fun PlayerTransaction(playerID: String, tokenContext: String, amount:Fix64, gameID: String, txID: String, reward: Bool, notes: String) : Bool
+    pub fun FinalizeTransactionWithDevPercentage(txID: String, profit: UFix64, devPercentage: UFix64) : Bool
+    pub fun RefundTransaction(txID: String) : Bool
   }
 
   pub resource Transaction {
@@ -94,7 +96,7 @@ pub contract JoyridePayments {
       }
     }
 
-    pub fun Finalize(txID: String, profit: UFix64): Bool {
+    pub fun Finalize(txID: String, profit: UFix64, devPercentage: UFix64): Bool {
        if(JoyridePayments.accountsCapability == nil) {
          emit TxFailed_ByTxTypeAndTxID(txID: txID, txType: "FinalizeTX", notes: txID.concat(": JoyrideAccountsAdmin Accounts Capability Null"))
          return false
@@ -119,7 +121,7 @@ pub contract JoyridePayments {
 
       let vault <- self.vault.withdraw(amount: profit)
 
-      let remainder <- accountsAdmin!.ShareProfits(profits: <- vault, inGameID: self.gameID, fromPlayerID: self.playerID)
+      let remainder <- accountsAdmin!.ShareProfitsWithDevPercentage(profits: <- vault, inGameID: self.gameID, fromPlayerID: self.playerID, devPercentage: devPercentage)
       remainder.deposit(from: <- self.vault.withdraw(amount: self.vault.balance))
 
       treasury!.deposit(vault: JoyrideMultiToken.Vaults.treasury, from: <-remainder)
@@ -205,14 +207,18 @@ pub contract JoyridePayments {
       return true
     }
 
-    pub fun FinalizeTransaction(txID: String, profit: UFix64) : Bool {
+    pub fun FinalizeTransaction(txID: String, profit: UFix64): Bool {
+        return self.FinalizeTransactionWithDevPercentage(txID: txID, profit: profit, devPercentage: 0.0)
+    }
+
+    pub fun FinalizeTransactionWithDevPercentage(txID: String, profit: UFix64, devPercentage: UFix64) : Bool {
       let tx <- self.pendingTransactions.remove(key: txID)
       if(tx == nil) {
         emit TxFailed_ByTxTypeAndTxID(txID: txID, txType: "FinalizeTX", notes: txID.concat(": Not found in pending debit transaction list"))
         destroy tx
         return false
       } else {
-        let isFinalizeSuccess = tx?.Finalize(txID: txID, profit: profit)
+        let isFinalizeSuccess = tx?.Finalize(txID: txID, profit: profit, devPercentage: devPercentage)
         if(isFinalizeSuccess == true) {
          destroy tx
          return true
@@ -265,6 +271,33 @@ pub contract JoyridePayments {
           self.profit = profit
           self.currencyTokenContext = currencyTokenContext
       }
+    }
+
+    pub struct PlayerTransactionDataWithDevPercentage {
+        pub var playerID: String
+        pub var reward: Fix64
+        pub var txID: String
+        pub var rewardTokens: Bool
+        pub var gameID: String
+        pub var notes: String
+        pub var tokenTransactionType: String
+        pub var profit: UFix64
+        pub var currencyTokenContext: String
+        pub var devPercentage: UFix64
+
+        init(playerID: String, reward: Fix64, txID: String, rewardTokens: Bool, gameID: String, notes: String,
+          tokenTransactionType: String, profit: UFix64, currencyTokenContext: String, devPercentage: UFix64) {
+            self.playerID = playerID
+            self.reward = reward
+            self.txID = txID
+            self.rewardTokens = rewardTokens
+            self.gameID = gameID
+            self.notes = notes
+            self.tokenTransactionType = tokenTransactionType
+            self.profit = profit
+            self.currencyTokenContext = currencyTokenContext
+            self.devPercentage = devPercentage
+        }
     }
 
     pub struct FinalizeTransactionData {
