@@ -3,6 +3,7 @@ import AADigital from 0x39eeb4ee6f30fc3f
 import DooverseItems from 0x66ad29c7d7465437
 import Evolution from 0xf4264ac8f3256818
 import Flunks from 0x807c3d470888cc48
+import MaxarNFT from 0xa4e9020ad21eb30b
 import MetaPanda from 0xf2af175e411dfff8
 import MetadataViews from 0x1d7e57aa55817448
 import Moments from 0xd4ad4740ee426334
@@ -199,7 +200,7 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
                     case "Metaverse": continue
                     case "NFTContract": d = self.getNFTContract(owner: owner, id: id)
                     case "Swaychain": continue
-                    case "Maxar": continue
+                    case "Maxar": d = self.getMaxarNFT(owner: owner, id: id)
                     case "TheFabricantS2ItemNFT": d = self.getTheFabricantS2ItemNFT(owner: owner, id: id)
                     case "VnMiss": d = self.getVnMiss(owner: owner, id: id)
                     case "AvatarArt": d = self.getAvatarArt(owner: owner, id: id)
@@ -395,6 +396,44 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
     }
     
     // https://flow-view-source.com/mainnet/account/0xa4e9020ad21eb30b/contract/MaxarNFT
+    
+    
+    pub fun getMaxarNFT(owner: PublicAccount, id: UInt64): NFTData? {
+        let contract = NFTContractData(
+            name: "Maxar",
+            address: 0xa4e9020ad21eb30b,
+            storage_path: "MaxarNFT.CollectionStoragePath",
+            public_path: "MaxarNFT.CollectionPublicPath",
+            public_collection_name: "MaxarNFT.MaxarNFTCollectionPublic",
+            external_domain: "https://nft.maxar.com/"
+        )
+    
+        let col = owner.getCapability(MaxarNFT.CollectionPublicPath)
+            .borrow<&{MaxarNFT.MaxarNFTCollectionPublic}>()
+        if col == nil { return nil }
+    
+        let nft = col!.borrowMaxarNFT(id: id)
+        if nft == nil { return nil }
+    
+        return NFTData(
+            contract: contract,
+            id: nft!.id,
+            uuid: nft!.uuid,
+            title: nft!.name,
+            description: nft!.description,
+            external_domain_view_url: nft!.thumbnail,
+            token_uri: nil,
+            media: [NFTMedia(uri: nft!.thumbnail, mimetype: "image")],
+            metadata: {
+                "name": nft!.name,
+                // "message": nft!.title,
+                "description": nft!.description,
+                "thumbnail": nft!.thumbnail
+            }
+        )
+    }
+    
+    // https://flow-view-source.com/mainnet/account/0x7752ea736384322f/contract/TheFabricantS2ItemNFT
     
     
     pub fun getTheFabricantS2ItemNFT(owner: PublicAccount, id: UInt64): NFTData? {
@@ -1080,6 +1119,11 @@ pub contract AlchemyMetadataWrapperMainnetShard4 {
         if let col = owner.getCapability(QRLNFT.CollectionPublicPath)
         .borrow<&{QRLNFT.QRLNFTCollectionPublic}>() {
             ids["QRL"] = col.getIDs()
+        }
+    
+        if let col = owner.getCapability(MaxarNFT.CollectionPublicPath)
+        .borrow<&{MaxarNFT.MaxarNFTCollectionPublic}>() {
+            ids["Maxar"] = col.getIDs()
         }
     
         if let col = owner.getCapability(TheFabricantS2ItemNFT.CollectionPublicPath)
