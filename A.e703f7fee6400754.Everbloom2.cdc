@@ -481,6 +481,7 @@ pub contract Everbloom2: NonFungibleToken {
 	// UserPublic Interface is the public interface of User
 	// Any user can borrow the public reference of other user resource
 	pub resource interface UserPublic {
+	    pub fun getUserID(): UInt64
 		pub fun getAllGalleries(): [UInt32]
 		pub fun borrowGallery(galleryID: UInt32): &Gallery{Everbloom2.GalleryPublic}?
 		pub fun setMinterCapability(minterCapability: Capability<&Minter>)
@@ -509,6 +510,10 @@ pub contract Everbloom2: NonFungibleToken {
 			Everbloom2.nextUserID = Everbloom2.nextUserID + UInt64(1)
 
 			emit UserCreated(userID: self.userID)
+		}
+
+		pub fun getUserID(): UInt64 {
+		    return self.userID
 		}
 
 		pub fun getAllGalleries(): [UInt32] {
