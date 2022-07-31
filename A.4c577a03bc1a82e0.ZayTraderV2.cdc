@@ -11,7 +11,6 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import FlowToken from 0x1654653399040a61
-import SchmoesNFT from 0x6c4fe48768523577
 import ZayVerifierV2 from 0x4c577a03bc1a82e0
 
 pub contract ZayTraderV2 {
@@ -667,11 +666,12 @@ pub contract ZayTraderV2 {
             // If the user provided a valid signature, also check if they have a schmoe
             // in a standard public schmoe collection
             if (validSignature) {
-                accountHasSchmoe = ZayVerifierV2.checkOwnership(
+                /*accountHasSchmoe = ZayVerifierV2.checkOwnership(
                     address: signingAddress!,
                     collectionPath: SchmoesNFT.CollectionPublicPath,
                     nftType: Type<@SchmoesNFT.NFT>()
-                )
+                )*/
+                accountHasSchmoe = false
             }
 
             let feeReceiver =  ZayTraderV2.feeReceiver.borrow()!
@@ -874,11 +874,12 @@ pub contract ZayTraderV2 {
                 expiration: UFix64,
                 requestedAddress: Address?
         ): UInt64 {
-            let accountHasSchmoe = ZayVerifierV2.checkOwnership(
+            /*let accountHasSchmoe = ZayVerifierV2.checkOwnership(
                 address: offerFeePayer.address,
                 collectionPath: SchmoesNFT.CollectionPublicPath,
                 nftType: Type<@SchmoesNFT.NFT>()
-            )
+            )*/
+            let accountHasSchmoe = false
 
             var requiredFeeAmount = 0.0
             if (!accountHasSchmoe) {
@@ -942,7 +943,7 @@ pub contract ZayTraderV2 {
         //
         pub fun borrowTradeOffer(tradeOfferResourceID: UInt64): &TradeOffer{TradeOfferPublic}? {
             if self.tradeOffers[tradeOfferResourceID] != nil {
-                return &self.tradeOffers[tradeOfferResourceID] as! &TradeOffer{TradeOfferPublic}
+                return &self.tradeOffers[tradeOfferResourceID] as! &TradeOffer{TradeOfferPublic}?
             } else {
                 return nil
             }
