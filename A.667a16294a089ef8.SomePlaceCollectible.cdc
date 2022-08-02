@@ -7,6 +7,8 @@
 
 import NonFungibleToken from 0x1d7e57aa55817448
 import SomePlaceCounter from 0x667a16294a089ef8
+import MetadataViews from 0x1d7e57aa55817448
+import FungibleToken from 0xf233dcee88fe0abe
 
 pub contract SomePlaceCollectible : NonFungibleToken {
 
@@ -254,12 +256,84 @@ pub contract SomePlaceCollectible : NonFungibleToken {
     // -----------------------------------------------------------------------
     // NonFungibleToken Standard Resources
     // -----------------------------------------------------------------------
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
         pub let id: UInt64
 
         pub let setID: UInt64
 
         pub let editionNumber: UInt64
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            let metadata: {String: AnyStruct} = SomePlaceCollectible.getMetadataByEditionID(setID: self.setID, editionNumber: self.editionNumber)!.getMetadata()
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: (metadata["NFTName"] as? String) ?? "The Potion",
+                        description: "Time to drink up.",
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: (metadata["IPFS_Image"] as? String) ?? "https://gateway.pinata.cloud/ipfs/QmWEDqCnHPgRtPvLPFq5jDnRc4mXHGchomYBmzjXdJJpQq"
+                        )
+                    )
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties(
+                        [
+                            MetadataViews.Royalty(
+                                receiver: getAccount(0x8e2e0ebf3c03aa88).getCapability<&{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath()),
+                                cut: 0.10,
+                                description: "This is a royalty cut for some.place."
+                            )
+                        ]
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://some.place/")
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: SomePlaceCollectible.CollectionStoragePath,
+                        publicPath: SomePlaceCollectible.CollectionPublicPath,
+                        providerPath: SomePlaceCollectible.CollectionPrivatePath,
+                        publicCollection: Type<&Collection{CollectibleCollectionPublic}>(),
+                        publicLinkedType: Type<&Collection{CollectibleCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&Collection{CollectibleCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Provider, MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <- SomePlaceCollectible.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let squareImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://pbs.twimg.com/profile_images/1502703455747534850/O7LzbfKw_400x400.jpg"
+                        ),
+                        mediaType: "image"
+                    )
+                    let bannerImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://pbs.twimg.com/profile_banners/1329160722786336768/1647107895/1500x500"
+                        ),
+                        mediaType: "image"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "The Potion",
+                        description: "Time to drink up.",
+                        externalURL: MetadataViews.ExternalURL("https://some.place/"),
+                        squareImage: squareImage,
+                        bannerImage: bannerImage,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/some_place")
+                        }
+                    )
+            }
+            return nil
+        }
 
         init(setID: UInt64, editionNumber: UInt64) {
             pre {
@@ -295,7 +369,7 @@ pub contract SomePlaceCollectible : NonFungibleToken {
         }
     }
 
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectibleCollectionPublic {
+    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectibleCollectionPublic, MetadataViews.ResolverCollection {
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
         init() {
@@ -358,6 +432,12 @@ pub contract SomePlaceCollectible : NonFungibleToken {
         pub fun getIDs(): [UInt64] {
             return self.ownedNFTs.keys
         }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+			let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+			let potion = nft as! &NFT
+			return potion as &AnyResource{MetadataViews.Resolver}
+		}
 
         destroy() {
             destroy self.ownedNFTs
