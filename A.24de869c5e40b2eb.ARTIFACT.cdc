@@ -346,4 +346,3 @@ pub contract ARTIFACT: NonFungibleToken {
     emit ContractInitialized()
   }
 }
- 
