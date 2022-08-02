@@ -3,6 +3,7 @@
 */
 
 import FungibleToken from 0xf233dcee88fe0abe
+import ProfileCache from 0x097bafa4e0b48eef
 
 pub contract Profile {
 	pub let publicPath: PublicPath
@@ -17,6 +18,9 @@ pub contract Profile {
 
 	//and event emitted when a user verifies something
 	pub event Verification(account:Address, message:String)
+
+	pub event Created(account:Address, userName:String, findName:String, createdAt:String)
+	pub event Updated(account:Address, userName:String, findName:String, thumbnail:String)
 
 	/* 
 	Represents a Fungible token wallet with a name and a supported type.
@@ -119,6 +123,56 @@ pub contract Profile {
 		}
 	}
 
+	//This is the new return struct from the profile
+	pub struct UserReport {
+		pub let findName: String
+		pub let createdAt: String
+		pub let address: Address
+		pub let name: String
+		pub let gender: String
+		pub let description: String
+		pub let tags: [String]
+		pub let avatar: String
+		pub let links: {String:Link}
+		pub let wallets: [WalletProfile]
+		pub let following: [FriendStatus]
+		pub let followers: [FriendStatus]
+		pub let allowStoringFollowers: Bool
+
+		init(
+			findName:String,
+			address: Address,
+			name: String,
+			gender: String,
+			description: String, 
+			tags: [String],
+			avatar: String, 
+			links: {String:Link},
+			wallets: [WalletProfile],
+			following: [FriendStatus],
+			followers: [FriendStatus],
+			allowStoringFollowers:Bool,
+			createdAt: String
+		) {
+			self.findName=findName
+			self.address=address
+			self.name=name
+			self.gender=gender
+			self.description=description
+			self.tags=tags
+			self.avatar=avatar
+			self.links=links
+			self.wallets=wallets
+			self.following=following
+			self.followers=followers
+			self.allowStoringFollowers=allowStoringFollowers
+			self.createdAt=createdAt
+		}
+	}
+
+
+
+	//This format is deperated
 	pub struct UserProfile {
 		pub let findName: String
 		pub let createdAt: String
@@ -169,6 +223,7 @@ pub contract Profile {
 	}
 
 	pub resource interface Public{
+		pub fun getAddress() : Address
 		pub fun getName(): String
 		pub fun getFindName(): String
 		pub fun getCreatedAt(): String
@@ -181,17 +236,18 @@ pub contract Profile {
 		pub fun getFollowers(): [FriendStatus]
 		pub fun getFollowing(): [FriendStatus]
 		pub fun getWallets() : [Wallet]
+		pub fun checkWallet(_ name: String) : Bool 
 		pub fun getLinks() : [Link]
 		pub fun deposit(from: @FungibleToken.Vault)
 		pub fun supportedFungigleTokenTypes() : [Type]
 		pub fun asProfile() : UserProfile
+		pub fun asReport() : UserReport
 		pub fun isBanned(_ val: Address): Bool
 		pub fun isPrivateModeEnabled() : Bool
-		//TODO: should getBanned be here?
 
 		access(contract) fun internal_addFollower(_ val: FriendStatus)
 		access(contract) fun internal_removeFollower(_ address: Address) 
-
+		access(account) fun setFindName(_ val: String)
 	}
 
 	pub resource interface Owner {
@@ -239,8 +295,10 @@ pub contract Profile {
 		pub fun addWallet(_ val : Wallet) 
 		pub fun removeWallet(_ val: String)
 		pub fun setWallets(_ val: [Wallet])
-
+		pub fun checkWallet(_ name: String) : Bool 
 		pub fun addLink(_ val: Link)
+		pub fun addLinkWithName(name:String, link:Link)
+
 		pub fun removeLink(_ val: String)
 
 		//Verify that this user has signed something.
@@ -310,6 +368,13 @@ pub contract Profile {
 			self.additionalProperties["privateMode"]  = private
 		}
 
+		pub fun emitUpdatedEvent() {
+			emit Updated(account:self.owner!.address, userName:self.name, findName:self.findName, thumbnail:self.createdAt)
+		}
+
+		pub fun emitCreatedEvent() {
+			emit Created(account:self.owner!.address, userName:self.name, findName:self.findName, createdAt:self.createdAt)
+		}
 
 		pub fun isPrivateModeEnabled() : Bool {
 			let boolString= self.additionalProperties["privateMode"]
@@ -330,6 +395,34 @@ pub contract Profile {
 
 		pub fun verify(_ val:String) {
 			emit Verification(account: self.owner!.address, message:val)
+		}
+
+
+		pub fun asReport() : UserReport {
+			let wallets: [WalletProfile]=[]
+			for w in self.wallets {
+				wallets.append(WalletProfile(w))
+			}
+
+			return UserReport(
+				findName: self.getFindName(),
+				address: self.owner!.address,
+				name: self.getName(),
+				gender: self.getGender(),
+				description: self.getDescription(),
+				tags: self.getTags(),
+				avatar: self.getAvatar(),
+				links: self.getLinksMap(),
+				wallets: wallets, 
+				following: self.getFollowing(),
+				followers: self.getFollowers(),
+				allowStoringFollowers: self.allowStoringFollowers,
+				createdAt:self.getCreatedAt()
+			)
+		}
+
+		pub fun getAddress() : Address {
+			return self.owner!.address
 		}
 
 		pub fun asProfile() : UserProfile {
@@ -361,8 +454,16 @@ pub contract Profile {
 			)
 		}
 
+		pub fun getLinksMap() : {String: Link} {
+			return self.links
+		}
+
 		pub fun getLinks() : [Link] {
 			return self.links.values
+		}
+
+		pub fun addLinkWithName(name:String, link:Link) {
+			self.links[name]=link
 		}
 
 		pub fun addLink(_ val: Link) {
@@ -384,18 +485,47 @@ pub contract Profile {
 		}
 
 		pub fun deposit(from: @FungibleToken.Vault) {
-			for w in self.wallets {
+
+			let walletIndexCache = ProfileCache.getWalletIndex(address: self.owner!.address, walletType: from.getType())
+
+			if walletIndexCache != nil {
+				let ref = self.wallets[walletIndexCache!].receiver.borrow() ?? panic("This vault is not set up. ".concat(from.getType().identifier).concat(self.owner!.address.toString()).concat("  .  ").concat(from.balance.toString()))
+				ref.deposit(from: <- from)
+				return
+			}
+
+			for i , w in self.wallets {
 				if from.isInstance(w.accept) {
-					w.receiver.borrow()!.deposit(from: <- from)
+					ProfileCache.setWalletIndexCache(address: self.owner!.address, walletType: from.getType(), index: i)
+					let ref = w.receiver.borrow() ?? panic("This vault is not set up. ".concat(from.getType().identifier).concat(self.owner!.address.toString()).concat("  .  ").concat(from.balance.toString()))
+					ref.deposit(from: <- from)
 					return
 				}
 			} 
 			let identifier=from.getType().identifier
-			//TODO: I need to destroy here for this to compile, but WHY?
+			//I need to destroy here for this to compile, but WHY?
 			destroy from
 			panic("could not find a supported wallet for:".concat(identifier))
 		}
 
+
+		pub fun hasWallet(_ name: String) : Bool {
+			for wallet in self.wallets {
+				if wallet.name == name {
+					return true
+				}
+			}
+			return false
+		}
+
+		pub fun checkWallet(_ name: String) : Bool {
+			for wallet in self.wallets {
+				if wallet.name == name || wallet.accept.identifier == name {
+					return wallet.receiver.check()
+				}
+			}
+			return false
+		}
 
 		pub fun getWallets() : [Wallet] { return self.wallets}
 		pub fun addWallet(_ val: Wallet) { self.wallets.append(val) }
@@ -405,13 +535,17 @@ pub contract Profile {
 			while(i < numWallets) {
 				if self.wallets[i].name== val {
 					self.wallets.remove(at: i)
+					ProfileCache.resetWalletIndexCache(address: self.owner!.address)
 					return
 				}
 				i=i+1
 			}
 		}
 
-		pub fun setWallets(_ val: [Wallet]) { self.wallets=val }
+		pub fun setWallets(_ val: [Wallet]) { 
+			self.wallets=val 
+			ProfileCache.resetWalletIndexCache(address: self.owner!.address)
+			}
 
 		pub fun removeFollower(_ val: Address) {
 			self.followers.remove(key:val)
@@ -432,7 +566,11 @@ pub contract Profile {
 		pub fun getFollowing(): [FriendStatus] { return self.following.values }
 
 		pub fun setName(_ val: String) { self.name = val }
-		pub fun setFindName(_ val: String) { self.findName = val }
+		pub fun setFindName(_ val: String) { 
+			emit Updated(account:self.owner!.address, userName:self.name, findName:val, thumbnail:self.avatar)
+			ProfileCache.resetLeaseCache(address: self.owner!.address, leaseName: self.findName)
+			self.findName = val 
+		}
 		pub fun setGender(_ val: String) { self.gender = val }
 		pub fun setAvatar(_ val: String) { self.avatar = val }
 		pub fun setDescription(_ val: String) { self.description=val}
@@ -484,11 +622,16 @@ pub contract Profile {
 		.borrow()!
 	}
 
+
 	pub fun createUser(name: String, createdAt:String) : @Profile.User {
-		pre {
-			name.length <= 64: "Name must be 64 or less characters"
-			createdAt.length <= 32: "createdAt must be 32 or less characters"
+
+		if name.length > 64 {
+			panic("Name must be 64 or less characters")
 		}
+		if createdAt.length > 32 {
+			panic("createdAt must be 32 or less characters")
+		}
+
 		return <- create Profile.User(name: name,createdAt: createdAt)
 	}
 
