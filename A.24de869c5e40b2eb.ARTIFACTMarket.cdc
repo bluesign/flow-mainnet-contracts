@@ -109,7 +109,7 @@ pub contract ARTIFACTMarket {
 
         pub fun changePreSaleStatus(isPreSale: Bool){
             self.isPreSale = isPreSale
-        }        
+        }
         
         pub fun increaseBuyers(userAddress: Address, quantity: UInt64 ){
             
@@ -119,7 +119,6 @@ pub contract ARTIFACTMarket {
 
             self.buyers[userAddress] = self.buyers[userAddress]! + quantity
         }
-
     }
 
     // SaleCut
@@ -318,6 +317,7 @@ pub contract ARTIFACTMarket {
 
             let listing = self.listings[listingID]!;
             listing.increaseBuyers(userAddress: userPackCollection.owner!.address,quantity: quantity)
+
             self.listings[listingID] = listing
 
             self.purchaseListing(listingID: listingID, buyTokens: buyTokens, databaseID: databaseID, owner: owner, userPackCollection: userPackCollection, userCollection: userCollection, quantity: quantity)
