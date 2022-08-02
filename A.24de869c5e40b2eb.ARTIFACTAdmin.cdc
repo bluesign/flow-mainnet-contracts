@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Unlicense
 
-import NonFungibleToken from 0x1d7e57aa55817448
+import NonFungibleToken, MetadataViews from 0x1d7e57aa55817448
 import ARTIFACTPack, ARTIFACT, Interfaces from 0x24de869c5e40b2eb
 
 pub contract ARTIFACTAdmin: Interfaces {
@@ -49,7 +49,7 @@ pub contract ARTIFACTAdmin: Interfaces {
     // Parameters: owner: The pack owner
     //
     // returns: @[NonFungibleToken.NFT] the NFT created by the pack
-    pub fun openPack(userPack: &{Interfaces.IPack}, packID: UInt64, owner: Address): @[NonFungibleToken.NFT] {
+    pub fun openPack(userPack: &{Interfaces.IPack}, packID: UInt64, owner: Address, royalties: [MetadataViews.Royalty], packOption: {Interfaces.IPackOption}?): @[NonFungibleToken.NFT] {
       pre {
           !userPack.isOpen : "User Pack must be closed"    
           !ARTIFACTPack.checkPackTemplateLockStatus(packTemplateId: userPack.templateId): "pack template is locked"
