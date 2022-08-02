@@ -192,7 +192,7 @@ pub contract ARTIFACTPack: NonFungibleToken {
       }
 
       let userPackRef : &{Interfaces.IPack} = &self as! &{Interfaces.IPack};
-      var nfts: @[NonFungibleToken.NFT] <- self.adminRef.borrow()!.openPack(userPack: userPackRef, packID: self.id, owner: owner)
+      var nfts: @[NonFungibleToken.NFT] <- self.adminRef.borrow()!.openPack(userPack: userPackRef, packID: self.id, owner: owner, royalties: [], packOption: nil)
       self.isOpen = true;
       self.tarnishment = Tarnishment.good
       
