@@ -332,7 +332,13 @@ pub contract DayNFT: NonFungibleToken {
 
         pub fun getViews(): [Type] {
             return [
-                Type<MetadataViews.Display>()
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>()
             ]
         }
 
@@ -345,6 +351,58 @@ pub contract DayNFT: NonFungibleToken {
                         thumbnail: MetadataViews.HTTPFile(
                             url: self.thumbnail
                         )
+                    )
+
+                case Type<MetadataViews.Editions>():
+                    let editionInfo = MetadataViews.Edition(name: "DayNFT", number: self.id, max: nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.id
+                    )
+
+                case Type<MetadataViews.Royalties>():
+                    let royalty = MetadataViews.Royalty(recepient: DayNFT.account.getCapability<&AnyResource{FungibleToken.Receiver}>(/public/flowTokenReceiver), cut: 0.05, description: "Default royalty")
+                    return MetadataViews.Royalties([royalty])
+
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://day-nft.io")
+
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: DayNFT.CollectionStoragePath,
+                        publicPath: DayNFT.CollectionPublicPath,
+                        providerPath: /private/DayNFTCollectionProvider,
+                        publicCollection: Type<&DayNFT.Collection{DayNFT.CollectionPublic}>(),
+                        publicLinkedType: Type<&DayNFT.Collection{DayNFT.CollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&DayNFT.Collection{DayNFT.CollectionPublic,NonFungibleToken.CollectionPublic, NonFungibleToken.Provider, MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-DayNFT.createEmptyCollection()
+                        })
+                    )
+
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let header = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(url: "https://day-nft.io/header.png"),
+                        mediaType: "image/png"
+                    )
+                    let logo = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(url: "https://day-nft.io/thumbnail.png"),
+                        mediaType: "image/png"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "DayNFT",
+                        description: "One NFT per day, storing memories on Flow. Half of daily auction proceeds gets distributed back to holders.",
+                        externalURL: MetadataViews.ExternalURL("https://day-nft.io"),
+                        squareImage: logo,
+                        bannerImage: header,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/day_nft_io")
+                        }
                     )
             }
 
