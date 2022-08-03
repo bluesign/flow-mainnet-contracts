@@ -1,3 +1,4 @@
+import FungibleToken from 0xf233dcee88fe0abe
 import MetadataViews from 0x1d7e57aa55817448
 import StarlyCollectorScore from 0x5b82f21c0edf76e3
 import StarlyMetadataViews from 0x5b82f21c0edf76e3
@@ -37,6 +38,7 @@ pub contract StarlyMetadata {
         return [
             Type<MetadataViews.Display>(),
             Type<MetadataViews.Edition>(),
+            Type<MetadataViews.Royalties>(),
             Type<MetadataViews.ExternalURL>(),
             Type<MetadataViews.Traits>(),
             Type<MetadataViews.NFTCollectionDisplay>(),
@@ -51,6 +53,8 @@ pub contract StarlyMetadata {
                 return self.getDisplay(starlyID: starlyID);
             case Type<MetadataViews.Edition>():
                 return self.getEdition(starlyID: starlyID);
+            case Type<MetadataViews.Royalties>():
+                return self.getRoyalties(starlyID: starlyID);
             case Type<MetadataViews.ExternalURL>():
                 return self.getExternalURL(starlyID: starlyID);
             case Type<MetadataViews.Traits>():
@@ -93,6 +97,25 @@ pub contract StarlyMetadata {
         }
         return nil
     }
+
+    pub fun getRoyalties(starlyID: String): MetadataViews.Royalties? {
+            if let cardEdition = self.getCardEdition(starlyID: starlyID) {
+                let creator = cardEdition.collection.creator
+                // TODO link and use getRoyaltyReceiverPublicPath
+                let royalties : [MetadataViews.Royalty] = [
+                    MetadataViews.Royalty(
+                        receiver: getAccount(0x12c122ca9266c278).getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)!,
+                        cut: 0.05,
+                        description: "Starly royalty (5%)"),
+                    MetadataViews.Royalty(
+                        receiver: getAccount(creator.address!).getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)!,
+                        cut: 0.05,
+                        description: "Creator royalty (%5) for ".concat(creator.username))
+                ]
+                return MetadataViews.Royalties(cutInfos: royalties)
+            }
+            return nil
+        }
 
     pub fun getExternalURL(starlyID: String): MetadataViews.ExternalURL? {
         if let cardEdition = self.getCardEdition(starlyID: starlyID) {
