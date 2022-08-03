@@ -10,7 +10,6 @@ import DGD_NFT from 0x329feb3ab062d289
 import FLOAT from 0x2d4c3caffbeab845
 import GoatedGoats from 0x2068315349bdfce5
 import GoatedGoatsTrait from 0x2068315349bdfce5
-import GogoroCollectible from 0x8c9bbcdcd7514081
 import MatrixWorldAssetsNFT from 0xf20df769e658c257
 import MetadataViews from 0x1d7e57aa55817448
 import Metaverse from 0x256599e1b091be12
@@ -180,7 +179,7 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
                     case "Art_NFT": d = self.getArtNFT(owner: owner, id: id)
                     case "DGD_NFT": d = self.getDGDNFT(owner: owner, id: id)
                     case "NowggNFT": d = self.getNowggNFT(owner: owner, id: id)
-                    case "GogoroCollectible": d = self.getGogoroCollectibleNFT(owner: owner, id: id)
+                    case "GogoroCollectible": continue
                     case "YahooCollectible": d = self.getYahooCollectibleNFT(owner: owner, id: id)
                     case "YahooPartnersCollectible": d = self.getYahooPartnersCollectibleNFT(owner: owner, id: id)
                     case "BlindBoxRedeemVoucher": d = self.getBlindBoxRedeemVoucherNFT(owner: owner, id: id)
@@ -527,48 +526,6 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
     }
     
     // https://flow-view-source.com/mainnet/account/0x8c9bbcdcd7514081/contract/GogoroCollectible
-    
-    
-    pub fun getGogoroCollectibleNFT(owner: PublicAccount, id: UInt64): NFTData? {
-        let contract = NFTContractData(
-            name: "GogoroCollectible",
-            address: 0x8c9bbcdcd7514081,
-            storage_path: "GogoroCollectible.CollectionStoragePath",
-            public_path: "GogoroCollectible.CollectionPublicPath",
-            public_collection_name: "GogoroCollectible.CollectionPublic",
-            external_domain: "https://www.gogoro.com/",
-        )
-    
-        let col = owner.getCapability(GogoroCollectible.CollectionPublicPath)
-            .borrow<&{GogoroCollectible.CollectionPublic}>()
-        if col == nil { return nil }
-    
-        let nft = col!.borrowGogoroCollectible(id: id)
-        if nft == nil { return nil }
-    
-        let metadata = nft!.getMetadata()!
-        let additional = metadata.getAdditional()
-    
-        return NFTData(
-            contract: contract,
-            id: nft!.id,
-            uuid: nft!.uuid,
-            title: metadata.name,
-            description: metadata.description,
-            external_domain_view_url: "https://bay.blocto.app/flow/gogoro/".concat(nft!.id.toString()),
-            token_uri: nil,
-            media: [
-                NFTMedia(uri: additional["mediaUrl"]!, mimetype: metadata.mediaType)
-            ],
-            metadata: {
-                "rarity": additional["rarity"]!,
-                "editionNumber": nft!.editionNumber.toString(),
-                "editionCount": metadata.itemCount.toString()
-            }
-        )
-    }
-    
-    // https://flow-view-source.com/mainnet/account/0x758252ab932a3416/contract/YahooCollectible
     
     
     pub fun getYahooCollectibleNFT(owner: PublicAccount, id: UInt64): NFTData? {
@@ -1340,11 +1297,6 @@ pub contract AlchemyMetadataWrapperMainnetShard3 {
         if let col = owner.getCapability(NowggNFT.CollectionPublicPath)
         .borrow<&{NowggNFT.NowggNFTCollectionPublic}>() {
             ids["NowggNFT"] = col.getIDs()
-        }
-    
-        if let col = owner.getCapability(GogoroCollectible.CollectionPublicPath)
-        .borrow<&{GogoroCollectible.CollectionPublic}>() {
-            ids["GogoroCollectible"] = col.getIDs()
         }
     
         if let col = owner.getCapability(YahooCollectible.CollectionPublicPath)
