@@ -96,9 +96,7 @@ pub contract PierPair: IPierPair {
                 message: "Metapier PierPair: K not maintained"
             )
 
-            if PierSwapSettings.observationEnabled {
-                self.makeObservation(reserveA: reserveALast, reserveB: reserveBLast)
-            }
+            self.makeObservation(reserveA: reserveALast, reserveB: reserveBLast)
 
             emit Swap(
                 poolId: self.poolId,
@@ -165,9 +163,7 @@ pub contract PierPair: IPierPair {
                     * PierMath.UFix64ToRawUInt256(self.tokenBVault.balance)
             }
 
-            if PierSwapSettings.observationEnabled {
-                self.makeObservation(reserveA: reserveALast, reserveB: reserveBLast)
-            }
+            self.makeObservation(reserveA: reserveALast, reserveB: reserveBLast)
 
             emit Mint(poolId: self.poolId, amountAIn: amountA, amountBIn: amountB)
 
@@ -220,9 +216,7 @@ pub contract PierPair: IPierPair {
                     * PierMath.UFix64ToRawUInt256(self.tokenBVault.balance)
             }
 
-            if PierSwapSettings.observationEnabled {
-                self.makeObservation(reserveA: reserveALast, reserveB: reserveBLast)
-            }
+            self.makeObservation(reserveA: reserveALast, reserveB: reserveBLast)
 
             emit Burn(
                 poolId: self.poolId, 
