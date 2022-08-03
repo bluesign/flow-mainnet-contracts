@@ -169,6 +169,9 @@ pub contract DigitalArt: NonFungibleToken {
             return [
                 Type<MetadataViews.Display>(),
                 Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
                 Type<DigitalArt.Metadata>()
             ]
         }
@@ -176,28 +179,60 @@ pub contract DigitalArt: NonFungibleToken {
         pub fun resolveView(_ view: Type): AnyStruct? {
             switch view {
                 case Type<MetadataViews.Display>():
-                    let thumbnailUri = self.metadata.contentPreviewURI
-                    if thumbnailUri.slice(from: 0, upTo: 4) == "ipfs" {
-                        return MetadataViews.Display(
-                            name: self.metadata.name,
-                            description: self.metadata.description,
-                            thumbnail: MetadataViews.IPFSFile(
-                               cid: thumbnailUri.slice(from: 7, upTo: thumbnailUri.length),
-                               ""
-                            )
+                    return MetadataViews.Display(
+                        name: self.metadata.name,
+                        description: self.metadata.description,
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: DigitalArt.getWebFriendlyURL(url: self.metadata.contentPreviewURI)
                         )
-                    } else {
-                        return MetadataViews.Display(
-                            name: self.metadata.name,
-                            description: self.metadata.description,
-                            thumbnail: MetadataViews.HTTPFile(
-                                url: thumbnailUri
-                            )
-                        )
-                    }
+                    )
                 case Type<MetadataViews.Royalties>():
                     return MetadataViews.Royalties(
                         self.evergreenProfile.buildRoyalties(defaultReceiverPath: MetadataViews.getRoyaltyReceiverPublicPath())
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL(DigitalArt.getWebFriendlyURL(url: self.metadata.contentURI))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: DigitalArt.CollectionStoragePath,
+                        publicPath: DigitalArt.CollectionPublicPath,
+                        providerPath: /private/sequelDigitalArtCollection,
+                        publicCollection: Type<&DigitalArt.Collection{DigitalArt.CollectionPublic}>(),
+                        publicLinkedType: Type<&DigitalArt.Collection{DigitalArt.CollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&DigitalArt.Collection{DigitalArt.CollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-DigitalArt.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let media = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://sequel.space/home/img/flow-sequel-logo.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "Sequel Digital Art",
+                        description: "Sequel is a social platform where everything is for fun and purely fictional.",
+                        externalURL: MetadataViews.ExternalURL("https://sequel.space"),
+                        squareImage: MetadataViews.Media(
+                            file: MetadataViews.HTTPFile(
+                                url: "https://sequel.space/home/img/flow-sequel-logo.png"
+                            ),
+                            mediaType: "image/png"
+                        ),
+                        bannerImage: MetadataViews.Media(
+                            file: MetadataViews.HTTPFile(
+                                url: "https://sequel.space/home/img/flow-sequel-banner.jpg"
+                            ),
+                            mediaType: "image/jpeg"
+                        ),
+                        socials: {
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/sequelspace"),
+                            "mastodon": MetadataViews.ExternalURL("https://mastodon.social/@sequel"),
+                            "discord": MetadataViews.ExternalURL("https://discord.gg/YaR7BFuXNk"),
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/sequelspace")
+                        }
                     )
                 case Type<DigitalArt.Metadata>():
                     return self.metadata
@@ -347,6 +382,14 @@ pub contract DigitalArt: NonFungibleToken {
             return master.closed
         } else {
             return false
+        }
+    }
+
+    pub fun getWebFriendlyURL(url: String): String {
+        if url.slice(from: 0, upTo: 4) == "ipfs" {
+            return "https://sequel.mypinata.cloud/ipfs/".concat(url.slice(from: 7, upTo: url.length))
+        } else {
+            return url
         }
     }
 
