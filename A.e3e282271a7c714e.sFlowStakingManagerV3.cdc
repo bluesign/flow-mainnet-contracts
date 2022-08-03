@@ -239,7 +239,6 @@ pub contract sFlowStakingManagerV3 {
 			stakingCollectionRef.withdrawUnstakedTokens(nodeID: self.nodeID, delegatorID: self.delegatorID, amount: delegatorInfo.tokensUnstaked)
 		}
 
-
 		for index, request in self.unstakeRequests {
 			let stakingAccount = getAccount(request.address)
 			let requestAmount = request.amount
@@ -258,12 +257,11 @@ pub contract sFlowStakingManagerV3 {
 				unstakerReceiverRef.deposit(from: <- flowVault)
 				managersFlowTokenBurnerVault.burnTokens(from: <- burnVault)
 
-				self.unstakeRequests.remove(at: index)
+				self.unstakeRequests.removeFirst()
 				emit StakeWithdrawn(amount: withdrawAmount)
 			}
-
-			
 		}
+
 
 	}
 
