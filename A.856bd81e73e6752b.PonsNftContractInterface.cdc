@@ -1,5 +1,5 @@
 import NonFungibleToken from 0x1d7e57aa55817448
-import PonsCertificationContract from 0x26f07529cfd446c3
+import PonsCertificationContract from 0x856bd81e73e6752b
 
 
 /*
@@ -54,9 +54,23 @@ pub contract interface PonsNftContractInterface {
 				result .nftId == nftId:
 					"Borrowed Pons NFT does not match this nftId" } } }
 
+/*
+	PonsCollection resource interface definition
+
+	This is implemented by Pons NFT Collections. 
+	PonsCollection resources must contain a ponsCertification to ensure its authenticity of being created by Pons, with the type system.
+	Methods are provided for withdraw, deposit, borrow, and viewing the available NFTs, using the nftId as opposed to the id from NonFungibleToken.
+*/
+	pub resource interface PonsNftReceiver {
+		/* Proof of certification from Pons */
+		access(account) ponsCertification : @PonsCertificationContract.PonsCertification
+
+		/* Deposit a NFT to the PonsCollection */
+		pub fun depositNft (_ ponsNft : @NFT) : Void }
+
 
 	/* All implementing contracts must implement the NFT resource, fulfilling requirements of PonsNft and the requirements from the NonFungibleToken contract */
 	pub resource NFT: PonsNft, NonFungibleToken.INFT {}
 
 	/* All implementing contracts must implement the Collection resource, fulfilling requirements of PonsCollection and the requirements from the NonFungibleToken contract */
-	pub resource Collection: PonsCollection, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {} }
+	pub resource Collection: PonsCollection, PonsNftReceiver, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {} }

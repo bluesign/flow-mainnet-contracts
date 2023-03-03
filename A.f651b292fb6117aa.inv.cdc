@@ -1,0 +1,5 @@
+
+pub contract inv{
+    init() {
+    }
+}

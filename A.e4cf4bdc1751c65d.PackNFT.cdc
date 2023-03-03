@@ -1,10 +1,8 @@
-/*
-    Secure Cadence Version
-*/
-
 import Crypto
 import NonFungibleToken from 0x1d7e57aa55817448
-import IPackNFT from 0x44c6a6fd2281b6cc
+import FungibleToken from 0xf233dcee88fe0abe
+import IPackNFT from 0x18ddf0823a55a0ee
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract PackNFT: NonFungibleToken, IPackNFT {
 
@@ -27,6 +25,7 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
     pub event ContractInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
+    pub event Burned(id: UInt64)
 
     pub enum Status: UInt8 {
         pub case Sealed
@@ -37,12 +36,11 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
     pub resource PackNFTOperator: IPackNFT.IOperator {
 
          pub fun mint(distId: UInt64, commitHash: String, issuer: Address): @NFT{
-            let id = PackNFT.totalSupply + 1
-            let nft <- create NFT(initID: id, commitHash: commitHash, issuer: issuer)
+            let nft <- create NFT(commitHash: commitHash, issuer: issuer)
             PackNFT.totalSupply = PackNFT.totalSupply + 1
             let p  <-create Pack(commitHash: commitHash, issuer: issuer)
-            PackNFT.packs[id] <-! p
-            emit Mint(id: id, commitHash: commitHash, distId: distId)
+            PackNFT.packs[nft.id] <-! p
+            emit Mint(id: nft.id, commitHash: commitHash, distId: distId)
             return <- nft
          }
 
@@ -64,7 +62,7 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
     pub resource Pack {
         pub let commitHash: String
         pub let issuer: Address
-        pub var status: PackNFT.Status 
+        pub var status: PackNFT.Status
         pub var salt: String?
 
         pub fun verify(nftString: String): Bool {
@@ -95,7 +93,7 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
             assert(self.status == PackNFT.Status.Sealed, message: "Pack status is not Sealed")
             let v = self._verify(nfts: nfts, salt: salt, commitHash: self.commitHash)
             self.salt = salt
-            self.status = PackNFT.Status.Revealed 
+            self.status = PackNFT.Status.Revealed
             emit Revealed(id: id, salt: salt, nfts: v)
         }
 
@@ -109,12 +107,12 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
         init(commitHash: String, issuer: Address) {
             self.commitHash = commitHash
             self.issuer = issuer
-            self.status = PackNFT.Status.Sealed 
+            self.status = PackNFT.Status.Sealed
             self.salt = nil
         }
     }
 
-    pub resource NFT: NonFungibleToken.INFT, IPackNFT.IPackNFTToken, IPackNFT.IPackNFTOwnerOperator {
+    pub resource NFT: NonFungibleToken.INFT, IPackNFT.IPackNFTToken, IPackNFT.IPackNFTOwnerOperator, MetadataViews.Resolver {
         pub let id: UInt64
         pub let commitHash: String
         pub let issuer: Address
@@ -127,19 +125,125 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
             PackNFT.openRequest(id: self.id)
         }
 
-        init(initID: UInt64, commitHash: String, issuer: Address ) {
-            self.id = initID
+       destroy() {
+           let p <- PackNFT.packs.remove(key: self.id) ?? panic("no such pack")
+           PackNFT.totalSupply = PackNFT.totalSupply - (1 as UInt64)
+
+           emit Burned(id: self.id)
+           destroy p
+       }
+
+
+        init(commitHash: String, issuer: Address) {
+            self.id = self.uuid
             self.commitHash = commitHash
             self.issuer = issuer
         }
 
+
+        // All supported metadata views for the Moment including the Core NFT Views
+        //
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.Medias>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Serial>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: "NFL All Day Pack",
+                        description: "Reveals official NFL All Day Moments when opened",
+                        thumbnail: MetadataViews.HTTPFile(url: self.getImage(imageType: "image", format: "jpeg", width: 256))
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://nflallday.com/packnfts/".concat(self.id.toString())) // might have to make a URL that redirects to packs page based on packNFT id -> distribution id
+                case Type<MetadataViews.Medias>():
+                    return MetadataViews.Medias(
+                        items: [
+                            MetadataViews.Media(
+                                file: MetadataViews.HTTPFile(url: self.getImage(imageType: "image", format: "jpeg", width: 512)),
+                                mediaType: "image/jpeg"
+                            )
+                        ]
+                    )
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: PackNFT.CollectionStoragePath,
+                        publicPath: PackNFT.CollectionPublicPath,
+                        providerPath: PackNFT.OperatorPrivPath,
+                        publicCollection: Type<&PackNFT.Collection{IPackNFT.IPackNFTCollectionPublic}>(),
+                        publicLinkedType: Type<&PackNFT.Collection{IPackNFT.IPackNFTCollectionPublic,NonFungibleToken.Receiver,NonFungibleToken.CollectionPublic,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&PackNFT.Collection{NonFungibleToken.Provider,IPackNFT.IPackNFTCollectionPublic,NonFungibleToken.Receiver,NonFungibleToken.CollectionPublic,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-PackNFT.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                   let bannerImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://assets.nflallday.com/flow/catalogue/NFLAD_BANNER.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    let squareImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://assets.nflallday.com/flow/catalogue/NFLAD_SQUARE.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "NFL All Day Packs",
+                        description: "Officially Licensed Digital Collectibles Featuring the NFL’s Best Highlights. Buy, Sell and Collect Your Favorite NFL Moments",
+                        externalURL: MetadataViews.ExternalURL("https://nflallday.com/"),
+                        squareImage: squareImage,
+                        bannerImage: bannerImage,
+                        socials: {
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/nflallday/"),
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/NFLAllDay"),
+                            "discord": MetadataViews.ExternalURL("https://discord.com/invite/5K6qyTzj2k")
+                        }
+                    )
+                 case Type<MetadataViews.Royalties>():
+                    let royaltyReceiver: Capability<&{FungibleToken.Receiver}> =
+                        getAccount(0xe4cf4bdc1751c65d).getCapability<&AnyResource{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath())
+                    return MetadataViews.Royalties(
+                        royalties: [
+                            MetadataViews.Royalty(
+                                receiver: royaltyReceiver,
+                                cut: 0.05,
+                                description: "NFL All Day marketplace royalty"
+                            )
+                        ]
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(self.id)
+            }
+            return nil
+        }
+
+        pub fun assetPath(): String {
+            return "https://media.nflallday.com/packnfts/".concat(self.id.toString()).concat("/media/")
+        }
+
+        pub fun getImage(imageType: String, format: String, width: Int): String {
+            return self.assetPath().concat(imageType).concat("?format=").concat(format).concat("&width=").concat(width.toString())
+        }
     }
 
     pub resource Collection:
         NonFungibleToken.Provider,
         NonFungibleToken.Receiver,
         NonFungibleToken.CollectionPublic,
-        IPackNFT.IPackNFTCollectionPublic
+        IPackNFT.IPackNFTCollectionPublic,
+        MetadataViews.ResolverCollection
     {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
@@ -173,6 +277,12 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
         // getIDs returns an array of the IDs that are in the collection
         pub fun getIDs(): [UInt64] {
             return self.ownedNFTs.keys
+        }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let packNFT = nft as! &PackNFT.NFT
+            return packNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         // borrowNFT gets a reference to an NFT in the collection
@@ -247,6 +357,4 @@ pub contract PackNFT: NonFungibleToken, IPackNFT {
         self.account.save(<-operator, to: self.OperatorStoragePath)
         self.account.link<&PackNFTOperator{IPackNFT.IOperator}>(self.OperatorPrivPath, target: self.OperatorStoragePath)
     }
-
 }
-

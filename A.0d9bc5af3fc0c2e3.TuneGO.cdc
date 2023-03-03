@@ -1,4 +1,6 @@
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+import TicalUniverse from 0xfef48806337aabf1
 
 pub contract TuneGO: NonFungibleToken {
 
@@ -333,7 +335,7 @@ pub contract TuneGO: NonFungibleToken {
     }
 
     // The resource that represents the Collectible NFT
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 
         // Global unique Collectible Id
         pub let id: UInt64
@@ -357,6 +359,88 @@ pub contract TuneGO: NonFungibleToken {
         destroy() {
             emit CollectibleDestroyed(id: self.id)
         }
+
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties(
+                        []
+                    )
+                case Type<MetadataViews.Display>():
+                    let metadata = TuneGO.getItemMetadata(itemId: self.data.itemId)!
+                    let assetUrl = metadata["Media URL"]!
+                    return MetadataViews.Display(
+                        name: metadata["Title"]!,
+                        description: metadata["Description"]!,
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: assetUrl.slice(from: 0, upTo: assetUrl.length - 3).concat("gif")
+                        )
+                    )
+                case Type<MetadataViews.Editions>():
+                    let editionInfo = MetadataViews.Edition(name: self.id == 1 ? "Tical Universe" : "TuneKitties", number: self.id, max: nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.uuid
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://www.tunegonft.com/collectible/".concat(self.uuid.toString()))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: TuneGO.CollectionStoragePath,
+                        publicPath: TuneGO.CollectionPublicPath,
+                        providerPath: TuneGO.CollectionPrivatePath,
+                        publicCollection: Type<&TuneGO.Collection{TuneGO.TuneGOCollectionPublic}>(),
+                        publicLinkedType: Type<&TuneGO.Collection{TuneGO.TuneGOCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&TuneGO.Collection{TuneGO.TuneGOCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-TuneGO.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    if (self.id == 1) {
+                        return TicalUniverse.getCollectionDisplay()
+                    }
+                    let media = MetadataViews.Media(
+                            file: MetadataViews.HTTPFile(
+                                url: "https://tunegonft.com/assets/images/collections-page/tunekitties.png"
+                            ),
+                            mediaType: "image/png"
+                        )
+                    let socials: {String:MetadataViews.ExternalURL} = {}
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "TuneKitties",
+                        description: "Deep in the clubs and streets of the metaverse TuneKitties prowl with the purrfect mix of sound and style. Limited edition NFTs by TuneGO.",
+                        externalURL: MetadataViews.ExternalURL("https://www.tunegonft.com/collection-details/98434c03-17e3-4e9a-9f6b-3b786a4fad6e"),
+                        squareImage: media,
+                        bannerImage: media,
+                        socials: socials
+                    )
+                case Type<MetadataViews.Traits>():
+                    let metadata = TuneGO.getItemMetadata(itemId: self.data.itemId)
+                    let traitsView = metadata != nil ? MetadataViews.dictToTraits(dict: metadata!, excludedNames: []) : nil
+                    return traitsView
+            }
+            return nil
+        }
+
     }
 
     // Admin is an authorization resource that allows the owner to modify
@@ -421,7 +505,7 @@ pub contract TuneGO: NonFungibleToken {
 
     // Collection is a resource that every user who owns NFTs
     // will store in their account to manage their NFTS
-    pub resource Collection: TuneGOCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: TuneGOCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
         // Dictionary of Collectible conforming tokens
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
@@ -507,6 +591,13 @@ pub contract TuneGO: NonFungibleToken {
                 return nil
             }
         }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let ref = nft as! &TuneGO.NFT
+            return ref as &AnyResource{MetadataViews.Resolver}
+        }
+
 
         // If a transaction destroys the Collection object,
         // All the NFTs contained within are also destroyed!

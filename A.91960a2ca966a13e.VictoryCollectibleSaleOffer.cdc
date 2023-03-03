@@ -460,7 +460,7 @@ pub contract VictoryCollectibleSaleOffer {
             if self.saleOffers[bundleID] == nil {
                 return nil
             } else {
-                return &self.saleOffers[bundleID] as &SaleOffer{SaleOfferPublicView}
+                return (&self.saleOffers[bundleID] as &SaleOffer{SaleOfferPublicView}?)!
             }
         }
 

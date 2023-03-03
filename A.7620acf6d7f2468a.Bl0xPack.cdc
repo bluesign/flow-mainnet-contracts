@@ -200,10 +200,34 @@ pub contract Bl0xPack: NonFungibleToken {
 			case Type<String>():
 				return metadata.name
 
-				case Type<Bl0xPack.Metadata>(): 
+			case Type<Bl0xPack.Metadata>(): 
 				return metadata
-			}
+			
+			case Type<MetadataViews.ExternalURL>(): 
+				return MetadataViews.ExternalURL("https://find.xyz/".concat(self.owner!.address.toString()).concat("/collection/bl0xPack/").concat(self.id.toString()))
 
+			case Type<MetadataViews.Royalties>(): 
+				return Bl0x.royalties
+
+			case Type<MetadataViews.NFTCollectionData>(): 
+				return MetadataViews.NFTCollectionData(
+					storagePath: Bl0xPack.CollectionStoragePath,
+					publicPath: Bl0xPack.CollectionPublicPath,
+					providerPath: /private/Bl0xPackCollection,
+					publicCollection: Type<&Bl0xPack.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Bl0xPack.CollectionPublic}>(),
+					publicLinkedType: Type<&Bl0xPack.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Bl0xPack.CollectionPublic}>(),
+					providerLinkedType: Type<&Bl0xPack.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Bl0xPack.CollectionPublic}>(),
+					createEmptyCollectionFunction: fun () : @NonFungibleToken.Collection {
+						return <- Bl0xPack.createEmptyCollection()
+					}
+				)
+
+			case Type<MetadataViews.NFTCollectionDisplay>(): 
+				let externalURL = MetadataViews.ExternalURL("https://find.xyz/mp/bl0xPack")
+				let squareImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://bl0x.xyz/assets/home/Bl0xlogo.webp"), mediaType: "image")
+				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://pbs.twimg.com/profile_banners/1535883931777892352/1661105339/1500x500"), mediaType: "image")
+				return MetadataViews.NFTCollectionDisplay(name: "bl0x Pack", description: "Minting a Bl0x triggers the catalyst moment of a big bang scenario. Generating a treasure that is designed to relate specifically to its holder.", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: { "discord": MetadataViews.ExternalURL("https://t.co/iY7AhEumR9"), "twitter" : MetadataViews.ExternalURL("https://twitter.com/Bl0xNFT")})
+			}
 			return nil
 		}
 

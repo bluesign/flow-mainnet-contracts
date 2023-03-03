@@ -19,20 +19,19 @@ pub contract FLOATIncinerator {
     pub var contributedStrength: UInt64
     access(self) var extraMetadata: {String: String}
 
-    pub fun burn(floats: @[FLOAT.NFT]) {
-      var i = 0
-      let length = floats.length
-      while i < length {
-        let float: @FLOAT.NFT <- floats.removeFirst()
+    pub fun burn(collection: &FLOAT.Collection, ids: [UInt64]) {
+      let length = ids.length
+
+      for id in ids {
+        let float: &FLOAT.NFT = collection.borrowFLOAT(id: id) ?? panic("This FLOAT does not exist.")
         let score = FLOATIncinerator.calculateScore(dateReceived: float.dateReceived, serial: float.serial)
         self.contributedStrength = self.contributedStrength + score
         FLOATIncinerator.flameStrength = FLOATIncinerator.flameStrength + score
-        destroy float
+        collection.delete(id: id)
       }
 
       self.individualIncinerated = self.individualIncinerated + UInt64(length)
       FLOATIncinerator.totalIncinerated = FLOATIncinerator.totalIncinerated + UInt64(length)
-      destroy floats
     }
 
     pub fun getExtraMetadata(): {String: String} {

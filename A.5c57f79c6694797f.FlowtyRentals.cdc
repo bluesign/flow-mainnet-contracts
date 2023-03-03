@@ -1,8 +1,10 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
+import LostAndFound from 0x473d6a2c37eab5be
+import RoyaltiesLedger from 0x5c57f79c6694797f
 import FlowtyUtils from 0x5c57f79c6694797f
 import Flowty from 0x5c57f79c6694797f
-import CoatCheck from 0x5c57f79c6694797f
 
 // FlowtyRentals
 //
@@ -116,7 +118,9 @@ pub contract FlowtyRentals {
         flowtyStorefrontID: UInt64,
         renterAddress: Address,
         listingResourceID: UInt64,
-        rentalResourceID: UInt64
+        rentalResourceID: UInt64,
+        nftID: UInt64,
+        nftType: String
     )
 
     // ListingDestroyed
@@ -127,6 +131,8 @@ pub contract FlowtyRentals {
         flowtyStorefrontAddress: Address,
         flowtyStorefrontID: UInt64,
         listingResourceID: UInt64,
+        nftID: UInt64,
+        nftType: String
     )
 
     // RentalSettled
@@ -250,7 +256,8 @@ pub contract FlowtyRentals {
             storefrontID: UInt64,
             paymentCut: Flowty.PaymentCut,
             expiresAfter: UFix64,
-            renter: Address?
+            renter: Address?,
+            royaltyRate: UFix64
         ) {
             assert(paymentCut.amount > 0.0, message: "Listing must have non-zero requested amount")
             
@@ -263,7 +270,7 @@ pub contract FlowtyRentals {
             self.term = term
             self.paymentVaultType = paymentVaultType
             self.listedTime = getCurrentBlock().timestamp
-            self.royaltyRate = Flowty.getRoyalty(nftTypeIdentifier: nftType.identifier).Rate
+            self.royaltyRate = royaltyRate
             self.expiresAfter = expiresAfter
             self.paymentCut = paymentCut
             self.renter = renter
@@ -369,7 +376,6 @@ pub contract FlowtyRentals {
                 self.isRentingEnabled(): "Renting is not enabled or this listing has expired"
                 !self.details.rented: "listing has already been rented"
                 payment.getType() == self.details.paymentVaultType: "payment vault is not requested fungible token"
-                Flowty.getRoyalty(nftTypeIdentifier: self.details.nftType.identifier) != nil: "royalty information not found for given collection"
                 payment.balance == self.details.getTotalPayment(): "payment vault does not contain requested amount"
                 self.nftProviderCapability.check(): "nftProviderCapability failed check"
                 renterNFTCollection.check(): "renterNFTCollection failed check"
@@ -387,8 +393,12 @@ pub contract FlowtyRentals {
             // withdraw the NFT being rented and ensure that its type and id match the listing.
             // This protects the renter from receiving the wrong nft.
             let nft <- self.nftProviderCapability.borrow()!.withdraw(withdrawID: self.details.nftID)
+            let ref = &nft as &NonFungibleToken.NFT
             assert(nft.getType() == self.details.nftType, message: "withdrawn NFT is not of specified type")
             assert(nft.id == self.details.nftID, message: "withdrawn NFT does not have specified ID")
+            assert(FlowtyUtils.isSupported(ref), message: "nft type is not supported")
+
+            let royalties = RoyaltiesLedger.get(self.uuid)
 
             // transfer the nft being rented into the renter's nft collection
             let renterCollectionCap = renterNFTCollection.borrow()!
@@ -407,11 +417,22 @@ pub contract FlowtyRentals {
             let flowtyFeeCut <- payment.withdraw(amount: flowtyFeeAmount)           
             let royaltyFeeCut <- payment.withdraw(amount: royaltyFeeAmount)
 
-            // distribute the royalty, checking who should receive it and dispersing it as needed.
-            let royalty = Flowty.getRoyalty(nftTypeIdentifier: self.details.nftType.identifier)
             let royaltyTokenPath = Flowty.TokenPaths[self.details.paymentVaultType.identifier]!
-            let royaltyReceiver = getAccount(royalty.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)
-            FlowtyUtils.trySendFungibleTokenVault(vault: <-royaltyFeeCut, receiver: royaltyReceiver)
+
+            if royalties != nil {
+                FlowtyUtils.distributeRoyalties(v: <-royaltyFeeCut, cuts: royalties!.getRoyalties(), path: royaltyTokenPath)
+            } else {
+                // do it the old way
+                // distribute the royalty, checking who should receive it and dispersing it as needed.
+                let royalty = Flowty.getRoyaltySafe(nftTypeIdentifier: self.details.nftType.identifier)
+                if royalty == nil {
+                    // we don't know where to send royalties! deposit them back into the payment vault
+                    payment.deposit(from: <-royaltyFeeCut)
+                } else {
+                    let royaltyReceiver = getAccount(royalty!.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)
+                    FlowtyUtils.trySendFungibleTokenVault(vault: <-royaltyFeeCut, receiver: royaltyReceiver)
+                }
+            }
 
             // get payment cut information for the listing owner to receive payment for
             // this listing being rented.
@@ -513,6 +534,16 @@ pub contract FlowtyRentals {
                 ownerFungibleTokenReceiver.check(): "ownerFungibleTokenReceiver failed check"
             }
 
+            self.nftProviderCapability = nftProviderCapability
+            self.nftPublicCollectionCapability = nftPublicCollectionCapability
+            self.ownerFungibleTokenReceiver = ownerFungibleTokenReceiver
+
+            let provider = self.nftProviderCapability.borrow()!
+            let nft = provider.borrowNFT(id: nftID)
+            assert(nft.getType() == nftType, message: "token is not of specified type")
+            assert(nft.id == nftID, message: "token does not have specified ID")
+            let royaltyRate = FlowtyUtils.getRoyaltyRate(nft)
+
             self.details = ListingDetails(
                 nftType: nftType,
                 nftID: nftID,
@@ -523,26 +554,22 @@ pub contract FlowtyRentals {
                 storefrontID: storefrontID,
                 paymentCut: paymentCut,
                 expiresAfter: expiresAfter,
-                renter: renter
+                renter: renter,
+                royaltyRate: royaltyRate
             )
-            self.nftProviderCapability = nftProviderCapability
-            self.nftPublicCollectionCapability = nftPublicCollectionCapability
-            self.ownerFungibleTokenReceiver = ownerFungibleTokenReceiver
-            let provider = self.nftProviderCapability.borrow()!
-
-            let nft = provider.borrowNFT(id: self.details.nftID)
-            assert(nft.getType() ==self.details.nftType, message: "token is not of specified type")
-            assert(nft.id == self.details.nftID, message: "token does not have specified ID")
         }
 
-        destroy() {
+        destroy() {         
+            RoyaltiesLedger.remove(self.uuid)
+
             emit ListingDestroyed(
                 flowtyStorefrontAddress: self.ownerFungibleTokenReceiver.address,
                 flowtyStorefrontID: self.details.flowtyStorefrontID,
                 listingResourceID: self.uuid,
+                nftID: self.details.nftID,
+                nftType: self.details.nftType.identifier
             )
         }
-
     }
 
     // Rental Details
@@ -622,6 +649,8 @@ pub contract FlowtyRentals {
 
         // Whether this rental has expired and can be settled
         pub fun isRentalExpired(): Bool
+
+        pub fun settleRental()
     }
 
     // The resource used to represent a Rental.
@@ -717,12 +746,16 @@ pub contract FlowtyRentals {
             // return the nft to the owner's collection
             FlowtyUtils.trySendNFT(nft: <-nft, receiver: self.ownerNFTCollectionPublic)
             
+            RoyaltiesLedger.remove(self.details.listingResourceID)
+
             emit RentalReturned(
                 flowtyStorefrontAddress: self.ownerFungibleTokenReceiver.address,
                 flowtyStorefrontID: self.details.flowtyStorefrontID,
                 renterAddress: self.renterFungibleTokenReceiver.address,
                 listingResourceID: self.details.listingResourceID,
-                rentalResourceID: self.uuid
+                rentalResourceID: self.uuid,
+                nftID: self.details.nftID,
+                nftType: self.details.nftType.identifier
             )
         }
 
@@ -758,23 +791,31 @@ pub contract FlowtyRentals {
                                 // it worked! the nft is returned
                                 self.details.setToReturned()
 
+                                RoyaltiesLedger.remove(self.details.listingResourceID)
+
                                 emit RentalReturned(
                                     flowtyStorefrontAddress: self.ownerFungibleTokenReceiver.address,
                                     flowtyStorefrontID: self.details.flowtyStorefrontID,
                                     renterAddress: self.renterFungibleTokenReceiver.address,
                                     listingResourceID: self.details.listingResourceID,
-                                    rentalResourceID: self.uuid
+                                    rentalResourceID: self.uuid,
+                                    nftID: self.details.nftID,
+                                    nftType: self.details.nftType.identifier
                                 )
                                 return
                             } else {
+                                // malicious actor has some weird NFT they're trying to send. we return it to them
                                 // this path should only be able to be reached intentionally. At that point, we won't know if the
                                 // receiver is setup properly to receive the borrowed item back or not so we should just make a coatcheck 
                                 // item for them and move on. If they can mess with a borrowed item returning a type that is different than 
                                 // the actual withdrawn nft, they can handle redeeming their item back in the coatcheck contract.
-                                let valet = CoatCheck.getValet()
-                                let nfts: @[NonFungibleToken.NFT] <- []
-                                nfts.append(<-nft)
-                                valet.createTicket(redeemer: self.renterFungibleTokenReceiver.address, vaults: nil, tokens: <-nfts)
+
+                                FlowtyUtils.depositToLostAndFound(
+                                    redeemer: self.renterNFTCollection.address,
+                                    item: <- nft,
+                                    memo: nil,
+                                    display: nil
+                                )
                             }
                         }
                     }
@@ -792,20 +833,32 @@ pub contract FlowtyRentals {
                 let ownerAmount = amount * (1.0 - self.listingDetails.royaltyRate)
 
                 // get the vaults for payment
-                let royaltyFeeCut <- vault?.withdraw(amount: royaltyFeeAmount)
-                let ownerCut <- vault?.withdraw(amount: ownerAmount)
+                let v <- vault!
+                let royaltyFeeCut <- v.withdraw(amount: royaltyFeeAmount)
 
-                // distribute the royalty
-                let royalty = Flowty.getRoyalty(nftTypeIdentifier: self.details.nftType.identifier)
                 let royaltyTokenPath = Flowty.TokenPaths[self.details.paymentVaultType.identifier]!
-                let royaltyReceiver = getAccount(royalty.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)
 
-                FlowtyUtils.trySendFungibleTokenVault(vault: <-royaltyFeeCut!, receiver: royaltyReceiver)
+                let royalties = RoyaltiesLedger.get(self.details.listingResourceID)
+                if royalties != nil {
+                    FlowtyUtils.distributeRoyalties(v: <-royaltyFeeCut, cuts: royalties!.getRoyalties(), path: royaltyTokenPath)
+                } else {
+                    // do it the old way
+                    // distribute the royalty, checking who should receive it and dispersing it as needed.
+                    let royalty = Flowty.getRoyaltySafe(nftTypeIdentifier: self.details.nftType.identifier)
+                    if royalty == nil {
+                        // we don't know where to send royalties! deposit them back into the payment vault
+                        v.deposit(from: <-royaltyFeeCut)
+                    } else {
+                        let royaltyReceiver = getAccount(royalty!.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)
+                        FlowtyUtils.trySendFungibleTokenVault(vault: <-royaltyFeeCut, receiver: royaltyReceiver)
+                    }
+                }
 
                 // distribute the rest to the original owner
-                FlowtyUtils.trySendFungibleTokenVault(vault: <-ownerCut!, receiver: self.listingDetails.getPaymentCut().receiver)
-                destroy vault
+                FlowtyUtils.trySendFungibleTokenVault(vault: <-v, receiver: self.listingDetails.getPaymentCut().receiver)
             }
+
+            RoyaltiesLedger.remove(self.details.listingResourceID)
 
             emit RentalSettled(
                 rentalResourceID: self.uuid, 
@@ -1024,9 +1077,13 @@ pub contract FlowtyRentals {
          ): UInt64 {
              pre {
                 FlowtyUtils.isTokenSupported(type: paymentVaultType): "provided payment type is not supported"
-                Flowty.SupportedCollections[nftType.identifier] != nil : "nftType is not supported"
                 paymentCut.receiver.check() && paymentCut.receiver.borrow()!.getType() == paymentVaultType: "paymentCut receiver type and paymentVaultType do not match"
+                nftProviderCapability.check(): "invalid nft provider"
             }
+
+            let ref = nftProviderCapability.borrow()!.borrowNFT(id: nftID)
+            assert(FlowtyUtils.isSupported(ref), message: "nft type is not supported")
+            let royalties = ref.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?
 
             // create the listing
             let listing <- create Listing(
@@ -1044,6 +1101,10 @@ pub contract FlowtyRentals {
                 expiresAfter: expiresAfter,
                 renter: renter
             )
+
+            if royalties != nil {
+                RoyaltiesLedger.set(listing.uuid, royalties!)
+            }
 
             let listingResourceID = listing.uuid
             let royaltyRate = listing.getDetails().royaltyRate
@@ -1124,10 +1185,6 @@ pub contract FlowtyRentals {
 
             FlowtyRentals.Fee = fee
         }
-
-        pub fun setSuspendedFundingPeriod(period: UFix64) {
-            FlowtyRentals.SuspendedFundingPeriod = period
-        }
     }
 
     pub fun createStorefront(): @FlowtyRentalsStorefront {
@@ -1138,6 +1195,12 @@ pub contract FlowtyRentals {
         return self.account.borrow<&FlowtyRentals.FlowtyRentalsMarketplace>(from: FlowtyRentals.FlowtyRentalsMarketplaceStoragePath)!
     }
 
+    pub fun settleRental(rentalResourceID: UInt64){
+        let marketplace = FlowtyRentals.borrowMarketplace()
+        let rental = marketplace.borrowRental(rentalResourceID: rentalResourceID)
+        rental!.settleRental()
+    } 
+
     pub resource FlowtyRentalsAdmin {
         pub fun setFees(rentalFee: UFix64) {
             pre {
@@ -1145,6 +1208,10 @@ pub contract FlowtyRentals {
             }
 
             FlowtyRentals.Fee = rentalFee
+        }
+
+        pub fun setSuspendedFundingPeriod(period: UFix64) {
+            FlowtyRentals.SuspendedFundingPeriod = period
         }
      }
 

@@ -511,6 +511,8 @@ pub contract NFTStorefrontV2 {
         pub fun borrowListing(listingResourceID: UInt64): &Listing{ListingPublic}?
         pub fun cleanupExpiredListings(fromIndex: UInt64, toIndex: UInt64)
         access(contract) fun cleanup(listingResourceID: UInt64)
+        pub fun getExistingListingIDs(nftType: Type, nftID: UInt64): [UInt64]
+        pub fun cleanupPurchasedListings(listingResourceID: UInt64)
    }
 
     /// Storefront
@@ -626,6 +628,7 @@ pub contract NFTStorefrontV2 {
         
         /// removeListing
         /// Remove a Listing that has not yet been purchased from the collection and destroy it.
+        /// It can only be executed by the StorefrontManager resource owner.
         ///
         pub fun removeListing(listingResourceID: UInt64) {
             let listing <- self.listings.remove(key: listingResourceID)
@@ -643,14 +646,38 @@ pub contract NFTStorefrontV2 {
             return self.listings.keys
         }
 
-        /// getDuplicateListingIDs
-        /// Returns an array of listing IDs that are duplicates of the given `nftType` and `nftID`.
+        /// getExistingListingIDs
+        /// Returns an array of listing IDs of the given `nftType` and `nftID`.
         ///
-        pub fun getDuplicateListingIDs(nftType: Type, nftID: UInt64, listingID: UInt64): [UInt64] {            
+        pub fun getExistingListingIDs(nftType: Type, nftID: UInt64): [UInt64] {
             if self.listedNFTs[nftType.identifier] == nil || self.listedNFTs[nftType.identifier]![nftID] == nil {
                 return []
             }
             var listingIDs = self.listedNFTs[nftType.identifier]![nftID]!
+            return listingIDs
+        }
+
+        /// cleanupPurchasedListings
+        /// Allows anyone to remove already purchased listings.
+        ///
+        pub fun cleanupPurchasedListings(listingResourceID: UInt64) {
+            pre {
+                self.listings[listingResourceID] != nil: "could not find listing with given id"
+                self.borrowListing(listingResourceID: listingResourceID)!.getDetails().purchased == true: "listing not purchased yet"
+            }
+            let listing <- self.listings.remove(key: listingResourceID)!
+            let listingDetails = listing.getDetails()
+            self.removeDuplicateListing(nftIdentifier: listingDetails.nftType.identifier, nftID: listingDetails.nftID, listingResourceID: listingResourceID)
+
+            destroy listing
+        }
+
+        /// getDuplicateListingIDs
+        /// Returns an array of listing IDs that are duplicates of the given `nftType` and `nftID`.
+        ///
+        pub fun getDuplicateListingIDs(nftType: Type, nftID: UInt64, listingID: UInt64): [UInt64] {
+            var listingIDs = self.getExistingListingIDs(nftType: nftType, nftID: nftID)
+
             // Verify that given listing Id also a part of the `listingIds`
             let doesListingExist = listingIDs.contains(listingID)
             // Find out the index of the existing listing.

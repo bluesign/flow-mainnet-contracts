@@ -81,22 +81,18 @@ pub contract DisruptArt: NonFungibleToken {
                 )
             )
 
-            // DisruptArt Market Fee
-            royalties.append(
-                MetadataViews.Royalty(
-                    receiver: getAccount(0x420f47f16a214100).getCapability<&FungibleToken.Vault{FungibleToken.Receiver}>(self.getFlowRoyaltyReceiverPublicPath()),
-                    cut: UFix64(0.05),
-                    description: "DisruptArt Market Fee"
-                )
-            )
-
             return royalties
         }
         
         pub fun getViews(): [Type] {
             return [
                 Type<MetadataViews.Display>(),
-                Type<MetadataViews.Royalties>()
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>()
             ]
         }
 
@@ -110,10 +106,49 @@ pub contract DisruptArt: NonFungibleToken {
                             url: self.metaData["previewContent"]!
                         )
                     )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.id
+                    )
                 case Type<MetadataViews.Royalties>():
                     return MetadataViews.Royalties(
                         self.genRoyalities()
                     )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://disrupt.art")
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: DisruptArt.disruptArtStoragePath,
+                        publicPath: DisruptArt.disruptArtPublicPath,
+                        providerPath: /private/DisruptArtNFTCollection,
+                        publicCollection: Type<&DisruptArt.Collection{DisruptArt.DisruptArtCollectionPublic}>(),
+                        publicLinkedType: Type<&DisruptArt.Collection{DisruptArt.DisruptArtCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&DisruptArt.Collection{DisruptArt.DisruptArtCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-DisruptArt.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let media = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://disrupt.art/nft/assets/images/logoicon.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "DisruptArt Collection",
+                        description: "Discover amazing NFT collections from various disruptor creators. Disrupt.art Marketplace's featured and spotlight NFTs",
+                        externalURL: MetadataViews.ExternalURL("https://disrupt.art"),
+                        squareImage: media,
+                        bannerImage: media,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/DisruptArt"),
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/disrupt.art/"),
+                            "discord" : MetadataViews.ExternalURL("https://discord.io/disruptart")
+                        }
+                    )
+                case Type<MetadataViews.Traits>():
+                    return []
             }
             return nil
         }
@@ -277,3 +312,4 @@ pub contract DisruptArt: NonFungibleToken {
     }
 
 }
+

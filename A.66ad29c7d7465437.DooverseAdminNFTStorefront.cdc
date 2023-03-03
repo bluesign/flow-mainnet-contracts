@@ -1,3 +1,4 @@
+
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
 import DooverseItems from 0x66ad29c7d7465437
@@ -384,12 +385,17 @@ pub contract DooverseAdminNFTStorefront {
     ): String
 
     // removeListing
-    // Allows the Storefront owner to remove any sale listing, acepted or not.
+    // Allows the Storefront owner to remove any sale listing, accepted or not.
     //
     pub fun removeListing(setID: String, packID: String)
 
+    // removeManyListings
+    // Allows the Storefront owner to remove a specific quantity of listings for a set, accepted or not.
+    //
+    pub fun removeManyListings(setID: String, count: UInt64)
+
     // resolveListing
-    // Allows the Storefront owner to remove any sale listing, acepted or not, and resolve its puchase status.
+    // Allows the Storefront owner to remove any sale listing, accepted or not, and resolve its puchase status.
     //
     pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String})
 
@@ -451,18 +457,13 @@ pub contract DooverseAdminNFTStorefront {
     // Kind purchasers can however call it if they like.
     //
     pub fun cleanup(setID: String, packID: String) {
-      pre {
-        self.listings.containsKey(setID): "Set ID does not exist"
-      }
-      let setListings <- self.listings.remove(key: setID)!
-      let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
+      let setListings = &self.listings[setID] as &{String:Listing}? ?? panic("set not found")
+      let listing <- setListings.remove(key: packID) ?? panic("listing not found")
       let details = listing.getDetails()
       assert(details.purchased == true, message: "listing is not purchased, only admin can remove")
       destroy listing
       if (setListings.length == 0) {
-        destroy setListings
-      } else {
-        self.listings[setID] <-! setListings
+        destroy <- self.listings.remove(key: setID)
       }
     }
 
@@ -484,7 +485,7 @@ pub contract DooverseAdminNFTStorefront {
 
       // Add the new listing to the dictionary.
       if (self.listings.containsKey(setID)) {
-        let setListings <- self.listings.remove(key: setID)!
+        let setListings = &self.listings[setID] as &{String:Listing}? ?? panic("set not found")
         if setListings.containsKey(packID) {
           destroy listing
           panic("packID already exists")
@@ -492,7 +493,6 @@ pub contract DooverseAdminNFTStorefront {
           let oldListing <- setListings[packID] <-! listing
           destroy oldListing        
         }
-        self.listings[setID] <-! setListings
       } else {
         let oldSetListing <- self.listings[setID] <- { packID: <- listing }
         // Note that oldSetListing will always be nil, but we have to handle it.
@@ -523,8 +523,8 @@ pub contract DooverseAdminNFTStorefront {
     // Remove a Listing from the collection and destroy it.
     //
     pub fun removeListing(setID: String, packID: String) {
-      let setListings <- self.listings.remove(key: setID)!
-      let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
+      let setListings = &self.listings[setID] as &{String:Listing}? ?? panic("set not found")
+      let listing <- setListings.remove(key: packID) ?? panic("listing not found")
       let details = listing.getDetails()
       destroy listing
       emit ListingCompleted(
@@ -533,9 +533,34 @@ pub contract DooverseAdminNFTStorefront {
         purchased: details.purchased
       )
       if (setListings.length == 0) {
-        destroy setListings
-      } else {
-        self.listings[setID] <-! setListings      
+        destroy <- self.listings.remove(key: setID)
+      }
+    }
+
+    // removeManyListings
+    // Allows the Storefront owner to remove a specific quantity of listings for a set, accepted or not.
+    //
+    pub fun removeManyListings(setID: String, count: UInt64) {
+      let setListings = &self.listings[setID] as &{String:Listing}?
+        ?? panic("set not found")
+
+      let packIDs = self.getPackIDs(setID: setID)
+
+      var i: UInt64 = 0
+      while i < count {
+        let listing <- setListings.remove(key: packIDs[i]) ?? panic("listing not found")   
+        let details = listing.getDetails()
+        destroy listing
+        emit ListingCompleted(
+          packID: details.packID,
+          storefrontResourceID: details.storefrontID,
+          purchased: details.purchased
+        )
+        i = i + 1
+      }
+
+      if (setListings.length == 0) {
+        destroy <- self.listings.remove(key: setID)
       }
     }
 
@@ -543,8 +568,8 @@ pub contract DooverseAdminNFTStorefront {
     // Remove a Listing from the collection, mark it as either purchased or un-purchased, and destroy it.
     //
     pub fun resolveListing(setID: String, packID: String, wasPurchased: Bool, metadata: {String:String}) {
-      let setListings <- self.listings.remove(key: setID)!
-      let listing <- setListings.remove(key: packID) ?? panic("missing Listing")
+      let setListings = &self.listings[setID] as &{String:Listing}? ?? panic("set not found")
+      let listing <- setListings.remove(key: packID) ?? panic("listing not found")
       let details = listing.getDetails()
       destroy listing
       emit ListingResolved(
@@ -554,9 +579,7 @@ pub contract DooverseAdminNFTStorefront {
         metadata: metadata
       )
       if (setListings.length == 0) {
-        destroy setListings
-      } else {
-        self.listings[setID] <-! setListings      
+        destroy self.listings.remove(key: setID)
       }
     }
 

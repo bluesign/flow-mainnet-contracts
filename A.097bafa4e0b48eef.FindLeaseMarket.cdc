@@ -7,6 +7,7 @@ import FTRegistry from 0x097bafa4e0b48eef
 import MetadataViews from 0x1d7e57aa55817448
 import FindMarket from 0x097bafa4e0b48eef
 import FindRulesCache from 0x097bafa4e0b48eef
+import FindUtils from 0x097bafa4e0b48eef
 
 pub contract FindLeaseMarket {
 
@@ -68,7 +69,7 @@ pub contract FindLeaseMarket {
 		let tenantRef=self.getTenant(tenant)
 		let address=FIND.lookupAddress(name) ?? panic("Name is not owned by anyone. Name : ".concat(name))
 		let collectionCap = self.getSaleItemCollectionCapability(tenantRef: tenantRef, marketOption: marketOption, address: address)
-		let optRef = collectionCap.borrow() 
+		let optRef = collectionCap.borrow()
 		if optRef == nil {
 			panic("Account not properly set up, cannot borrow sale item collection")
 		}
@@ -76,7 +77,7 @@ pub contract FindLeaseMarket {
 		let item=ref.borrowSaleItem(name)
 		if !item.checkPointer() {
 			panic("this is a ghost listing")
-		} 
+		}
 
 		return item
 	}
@@ -137,7 +138,7 @@ pub contract FindLeaseMarket {
 		let ghost: [FindLeaseMarket.GhostListing] =[]
 		let info: [FindLeaseMarket.SaleItemInformation] =[]
 		let collectionCap = self.getSaleItemCollectionCapability(tenantRef: tenantRef, marketOption: marketOption, address: address)
-		let optRef = collectionCap.borrow() 
+		let optRef = collectionCap.borrow()
 		if optRef == nil {
 			return FindLeaseMarket.SaleItemCollectionReport(items: info, ghosts: ghost)
 		}
@@ -163,7 +164,7 @@ pub contract FindLeaseMarket {
 					ghost.append(FindLeaseMarket.GhostListing(listingType: listingType, name:leaseName))
 				}
 				continue
-			} 
+			}
 			let stopped=tenantRef.allowedAction(listingType: listingType, nftType: item.getItemType(), ftType: item.getFtType(), action: FindMarket.MarketAction(listing:false, name:"delist item for sale"), seller: address, buyer: nil)
 			var status="active"
 
@@ -282,7 +283,7 @@ pub contract FindLeaseMarket {
 					ghost.append(FindLeaseMarket.GhostListing(listingType: listingType, name:leaseName))
 				}
 				continue
-			} 
+			}
 			let bidInfo = FindLeaseMarket.BidInfo(name: leaseName, bidTypeIdentifier: listingType.identifier,  bidAmount: bid.getBalance(), timestamp: Clock.time(), item:item!)
 			info.append(bidInfo)
 
@@ -294,7 +295,7 @@ pub contract FindLeaseMarket {
 
 		let tenantRef=self.getTenant(tenant)
 		let collectionCap = self.getMarketBidCollectionCapability(tenantRef: tenantRef, marketOption: marketOption, address: address)
-		let optRef = collectionCap.borrow() 
+		let optRef = collectionCap.borrow()
 		if optRef == nil {
 			panic("Account not properly set up, cannot borrow bid item collection. Account address : ".concat(collectionCap.address.toString()))
 		}
@@ -302,7 +303,7 @@ pub contract FindLeaseMarket {
 		let bidItem=ref.borrowBidItem(name)
 
 		let saleItemCollectionCap = self.getSaleItemCollectionCapability(tenantRef: tenantRef, marketOption: marketOption, address: bidItem.getSellerAddress())
-		let saleRef = saleItemCollectionCap.borrow() 
+		let saleRef = saleItemCollectionCap.borrow()
 		if saleRef == nil {
 			panic("Seller account is not properly set up, cannot borrow sale item collection. Seller address : ".concat(saleItemCollectionCap.address.toString()))
 		}
@@ -310,7 +311,7 @@ pub contract FindLeaseMarket {
 		let item=sale.borrowSaleItem(name)
 		if !item.checkPointer() {
 			panic("this is a ghost listing")
-		} 
+		}
 
 		return item
 	}
@@ -323,9 +324,9 @@ pub contract FindLeaseMarket {
 
 		pub fun valid() : Bool
 		pub fun getUUID() :UInt64
-		pub fun getLease() : FIND.LeaseInformation 
+		pub fun getLease() : FIND.LeaseInformation
 		pub fun owner() : Address
-		access(contract) fun borrow() : &FIND.LeaseCollection{FIND.LeaseCollectionPublic} 
+		access(contract) fun borrow() : &FIND.LeaseCollection{FIND.LeaseCollectionPublic}
 	}
 
 	pub struct ReadLeasePointer : LeasePointer {
@@ -437,7 +438,7 @@ pub contract FindLeaseMarket {
 
 	}
 
-	access(account) fun pay(tenant: String, leaseName: String, saleItem: &{SaleItem}, vault: @FungibleToken.Vault, leaseInfo: LeaseInfo, cuts:FindRulesCache.TenantCuts) {
+	access(account) fun pay(tenant: String, leaseName: String, saleItem: &{SaleItem}, vault: @FungibleToken.Vault, leaseInfo: LeaseInfo, cuts:FindRulesCache.TenantCuts, dapperMerchAddress: Address) {
 		let buyer=saleItem.getBuyer()
 		let seller=saleItem.getSeller()
 		let oldProfile= getAccount(seller).getCapability<&{Profile.Public}>(Profile.publicPath).borrow()!
@@ -445,59 +446,39 @@ pub contract FindLeaseMarket {
 		let ftType=vault.getType()
 
 		let ftInfo = FTRegistry.getFTInfoByTypeIdentifier(ftType.identifier)! // If this panic, there is sth wrong in FT set up
-		let residualVault = getAccount(FindMarket.residualAddress).getCapability<&{FungibleToken.Receiver}>(ftInfo.receiverPath)
 
-		// Paying to Network
-		let network = FindLeaseMarket.getNetwork()
-		let networkCutAmount= soldFor * network.getSecondaryCut() 
-		let receiver = network.getWallet().address
-		let name = FIND.reverseLookup(receiver)
-
-		var walletCheck = true 
-		if !network.getWallet().check() { 
-			// if the capability is not valid, royalty cannot be paid
-			walletCheck = false 
-		} else if network.getWallet().borrow()!.isInstance(Type<@Profile.User>()){ 
-			// if the capability is valid -> it is a User resource -> check if the wallet is set up.
-			let ref = getAccount(receiver).getCapability<&{Profile.Public}>(Profile.publicPath).borrow()! // If this is nil, there shouldn't be a wallet receiver
-			walletCheck = ref.checkWallet(ftType.identifier)
-		} else if !network.getWallet().borrow()!.isInstance(ftType){ 
-			// if the capability is valid -> it is a FT Vault, check if it matches the paying vault type.
-			walletCheck = false 
+		var payInDUC = false
+		var residualAddress = FindMarket.residualAddress
+		if FindUtils.contains(ftType.identifier, element: "FlowUtilityToken.Vault") {
+			residualAddress = dapperMerchAddress
+		} else if FindUtils.contains(ftType.identifier, element: "DapperUtilityCoin.Vault") {
+			residualAddress = dapperMerchAddress
+			payInDUC = true
 		}
-
-		/* If the royalty receiver check failed */
-		if !walletCheck {
-
-			if let receivingVault = getAccount(receiver).getCapability<&{FungibleToken.Receiver}>(ftInfo.receiverPath).borrow() {
-				receivingVault.deposit(from: <- vault.withdraw(amount: networkCutAmount))
-				emit RoyaltyPaid(tenant:tenant, leaseName: leaseName, saleID: saleItem.uuid, address:receiver, findName: name, royaltyName: "network", amount: networkCutAmount,  vaultType: ftType.identifier, leaseInfo:leaseInfo)
-			} else {
-				emit RoyaltyCouldNotBePaid(tenant:tenant, leaseName: leaseName, saleID: saleItem.uuid, address:receiver, findName: name, royaltyName: "network", amount: networkCutAmount,  vaultType: ftType.identifier, leaseInfo:leaseInfo, residualAddress: FindMarket.residualAddress)
-				residualVault.borrow()!.deposit(from: <- vault.withdraw(amount: networkCutAmount))
-			}
-
-		} else {
-			/* If the royalty receiver check succeed */
-			emit RoyaltyPaid(tenant:tenant, leaseName: leaseName, saleID: saleItem.uuid, address:receiver, findName: name, royaltyName: "network", amount: networkCutAmount,  vaultType: ftType.identifier, leaseInfo:leaseInfo)
-			network.getWallet().borrow()!.deposit(from: <- vault.withdraw(amount: networkCutAmount))
-		}
-
+		let residualVault = getAccount(residualAddress).getCapability<&{FungibleToken.Receiver}>(ftInfo.receiverPath)
 
 		if let findCut =cuts.findCut {
-			let cutAmount= soldFor * findCut.cut
+
+			var cutAmount= soldFor * findCut.cut
 			let name = FIND.reverseLookup(findCut.receiver.address)
 			emit RoyaltyPaid(tenant: tenant, leaseName: leaseName, saleID: saleItem.uuid, address:findCut.receiver.address, findName: name , royaltyName: "find", amount: cutAmount,  vaultType: ftType.identifier, leaseInfo:leaseInfo)
 			let vaultRef = findCut.receiver.borrow() ?? panic("Find Royalty receiving account is not set up properly. Find Royalty account address : ".concat(findCut.receiver.address.toString()))
 			vaultRef.deposit(from: <- vault.withdraw(amount: cutAmount))
-		}
 
-		if let tenantCut =cuts.tenantCut {
-			let cutAmount= soldFor * tenantCut.cut
-			let name = FIND.reverseLookup(tenantCut.receiver.address)
-			emit RoyaltyPaid(tenant: tenant, leaseName: leaseName, saleID: saleItem.uuid, address:tenantCut.receiver.address, findName: name, royaltyName: "marketplace", amount: cutAmount,  vaultType: ftType.identifier, leaseInfo:leaseInfo)
-			let vaultRef = tenantCut.receiver.borrow() ?? panic("Tenant Royalty receiving account is not set up properly. Tenant Royalty account address : ".concat(tenantCut.receiver.address.toString()))
-			vaultRef.deposit(from: <- vault.withdraw(amount: cutAmount))
+			// Dapper charges extra 1 % or 0.44 whichever is higher
+			if payInDUC {
+				cutAmount = soldFor * 0.01
+				if cutAmount < 0.44 {
+					cutAmount = 0.44
+				}
+
+				if vault.balance < cutAmount {
+					panic("The listed price is too low and could not afford for dapper transaction charges.")
+				}
+
+				emit RoyaltyPaid(tenant: tenant, leaseName: leaseName, saleID: saleItem.uuid, address:findCut.receiver.address, findName: nil , royaltyName: "dapper", amount: cutAmount,  vaultType: ftType.identifier, leaseInfo:leaseInfo)
+				vaultRef.deposit(from: <- vault.withdraw(amount: cutAmount))
+			}
 		}
 
 		oldProfile.deposit(from: <- vault)
@@ -518,7 +499,7 @@ pub contract FindLeaseMarket {
 			let name = pointer.name
 			let status= network.readStatus(name)
 			self.name=name
-			var s="TAKEN"	
+			var s="TAKEN"
 			if status.status == FIND.LeaseStatus.FREE {
 				s="FREE"
 			} else if status.status == FIND.LeaseStatus.LOCKED {
@@ -549,8 +530,8 @@ pub contract FindLeaseMarket {
 		pub fun getBuyerName() : String?
 
 		pub fun toLeaseInfo() : FindLeaseMarket.LeaseInfo
-		pub fun checkPointer() : Bool 
-		pub fun getListingType() : Type 
+		pub fun checkPointer() : Bool
+		pub fun getListingType() : Type
 		pub fun getListingTypeIdentifier(): String
 
 		//the Type of the item for sale
@@ -569,12 +550,12 @@ pub contract FindLeaseMarket {
 
 	pub resource interface Bid {
 		pub fun getBalance() : UFix64
-		pub fun getSellerAddress() : Address 
+		pub fun getSellerAddress() : Address
 		pub fun getBidExtraField() : {String : AnyStruct}
 	}
 
 	pub struct SaleItemInformation {
-		pub let leaseIdentifier: String 
+		pub let leaseIdentifier: String
 		pub let leaseName: String
 		pub let seller: Address
 		pub let sellerName: String?
@@ -585,7 +566,7 @@ pub contract FindLeaseMarket {
 
 		pub let saleType: String
 		pub let listingTypeIdentifier: String
-		pub let ftAlias: String 
+		pub let ftAlias: String
 		pub let ftTypeIdentifier: String
 		pub let listingValidUntil: UFix64?
 
@@ -626,7 +607,7 @@ pub contract FindLeaseMarket {
 	pub struct BidInfo{
 		pub let name: String
 		pub let bidAmount: UFix64
-		pub let bidTypeIdentifier: String 
+		pub let bidTypeIdentifier: String
 		pub let timestamp: UFix64
 		pub let item: SaleItemInformation
 
@@ -642,21 +623,21 @@ pub contract FindLeaseMarket {
 	pub struct AuctionItem {
 		//end time
 		//current time
-		pub let startPrice: UFix64 
+		pub let startPrice: UFix64
 		pub let currentPrice: UFix64
-		pub let minimumBidIncrement: UFix64 
-		pub let reservePrice: UFix64 
-		pub let extentionOnLateBid: UFix64 
-		pub let auctionEndsAt: UFix64? 
-		pub let timestamp: UFix64 
+		pub let minimumBidIncrement: UFix64
+		pub let reservePrice: UFix64
+		pub let extentionOnLateBid: UFix64
+		pub let auctionEndsAt: UFix64?
+		pub let timestamp: UFix64
 
 		init(startPrice: UFix64, currentPrice: UFix64, minimumBidIncrement: UFix64, reservePrice: UFix64, extentionOnLateBid: UFix64, auctionEndsAt: UFix64? , timestamp: UFix64){
-			self.startPrice = startPrice 
+			self.startPrice = startPrice
 			self.currentPrice = currentPrice
-			self.minimumBidIncrement = minimumBidIncrement 
+			self.minimumBidIncrement = minimumBidIncrement
 			self.reservePrice = reservePrice
 			self.extentionOnLateBid = extentionOnLateBid
-			self.auctionEndsAt = auctionEndsAt 
+			self.auctionEndsAt = auctionEndsAt
 			self.timestamp = timestamp
 		}
 	}
@@ -665,13 +646,13 @@ pub contract FindLeaseMarket {
 		pub fun getNameSales(): [String]
 		pub fun containsNameSale(_ name: String): Bool
 		access(account) fun borrowSaleItem(_ name: String) : &{SaleItem}
-		pub fun getListingType() : Type 
+		pub fun getListingType() : Type
 	}
 
 	pub resource interface MarketBidCollectionPublic {
-		pub fun getNameBids() : [String] 
+		pub fun getNameBids() : [String]
 		pub fun containsNameBid(_ name: String): Bool
-		pub fun getBidType() : Type 
+		pub fun getBidType() : Type
 		access(account) fun borrowBidItem(_ name: String) : &{Bid}
 	}
 
@@ -689,7 +670,7 @@ pub contract FindLeaseMarket {
 	}
 
 	pub struct SaleItemCollectionReport {
-		pub let items : [FindLeaseMarket.SaleItemInformation] 
+		pub let items : [FindLeaseMarket.SaleItemInformation]
 		pub let ghosts: [FindLeaseMarket.GhostListing]
 
 		init(items: [SaleItemInformation], ghosts: [GhostListing]) {
@@ -699,7 +680,7 @@ pub contract FindLeaseMarket {
 	}
 
 	pub struct BidItemCollectionReport {
-		pub let items : [FindLeaseMarket.BidInfo] 
+		pub let items : [FindLeaseMarket.BidInfo]
 		pub let ghosts: [FindLeaseMarket.GhostListing]
 
 		init(items: [BidInfo], ghosts: [GhostListing]) {
@@ -738,47 +719,47 @@ pub contract FindLeaseMarket {
 	}
 
 	access(account) fun removeSaleItemType(_ type: Type) {
-		var counter = 0 
+		var counter = 0
 		while counter < self.saleItemTypes.length {
 			if type == self.saleItemTypes[counter] {
 				self.saleItemTypes.remove(at: counter)
 			}
-			counter = counter + 1   
+			counter = counter + 1
 		}
 	}
 
 	access(account) fun removeMarketBidType(_ type: Type) {
-		var counter = 0 
+		var counter = 0
 		while counter < self.marketBidTypes.length {
 			if type == self.marketBidTypes[counter] {
 				self.marketBidTypes.remove(at: counter)
 			}
-			counter = counter + 1   
+			counter = counter + 1
 		}
 	}
 
 	access(account) fun removeSaleItemCollectionType(_ type: Type) {
-		var counter = 0 
+		var counter = 0
 		while counter < self.saleItemCollectionTypes.length {
 			if type == self.saleItemCollectionTypes[counter] {
 				self.saleItemCollectionTypes.remove(at: counter)
 			}
-			counter = counter + 1   
+			counter = counter + 1
 		}
 	}
 
 	access(account) fun removeMarketBidCollectionType(_ type: Type) {
-		var counter = 0 
+		var counter = 0
 		while counter < self.marketBidCollectionTypes.length {
 			if type == self.marketBidCollectionTypes[counter] {
 				self.marketBidCollectionTypes.remove(at: counter)
 			}
-			counter = counter + 1   
+			counter = counter + 1
 		}
 	}
 
 	init() {
-		
+
 		self.saleItemTypes = []
 		self.saleItemCollectionTypes = []
 		self.marketBidTypes = []

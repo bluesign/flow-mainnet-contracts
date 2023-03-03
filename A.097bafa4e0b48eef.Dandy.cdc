@@ -133,13 +133,15 @@ pub contract Dandy: NonFungibleToken {
 				royalties.appendAll(multipleRoylaties.getRoyalties())
 			}
 
-			if self.platform.minterCut != nil {
-				let royalty = MetadataViews.Royalty(receiver: self.platform.getMinterFTReceiver(), cut: self.platform.minterCut!, description: "minter")
+			if self.platform.minterCut != nil && self.platform.minterCut! != 0.0 {
+				let royalty = MetadataViews.Royalty(receiver: self.platform.getMinterFTReceiver(), cut: self.platform.minterCut!, description: "creator")
 				royalties.append(royalty)
 			}
 
-			let royalty = MetadataViews.Royalty(receiver: self.platform.platform, cut: self.platform.platformPercentCut, description: "platform")
-			royalties.append(royalty)
+			if self.platform.platformPercentCut != 0.0 {
+				let royalty = MetadataViews.Royalty(receiver: self.platform.platform, cut: self.platform.platformPercentCut, description: "find forge")
+				royalties.append(royalty)
+			}
 
 			return MetadataViews.Royalties(royalties)
 		}
@@ -169,16 +171,6 @@ pub contract Dandy: NonFungibleToken {
 				return MetadataViews.NFTCollectionDisplay(name: minterPlatform.name, description: minterPlatform.description, externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: socialMap)
 			}
 
-			if type == Type<MetadataViews.NFTCollectionData>() {
-				return MetadataViews.NFTCollectionData(storagePath: Dandy.CollectionStoragePath,
-				publicPath: Dandy.CollectionPublicPath,
-				providerPath: Dandy.CollectionPrivatePath,
-				publicCollection: Type<&Dandy.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Dandy.CollectionPublic}>(),
-				publicLinkedType: Type<&Dandy.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Dandy.CollectionPublic}>(),
-				providerLinkedType: Type<&Dandy.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Dandy.CollectionPublic}>(),
-				createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- Dandy.createEmptyCollection()}
-				)
-			}
 
 			if type == Type<FindViews.Nounce>() {
 				return FindViews.Nounce(self.nounce)
@@ -196,6 +188,17 @@ pub contract Dandy: NonFungibleToken {
 				return self.schemas[type.identifier]!.result
 			}
 
+			if type == Type<MetadataViews.NFTCollectionData>() {
+				return MetadataViews.NFTCollectionData(
+					storagePath: Dandy.CollectionStoragePath,
+					publicPath: Dandy.CollectionPublicPath,
+					providerPath: Dandy.CollectionPrivatePath,
+					publicCollection: Type<&Dandy.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Dandy.CollectionPublic}>(),
+					publicLinkedType: Type<&Dandy.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Dandy.CollectionPublic}>(),
+					providerLinkedType: Type<&Dandy.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection, Dandy.CollectionPublic}>(),
+					createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- Dandy.createEmptyCollection()}
+				)
+			}
 			//Viewconverter: This is an example on how you as the last step in resolveView can check if there are converters for your type and run them
 			// for converterValue in Dandy.viewConverters.keys {
 			// 	for converter in Dandy.viewConverters[converterValue]! {
@@ -232,7 +235,7 @@ pub contract Dandy: NonFungibleToken {
 
 		// withdraw removes an NFT from the collection and moves it to the caller
 		pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
-			let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
+			let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT. withdrawID : ".concat(withdrawID.toString()))
 
 			let dandyToken <- token as! @NFT
 			let minterPlatform = dandyToken.getMinterPlatform()
@@ -292,7 +295,7 @@ pub contract Dandy: NonFungibleToken {
 		// so that the caller can read its metadata and call its methods
 		pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
 			if self.ownedNFTs[id] == nil {
-				panic("NFT does not exist")
+				panic("NFT does not exist. ID : ".concat(id.toString()))
 			}
 
 			return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
@@ -300,7 +303,7 @@ pub contract Dandy: NonFungibleToken {
 
 		pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
 			if self.ownedNFTs[id] == nil {
-				panic("NFT does not exist")
+				panic("NFT does not exist. ID : ".concat(id.toString()))
 			}
 
 			let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
@@ -309,7 +312,7 @@ pub contract Dandy: NonFungibleToken {
 
 		pub fun borrow(_ id: UInt64): &NFT {
 			if self.ownedNFTs[id] == nil {
-				panic("NFT does not exist")
+				panic("NFT does not exist. ID : ".concat(id.toString()))
 			}
 			let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
 			return nft as! &Dandy.NFT
@@ -348,6 +351,12 @@ pub contract Dandy: NonFungibleToken {
 			let info = data as? DandyInfo ?? panic("The data passed in is not in form of DandyInfo.")
 			return <- Dandy.mintNFT(name: info.name, description: info.description, thumbnail: info.thumbnail, platform: platform, schemas: info.schemas, externalUrlPrefix:info.externalUrlPrefix)
 		}
+
+		pub fun addContractData(platform: FindForge.MinterPlatform, data: AnyStruct, verifier: &FindForge.Verifier) {
+			// not used here 
+
+			panic("Not supported for Dandy Contract") 
+        }
 	}
 
 	access(account) fun createForge() : @{FindForge.Forge} {
@@ -380,8 +389,10 @@ pub contract Dandy: NonFungibleToken {
 		self.CollectionStoragePath = /storage/findDandy
 		self.viewConverters={}
 
+		FindForge.addForgeType(<- create Forge())
+
 		//TODO: Add the Forge resource aswell
-		FindForge.addPublicForgeType(forge: <- create Forge())
+		FindForge.addPublicForgeType(forgeType: Type<@Forge>())
 
 		emit ContractInitialized()
 	}

@@ -1,5 +1,6 @@
-
+import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract BreakingT_NFT: NonFungibleToken {
 
@@ -139,7 +140,7 @@ pub contract BreakingT_NFT: NonFungibleToken {
         pub let seriesId: UInt32
 
         // Array of NFTSets that belong to this Series
-        access(self) var setIds: [UInt32]
+        pub var setIds: [UInt32]
 
         // Series sealed state
         pub var seriesSealedState: Bool;
@@ -148,7 +149,7 @@ pub contract BreakingT_NFT: NonFungibleToken {
         access(self) var setSealedState: {UInt32: Bool};
 
         // Current number of editions minted per Set
-        access(self) var numberEditionsMintedPerSet: {UInt32: UInt32}
+        pub var numberEditionsMintedPerSet: {UInt32: UInt32}
 
         init(
             seriesId: UInt32,
@@ -279,6 +280,36 @@ pub contract BreakingT_NFT: NonFungibleToken {
             self.numberEditionsMintedPerSet[setId] = editionNum
         }
 
+        // mintEditionBreakingT_NFT
+        // Mints a new NFT with a new ID and specific edition Num (random open edition)
+		// and deposits it in the recipients collection using their collection reference
+        //
+	    pub fun mintEditionBreakingT_NFT(
+            recipient: &{NonFungibleToken.CollectionPublic},
+            tokenId: UInt64,
+            setId: UInt32,
+            edition: UInt32) {
+            
+            pre {
+                self.numberEditionsMintedPerSet[setId] != nil: "The Set does not exist."
+                self.numberEditionsMintedPerSet[setId]! <= BreakingT_NFT.getSetMaxEditions(setId: setId)!:
+                    "Set has reached maximum NFT edition capacity."
+            }
+
+			// deposit it in the recipient's account using their reference
+			recipient.deposit(token: <-create BreakingT_NFT.NFT(
+                tokenId: tokenId,
+                setId: setId,
+                editionNum: edition
+            ))
+
+            // Increment the count of global NFTs 
+            BreakingT_NFT.totalSupply = BreakingT_NFT.totalSupply + (1 as UInt64)
+
+            // Update the count of Editions minted in the set
+            self.numberEditionsMintedPerSet[setId] = self.numberEditionsMintedPerSet[setId]! + (1 as UInt32)
+        }
+
         // batchMintBreakingT_NFT
         // Mints multiple new NFTs given and deposits the NFTs
         // into the recipients collection using their collection reference
@@ -317,7 +348,7 @@ pub contract BreakingT_NFT: NonFungibleToken {
 
     // A resource that represents the BreakingT_NFT NFT
     //
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
         // The token's ID
         pub let id: UInt64
 
@@ -341,6 +372,192 @@ pub contract BreakingT_NFT: NonFungibleToken {
             let seriesId = BreakingT_NFT.getSetSeriesId(setId: setId)!
 
             emit Minted(id: self.id, setId: setId, seriesId: seriesId)
+        }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>(),
+                Type<MetadataViews.Medias>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "name")!,
+                        description: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "description")!,
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "preview")!
+                        )
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.id
+                    )
+                case Type<MetadataViews.Editions>():
+                    let maxEditions = BreakingT_NFT.setData[self.setId]?.maxEditions ?? 0
+                    let editionName = BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "name")!
+                    let editionInfo = MetadataViews.Edition(name: editionName, number: UInt64(self.editionNum), max: maxEditions > 0 ? UInt64(maxEditions) : nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    if let externalBaseURL = BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "external_token_base_url") {
+                        return MetadataViews.ExternalURL(externalBaseURL.concat("/").concat(self.id.toString()))
+                    }
+                    return MetadataViews.ExternalURL("")
+                case Type<MetadataViews.Royalties>():
+                    let royalties: [MetadataViews.Royalty] = []
+                    // There is only a legacy {String: String} dictionary to store royalty information.
+                    // There may be multiple royalty cuts defined per NFT. Pull each royalty
+                    // based on keys that have the "royalty_addr_" prefix in the dictionary.
+                    for metadataKey in BreakingT_NFT.getSetMetadata(setId: self.setId)!.keys {
+                        // For efficiency, only check keys that are > 13 chars, which is the length of "royalty_addr_" key
+                        if metadataKey.length >= 13 {
+                            if metadataKey.slice(from: 0, upTo: 13) == "royalty_addr_" {
+                                // A royalty has been found. Use the suffix from the key for the royalty name.
+                                let royaltyName = metadataKey.slice(from: 13, upTo: metadataKey.length)
+                                let royaltyAddress = BreakingT_NFT.convertStringToAddress(BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "royalty_addr_".concat(royaltyName))!)!
+                                let royaltyReceiver: PublicPath = PublicPath(identifier: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "royalty_rcv_".concat(royaltyName))!)!
+                                let royaltyCut = BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "royalty_cut_".concat(royaltyName))!
+                                let cutValue: UFix64 = BreakingT_NFT.royaltyCutStringToUFix64(royaltyCut)
+                                if cutValue != 0.0 {
+                                    royalties.append(MetadataViews.Royalty(
+                                        receiver: getAccount(royaltyAddress).getCapability<&FungibleToken.Vault{FungibleToken.Receiver}>(royaltyReceiver),
+                                        cut: cutValue,
+                                        description: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "royalty_desc_".concat(royaltyName))!
+                                    )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    return MetadataViews.Royalties(cutInfos: royalties)
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: BreakingT_NFT.CollectionStoragePath,
+                        publicPath: BreakingT_NFT.CollectionPublicPath,
+                        providerPath: /private/BreakingT_NFT,
+                        publicCollection: Type<&BreakingT_NFT.Collection{BreakingT_NFT.BreakingT_NFTCollectionPublic,NonFungibleToken.CollectionPublic}>(),
+                        publicLinkedType: Type<&BreakingT_NFT.Collection{BreakingT_NFT.BreakingT_NFTCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&BreakingT_NFT.Collection{BreakingT_NFT.BreakingT_NFTCollectionPublic,NonFungibleToken.Provider,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-BreakingT_NFT.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let squareImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://media.gigantik.io/breakingt/square.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    let bannerImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://media.gigantik.io/breakingt/banner.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    var socials: {String: MetadataViews.ExternalURL} = {}
+                    for metadataKey in BreakingT_NFT.getSetMetadata(setId: self.setId)!.keys {
+                        // For efficiency, only check keys that are > 18 chars, which is the length of "collection_social_" key
+                        if metadataKey.length >= 18 {
+                            if metadataKey.slice(from: 0, upTo: 18) == "collection_social_" {
+                                // A social URL has been found. Set the name to only the collection social key suffix.
+                                socials.insert(key: metadataKey.slice(from: 18, upTo: metadataKey.length), MetadataViews.ExternalURL(BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: metadataKey)!))
+                            }
+                        }
+                    }
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "collection_name") ?? "",
+                        description: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "collection_description") ?? "",
+                        externalURL: MetadataViews.ExternalURL(BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "external_url") ?? ""),
+                        squareImage: squareImage,
+                        bannerImage: bannerImage,
+                        socials: socials
+                    )
+                case Type<MetadataViews.Traits>():
+                    let traitDictionary: {String: AnyStruct} = {}
+                    // There is only a legacy {String: String} dictionary to store trait information.
+                    // There may be multiple traits defined per NFT. Pull trait information
+                    // based on keys that have the "trait_" prefix in the dictionary.
+                    for metadataKey in BreakingT_NFT.getSetMetadata(setId: self.setId)!.keys {
+                        // For efficiency, only check keys that are > 6 chars, which is the length of "trait_" key
+                        if metadataKey.length >= 6 {
+                            if metadataKey.slice(from: 0, upTo: 6) == "trait_" {
+                                // A trait has been found. Set the trait name to only the trait key suffix.
+                                traitDictionary.insert(key: metadataKey.slice(from: 6, upTo: metadataKey.length), BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: metadataKey)!)
+                            }
+                        }
+                    }
+                    return MetadataViews.dictToTraits(dict: traitDictionary, excludedNames: [])
+                case Type<MetadataViews.Medias>():
+                    return MetadataViews.Medias(
+                        items: [
+                            MetadataViews.Media(
+                                file: MetadataViews.HTTPFile(
+                                    url: BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "image")!
+                                ),
+                                mediaType: self.getMimeType()
+                            )
+                        ]
+                    )
+            }
+            return nil
+        }
+
+        pub fun getMimeType(): String {
+            var metadataFileType = BreakingT_NFT.getSetMetadataByField(setId: self.setId, field: "image_file_type")!.toLower()
+            switch metadataFileType {
+                case "mp4":
+                    return "video/mp4"
+                case "mov":
+                    return "video/quicktime"
+                case "webm":
+                    return "video/webm"
+                case "ogv":
+                    return "video/ogg"
+                case "png":
+                    return "image/png"
+                case "jpeg":
+                    return "image/jpeg"
+                case "jpg":
+                    return "image/jpeg"
+                case "gif":
+                    return "image/gif"
+                case "webp":
+                    return "image/webp"
+                case "svg":
+                    return "image/svg+xml"
+                case "glb":
+                    return "model/gltf-binary"
+                case "gltf":
+                    return "model/gltf+json"
+                case "obj":
+                    return "model/obj"
+                case "mtl":
+                    return "model/mtl"
+                case "mp3":
+                    return "audio/mpeg"
+                case "ogg":
+                    return "audio/ogg"
+                case "oga":
+                    return "audio/ogg"
+                case "wav":
+                    return "audio/wav"
+                case "html":
+                    return "text/html"
+            }
+            return ""
         }
 
         // If the NFT is destroyed, emit an event
@@ -409,7 +626,7 @@ pub contract BreakingT_NFT: NonFungibleToken {
     // Collection
     // A collection of BreakingT_NFT NFTs owned by an account
     //
-    pub resource Collection: BreakingT_NFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: BreakingT_NFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an UInt64 ID field
         //
@@ -502,6 +719,16 @@ pub contract BreakingT_NFT: NonFungibleToken {
         pub fun borrowBreakingT_NFT(id: UInt64): &BreakingT_NFT.NFT? {
             let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
             return ref as! &BreakingT_NFT.NFT?
+        }
+
+        // borrowViewResolver
+        // Gets a reference to the MetadataViews resolver in the collection,
+        // giving access to all metadata information made available.
+        //
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let BreakingT_NFTNft = nft as! &BreakingT_NFT.NFT
+            return BreakingT_NFTNft as &AnyResource{MetadataViews.Resolver}
         }
 
         // destructor
@@ -620,6 +847,71 @@ pub contract BreakingT_NFT: NonFungibleToken {
         } else {
             return nil
         }
+    }
+
+    // stringToAddress Converts a string to a Flow address
+    // 
+    // Parameters: input: The address as a String
+    //
+    // Returns: The flow address as an Address Optional
+	pub fun convertStringToAddress(_ input: String): Address? {
+		var address=input
+		if input.utf8[1] == 120 {
+			address = input.slice(from: 2, upTo: input.length)
+		}
+		var r:UInt64 = 0 
+		var bytes = address.decodeHex()
+
+		while bytes.length>0{
+			r = r  + (UInt64(bytes.removeFirst()) << UInt64(bytes.length * 8 ))
+		}
+
+		return Address(r)
+	}
+
+    // royaltyCutStringToUFix64 Converts a royalty cut string
+    //        to a UFix64
+    // 
+    // Parameters: royaltyCut: The cut value 0.0 - 1.0 as a String
+    //
+    // Returns: The royalty cut as a UFix64
+    pub fun royaltyCutStringToUFix64(_ royaltyCut: String): UFix64 {
+        var decimalPos = 0
+        if royaltyCut[0] == "." {
+            decimalPos = 1
+        } else if royaltyCut[1] == "." {
+            if royaltyCut[0] == "1" {
+                // "1" in the first postiion must be 1.0 i.e. 100% cut
+                return 1.0
+            } else if royaltyCut[0] == "0" {
+                decimalPos = 2
+            }
+        } else {
+            // Invalid royalty value
+            return 0.0
+        }
+
+        var royaltyCutStrLen = royaltyCut.length
+        if royaltyCut.length > (8 + decimalPos) {
+            // UFix64 is capped at 8 digits after the decimal
+            // so truncate excess decimal values from the string
+            royaltyCutStrLen = (8 + decimalPos)
+        }
+        let royaltyCutPercentValue = royaltyCut.slice(from: decimalPos, upTo: royaltyCutStrLen)
+        var bytes = royaltyCutPercentValue.utf8
+        var i = 0
+        var cutValueInteger: UInt64 = 0
+        var cutValueDivisor: UFix64 = 1.0
+        let zeroAsciiIntValue: UInt64 = 48
+        // First convert the string to a non-decimal Integer
+        while i < bytes.length {
+            cutValueInteger = (cutValueInteger * 10) + UInt64(bytes[i]) - zeroAsciiIntValue
+            cutValueDivisor = cutValueDivisor * 10.0
+            i = i + 1
+        }
+
+        // Convert the resulting Integer to a decimal in the range 0.0 - 0.99999999
+        return (UFix64(cutValueInteger) / cutValueDivisor)
     }
 
     // initializer

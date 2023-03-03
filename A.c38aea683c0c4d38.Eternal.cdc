@@ -1,9 +1,10 @@
 /*
-    This contract is copied from the "TopShot" contract except with
+    This contract is mostly copied from the "TopShot" contract except with
     names changed.
 */
 
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract Eternal: NonFungibleToken {
 
@@ -61,8 +62,8 @@ pub contract Eternal: NonFungibleToken {
     // Variable size dictionary of Set resources
     access(self) var sets: @{UInt32: Set}
 
-    // The ID that is used to create Plays.
-    // Every time a Play is created, playID is assigned
+    // The ID that is used to create Plays. 
+    // Every time a Play is created, playID is assigned 
     // to the new Play's ID and then is incremented by 1.
     pub var nextPlayID: UInt32
 
@@ -85,8 +86,8 @@ pub contract Eternal: NonFungibleToken {
     // can be created by this contract that contains stored values.
     // -----------------------------------------------------------------------
 
-    // Play is a Struct that holds metadata associated
-    // with a specific NBA play, like the legendary moment when
+    // Play is a Struct that holds metadata associated 
+    // with a specific NBA play, like the legendary moment when 
     // Ray Allen hit the 3 to tie the Heat and Spurs in the 2013 finals game 6
     // or when Lance Stephenson blew in the ear of Lebron James.
     //
@@ -122,11 +123,11 @@ pub contract Eternal: NonFungibleToken {
     // A Set is a grouping of Plays that have occured in the real world
     // that make up a related group of collectibles, like sets of baseball
     // or Magic cards. A Play can exist in multiple different sets.
-    //
+    // 
     // SetData is a struct that is stored in a field of the contract.
     // Anyone can query the constant information
-    // about a set by calling various getters located
-    // at the end of the contract. Only the admin has the ability
+    // about a set by calling various getters located 
+    // at the end of the contract. Only the admin has the ability 
     // to modify any data in the private Set resource.
     //
     pub struct SetData {
@@ -168,14 +169,14 @@ pub contract Eternal: NonFungibleToken {
     // that reference that playdata.
     // The Moments that are minted by a Set will be listed as belonging to
     // the Set that minted it, as well as the Play it references.
-    //
+    // 
     // Admin can also retire Plays from the Set, meaning that the retired
     // Play can no longer have Moments minted from it.
     //
-    // If the admin locks the Set, no more Plays can be added to it, but
+    // If the admin locks the Set, no more Plays can be added to it, but 
     // Moments can still be minted.
     //
-    // If retireAll() and lock() are called back-to-back,
+    // If retireAll() and lock() are called back-to-back, 
     // the Set is closed off forever and nothing more can be done with it.
     pub resource Set {
 
@@ -193,7 +194,7 @@ pub contract Eternal: NonFungibleToken {
         pub var retired: {UInt32: Bool}
 
         // Indicates if the Set is currently locked.
-        // When a Set is created, it is unlocked
+        // When a Set is created, it is unlocked 
         // and Plays are allowed to be added to it.
         // When a set is locked, Plays cannot be added.
         // A Set can never be changed from locked to unlocked,
@@ -203,7 +204,7 @@ pub contract Eternal: NonFungibleToken {
         // that exist in the Set.
         pub var locked: Bool
 
-        // Mapping of Play IDs that indicates the number of Moments
+        // Mapping of Play IDs that indicates the number of Moments 
         // that have been minted for specific Plays in this Set.
         // When a Moment is minted, this value is stored in the Moment to
         // show its place in the Set, eg. 13 of 60.
@@ -265,7 +266,7 @@ pub contract Eternal: NonFungibleToken {
         //
         // Pre-Conditions:
         // The Play is part of the Set and not retired (available for minting).
-        //
+        // 
         pub fun retirePlay(playID: UInt32) {
             pre {
                 self.retired[playID] != nil: "Cannot retire the Play: Play doesn't exist in this set!"
@@ -299,14 +300,14 @@ pub contract Eternal: NonFungibleToken {
         }
 
         // mintMoment mints a new Moment and returns the newly minted Moment
-        //
+        // 
         // Parameters: playID: The ID of the Play that the Moment references
         //
         // Pre-Conditions:
         // The Play must exist in the Set and be allowed to mint new Moments
         //
         // Returns: The NFT that was minted
-        //
+        // 
         pub fun mintMoment(playID: UInt32): @NFT {
             pre {
                 self.retired[playID] != nil: "Cannot mint the moment: This play doesn't exist."
@@ -328,7 +329,7 @@ pub contract Eternal: NonFungibleToken {
             return <-newMoment
         }
 
-        // batchMintMoment mints an arbitrary quantity of Moments
+        // batchMintMoment mints an arbitrary quantity of Moments 
         // and returns them as a Collection
         //
         // Parameters: playID: the ID of the Play that the Moments are minted for
@@ -371,11 +372,11 @@ pub contract Eternal: NonFungibleToken {
 
     // The resource that represents the Moment NFTs
     //
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 
         // Global unique moment ID
         pub let id: UInt64
-
+        
         // Struct of Moment metadata
         pub let data: MomentData
 
@@ -391,20 +392,174 @@ pub contract Eternal: NonFungibleToken {
             emit MomentMinted(momentID: self.id, playID: playID, setID: self.data.setID, serialNumber: self.data.serialNumber)
         }
 
-        // If the Moment is destroyed, emit an event to indicate
+        // If the Moment is destroyed, emit an event to indicate 
         // to outside ovbservers that it has been destroyed
         destroy() {
             emit MomentDestroyed(id: self.id)
         }
+
+        pub fun name(): String {
+            let influencer: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Influencer") ?? ""
+            let title: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Title") ?? ""
+            let game: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Game") ?? ""
+            return influencer
+                .concat(" - ")
+                .concat(game)
+                .concat(" - ")
+                .concat(title)
+        }
+
+        pub fun description(): String {
+            let influencer: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Influencer") ?? ""
+            let title: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Title") ?? ""
+            let game: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Game") ?? ""
+            let rarity: String = Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Rarity") ?? ""
+            let serialNumber: String = self.data.serialNumber.toString()
+            return influencer
+                .concat("'s ")
+                .concat(rarity)
+                .concat(" \"")
+                .concat(title)
+                .concat("\" moment in ")
+                .concat(game)
+                .concat(", with serial number ")
+                .concat(serialNumber)
+        }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Traits>(),
+                Type<MetadataViews.Medias>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: self.name(),
+                        description: self.description(),
+                        thumbnail: MetadataViews.HTTPFile(url: self.thumbnail())
+                    )
+                case Type<MetadataViews.Editions>():
+                    let name = self.name()
+                    let max = Eternal.getNumMomentsInEdition(setID: self.data.setID, playID: self.data.playID) ?? 0
+                    let editionInfo = MetadataViews.Edition(name: name, number: UInt64(self.data.serialNumber), max: max > 0 ? UInt64(max) : nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        UInt64(self.data.serialNumber)
+                    )
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties(
+                        royalties: []
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL(self.getMomentURL())
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: /storage/EternalMomentCollection,
+                        publicPath: /public/EternalMomentCollection,
+                        providerPath: /private/EternalMomentCollection,
+                        publicCollection: Type<&Eternal.Collection{Eternal.MomentCollectionPublic}>(),
+                        publicLinkedType: Type<&Eternal.Collection{Eternal.MomentCollectionPublic,NonFungibleToken.Receiver,NonFungibleToken.CollectionPublic,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&Eternal.Collection{NonFungibleToken.Provider,Eternal.MomentCollectionPublic,NonFungibleToken.Receiver,NonFungibleToken.CollectionPublic,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-Eternal.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let bannerImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://eternal-zelos.s3.us-west-2.amazonaws.com/images/eternal-banner.jpeg"
+                        ),
+                        mediaType: "image/jpeg"
+                    )
+                    let squareImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://eternal-zelos.s3.us-west-2.amazonaws.com/images/eternal-square.jpeg"
+                        ),
+                        mediaType: "image/jpeg"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "Eternal",
+                        description: "The best moments in streaming history.",
+                        externalURL: MetadataViews.ExternalURL("https://eternal.gg"),
+                        squareImage: squareImage,
+                        bannerImage: bannerImage,
+                        socials: {}
+                    )
+                case Type<MetadataViews.Traits>():
+                    // non play specific traits
+                    let traitDictionary: {String: AnyStruct} = {
+                        "SeriesNumber": Eternal.getSetSeries(setID: self.data.setID),
+                        "SetName": Eternal.getSetName(setID: self.data.setID),
+                        "SerialNumber": self.data.serialNumber
+                    }
+                    // add play specific data
+                    let fullDictionary = self.mapPlayData(dict: traitDictionary)
+                    return MetadataViews.dictToTraits(dict: fullDictionary, excludedNames: [])
+                case Type<MetadataViews.Medias>():
+                    return MetadataViews.Medias(
+                        items: [
+                            MetadataViews.Media(
+                                file: MetadataViews.HTTPFile(
+                                    url: self.thumbnail()
+                                ),
+                                mediaType: "image/png"
+                            ),
+                            MetadataViews.Media(
+                                file: MetadataViews.IPFSFile(
+                                    cid: Eternal.getPlayMetaDataByField(playID: self.data.playID, field: "Hash") ?? "",
+                                    path: ""
+                                ),
+                                mediaType: "video/mp4"
+                            )
+                        ]
+                    )
+            }
+
+            return nil
+        }   
+
+        pub fun mapPlayData(dict: {String: AnyStruct}) : {String: AnyStruct} {      
+            let playMetadata = Eternal.getPlayMetaData(playID: self.data.playID) ?? {}
+            for name in playMetadata.keys {
+                let value = playMetadata[name] ?? ""
+                if value != "" {
+                    dict.insert(key: name, value)
+                }
+            }
+            return dict
+        }
+
+        pub fun thumbnail(): String {
+            return "https://eternal-zelos.s3.us-west-2.amazonaws.com/moment-thumbnails/".concat(self.id.toString()).concat(".png")
+        }
+
+        pub fun getMomentURL(): String {
+            return "https://eternal.gg/moments/".concat(self.id.toString())
+        }
+
     }
 
-    // Admin is a special authorization resource that
-    // allows the owner to perform important functions to modify the
+    // Admin is a special authorization resource that 
+    // allows the owner to perform important functions to modify the 
     // various aspects of the Plays, Sets, and Moments
     //
     pub resource Admin {
 
-        // createPlay creates a new Play struct
+        // createPlay creates a new Play struct 
         // and stores it in the Plays dictionary in the Eternal smart contract
         //
         // Parameters: metadata: A dictionary mapping metadata titles to their data
@@ -450,7 +605,7 @@ pub contract Eternal: NonFungibleToken {
             pre {
                 Eternal.sets[setID] != nil: "Cannot borrow Set: The Set doesn't exist"
             }
-
+            
             // Get a reference to the Set and return it
             // use `&` to indicate the reference to the object and type
             return (&Eternal.sets[setID] as &Set?)!
@@ -491,16 +646,16 @@ pub contract Eternal: NonFungibleToken {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
-                (result == nil) || (result?.id == id):
+                (result == nil) || (result?.id == id): 
                     "Cannot borrow Moment reference: The ID of the returned reference is incorrect"
             }
         }
     }
 
-    // Collection is a resource that every user who owns NFTs
+    // Collection is a resource that every user who owns NFTs 
     // will store in their account to manage their NFTS
     //
-    pub resource Collection: MomentCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: MomentCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection { 
         // Dictionary of Moment conforming tokens
         // NFT is a resource type with a UInt64 ID field
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
@@ -511,18 +666,18 @@ pub contract Eternal: NonFungibleToken {
 
         // withdraw removes an Moment from the Collection and moves it to the caller
         //
-        // Parameters: withdrawID: The ID of the NFT
+        // Parameters: withdrawID: The ID of the NFT 
         // that is to be removed from the Collection
         //
         // returns: @NonFungibleToken.NFT the token that was withdrawn
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 
             // Remove the nft from the Collection
-            let token <- self.ownedNFTs.remove(key: withdrawID)
+            let token <- self.ownedNFTs.remove(key: withdrawID) 
                 ?? panic("Cannot withdraw: Moment does not exist in the collection")
 
             emit Withdraw(id: token.id, from: self.owner?.address)
-
+            
             // Return the withdrawn token
             return <-token
         }
@@ -537,12 +692,12 @@ pub contract Eternal: NonFungibleToken {
         pub fun batchWithdraw(ids: [UInt64]): @NonFungibleToken.Collection {
             // Create a new empty Collection
             var batchCollection <- create Collection()
-
+            
             // Iterate through the ids and withdraw them from the Collection
             for id in ids {
                 batchCollection.deposit(token: <-self.withdraw(withdrawID: id))
             }
-
+            
             // Return the withdrawn tokens
             return <-batchCollection
         }
@@ -552,7 +707,7 @@ pub contract Eternal: NonFungibleToken {
         // Paramters: token: the NFT to be deposited in the collection
         //
         pub fun deposit(token: @NonFungibleToken.NFT) {
-
+            
             // Cast the deposited token as a Eternal NFT to make sure
             // it is the correct type
             let token <- token as! @Eternal.NFT
@@ -563,7 +718,7 @@ pub contract Eternal: NonFungibleToken {
             // Add the new token to the dictionary
             let oldToken <- self.ownedNFTs[id] <- token
 
-            // Only emit a deposit event if the Collection
+            // Only emit a deposit event if the Collection 
             // is in an account's storage
             if self.owner?.address != nil {
                 emit Deposit(id: id, to: self.owner?.address)
@@ -602,7 +757,7 @@ pub contract Eternal: NonFungibleToken {
         // Returns: A reference to the NFT
         //
         // Note: This only allows the caller to read the ID of the NFT,
-        // not any Eternal specific data. Please use borrowMoment to
+        // not any Eternal specific data. Please use borrowMoment to 
         // read Moment data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
@@ -620,8 +775,18 @@ pub contract Eternal: NonFungibleToken {
         //
         // Returns: A reference to the NFT
         pub fun borrowMoment(id: UInt64): &Eternal.NFT? {
-            let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
-            return ref as! &Eternal.NFT?
+            if self.ownedNFTs[id] != nil {
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+                return ref as! &Eternal.NFT
+            } else {
+                return nil
+            }
+        }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)! 
+            let eternalNFT = nft as! &Eternal.NFT
+            return eternalNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         // If a transaction destroys the Collection object,
@@ -655,7 +820,7 @@ pub contract Eternal: NonFungibleToken {
     }
 
     // getPlayMetaData returns all the metadata associated with a specific Play
-    //
+    // 
     // Parameters: playID: The id of the Play that is being searched
     //
     // Returns: The metadata as a String to String mapping optional
@@ -663,11 +828,11 @@ pub contract Eternal: NonFungibleToken {
         return self.playDatas[playID]?.metadata
     }
 
-    // getPlayMetaDataByField returns the metadata associated with a
+    // getPlayMetaDataByField returns the metadata associated with a 
     //                        specific field of the metadata
     //                        Ex: field: "Team" will return something
     //                        like "Memphis Grizzlies"
-    //
+    // 
     // Parameters: playID: The id of the Play that is being searched
     //             field: The field to search for
     //
@@ -683,7 +848,7 @@ pub contract Eternal: NonFungibleToken {
 
     // getSetName returns the name that the specified Set
     //            is associated with.
-    //
+    // 
     // Parameters: setID: The id of the Set that is being searched
     //
     // Returns: The name of the Set
@@ -694,7 +859,7 @@ pub contract Eternal: NonFungibleToken {
 
     // getSetSeries returns the series that the specified Set
     //              is associated with.
-    //
+    // 
     // Parameters: setID: The id of the Set that is being searched
     //
     // Returns: The series that the Set belongs to
@@ -705,7 +870,7 @@ pub contract Eternal: NonFungibleToken {
 
     // getSetIDsByName returns the IDs that the specified Set name
     //                 is associated with.
-    //
+    // 
     // Parameters: setName: The name of the Set that is being searched
     //
     // Returns: An array of the IDs of the Set if it exists, or nil if doesn't
@@ -730,7 +895,7 @@ pub contract Eternal: NonFungibleToken {
     }
 
     // getPlaysInSet returns the list of Play IDs that are in the Set
-    //
+    // 
     // Parameters: setID: The id of the Set that is being searched
     //
     // Returns: An array of Play IDs
@@ -743,7 +908,7 @@ pub contract Eternal: NonFungibleToken {
     //                  (otherwise known as an edition) is retired.
     //                  If an edition is retired, it still remains in the Set,
     //                  but Moments can no longer be minted from it.
-    //
+    // 
     // Parameters: setID: The id of the Set that is being searched
     //             playID: The id of the Play that is being searched
     //
@@ -769,10 +934,10 @@ pub contract Eternal: NonFungibleToken {
     }
 
     // isSetLocked returns a boolean that indicates if a Set
-    //             is locked. If it's locked,
+    //             is locked. If it's locked, 
     //             new Plays can no longer be added to it,
     //             but Moments can still be minted from Plays the set contains.
-    //
+    // 
     // Parameters: setID: The id of the Set that is being searched
     //
     // Returns: Boolean indicating if the Set is locked or not
@@ -781,13 +946,13 @@ pub contract Eternal: NonFungibleToken {
         return Eternal.sets[setID]?.locked
     }
 
-    // getNumMomentsInEdition return the number of Moments that have been
+    // getNumMomentsInEdition return the number of Moments that have been 
     //                        minted from a certain edition.
     //
     // Parameters: setID: The id of the Set that is being searched
     //             playID: The id of the Play that is being searched
     //
-    // Returns: The total number of Moments
+    // Returns: The total number of Moments 
     //          that have been minted from an edition
     pub fun getNumMomentsInEdition(setID: UInt32, playID: UInt32): UInt32? {
         // Don't force a revert if the Set or play ID is invalid

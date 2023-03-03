@@ -145,10 +145,10 @@ pub contract Bl0x: NonFungibleToken {
 				)
 
 			case Type<MetadataViews.ExternalURL>():
-				return MetadataViews.ExternalURL("https://bl0x.xyz/collection/".concat(self.owner!.address.toString()).concat("/").concat(self.id.toString()))
+				return MetadataViews.ExternalURL("https://find.xyz/".concat(self.owner!.address.toString()).concat("/collection/bl0x/").concat(self.id.toString()))
 
 			case Type<MetadataViews.Royalties>():
-				return self.royalties
+				return MetadataViews.Royalties(Bl0x.royalties)
 
 			case Type<MetadataViews.Medias>():
 				return MetadataViews.Medias([fullMedia])
@@ -175,9 +175,9 @@ pub contract Bl0x: NonFungibleToken {
 					traits:self.getAllTraitsMetadataAsArray()
 				)
 			case Type<MetadataViews.NFTCollectionDisplay>():
-				let externalURL = MetadataViews.ExternalURL("https://bl0x.xyz")
+				let externalURL = MetadataViews.ExternalURL("https://find.xyz/mp/bl0x")
 				let squareImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://bl0x.xyz/assets/home/Bl0xlogo.webp"), mediaType: "image")
-				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://pbs.twimg.com/profile_banners/1535883931777892352/1655241022/1500x500"), mediaType: "image")
+				let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://pbs.twimg.com/profile_banners/1535883931777892352/1661105339/1500x500"), mediaType: "image")
 				return MetadataViews.NFTCollectionDisplay(name: "bl0x", description: "Minting a Bl0x triggers the catalyst moment of a big bang scenario. Generating a treasure that is designed to relate specifically to its holder.", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: { "discord": MetadataViews.ExternalURL("https://t.co/iY7AhEumR9"), "twitter" : MetadataViews.ExternalURL("https://twitter.com/Bl0xNFT")})
 
 			case Type<MetadataViews.NFTCollectionData>():

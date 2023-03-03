@@ -1,11 +1,13 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
+import BarterYardStats from 0x28abb9f291cadaf2
+import FungibleToken from 0xf233dcee88fe0abe
+import FlowToken from 0x1654653399040a61
 
 pub contract BarterYardClubWerewolf: NonFungibleToken {
 
     /// Counter for all the minted Werewolves
     pub var totalSupply: UInt64
-
     /// Maximum Werewolf NFT supply that will ever exist
     pub let maxSupply: UInt64
 
@@ -57,6 +59,8 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
     /**********/
     /* TRAITS */
     /**********/
+
+
 
     /// NftTrait is the trait struct meant to be set into NFTs
     pub struct NftTrait {
@@ -351,7 +355,14 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
             return [
                 Type<MetadataViews.Display>(),
                 Type<CompleteDisplay>(),
-                Type<NFTConfig>()
+                Type<NFTConfig>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Traits>()
             ]
         }
 
@@ -359,6 +370,15 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
         pub fun resolveView(_ view: Type): AnyStruct? {
             switch view {
                 case Type<MetadataViews.Display>():
+                    if ["bafybeiftalxnzljtscdvbgso3qods7zxojas53lcm5pwgbclkdgu3eijlm",
+                      "bafybeicx3ti7huwgklrdjqkfrva6kvrm7vpmdwqyipvfwixoqvuc4orqbi",
+                      "bafybeidnjh4knx67rlfuwkj7o4a6p4uknclb4nia6ootxlmfa44ohtfrca"].contains(self.dayImage.cid) {
+                       return MetadataViews.Display(
+                          name: "",
+                          description: "",
+                          thumbnail: MetadataViews.IPFSFile(cid: "", path: nil),
+                      )
+                    }
                     return MetadataViews.Display(
                         name: self.name,
                         description: self.description,
@@ -380,14 +400,63 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
                         auto: self.auto,
                         defaultImage: self.defaultImage,
                     )
+                case Type<MetadataViews.Serial>():
+                  return MetadataViews.Serial(self.id)
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                    storagePath: BarterYardClubWerewolf.CollectionStoragePath,
+                    publicPath: BarterYardClubWerewolf.CollectionPublicPath,
+                    providerPath:  BarterYardClubWerewolf.CollectionPrivatePath,
+                    publicCollection: Type<&BarterYardClubWerewolf.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                    publicLinkedType: Type<&BarterYardClubWerewolf.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                    providerLinkedType: Type<&BarterYardClubWerewolf.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                    createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- BarterYardClubWerewolf.createEmptyCollection()}
+                  )
+                case Type<MetadataViews.ExternalURL>():
+                  return MetadataViews.ExternalURL("https://www.barteryard.club")
+                case Type<MetadataViews.Royalties>():
+                  let recipient = getAccount(Address(0xb07b788eb60b6528)).getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+                  return MetadataViews.Royalties([MetadataViews.Royalty(receiver: recipient, cut: 0.025, description: "Werewolves Royalty")])
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                  let mediaSquare = MetadataViews.Media(
+                      file: MetadataViews.HTTPFile(
+                          url: "https://images.barteryard.club/logo.svg"
+                      ),
+                      mediaType: "image/svg+xml"
+                  )
+                  let mediaBanner = MetadataViews.Media(
+                      file: MetadataViews.HTTPFile(
+                          url: "https://images.barteryard.club/banner.svg"
+                      ),
+                      mediaType: "image/svg+xml"
+                  )
+                  return MetadataViews.NFTCollectionDisplay(
+                      name: "BarterYard Club Werewolves",
+                      description: "Barter Yard Club is an NFT toolbox organisation built on Flow Protocol and co-owned by the werewolves",
+                      externalURL: MetadataViews.ExternalURL("https://www.barteryard.club"),
+                      squareImage: mediaSquare,
+                      bannerImage: mediaBanner,
+                      socials: {
+                          "discord": MetadataViews.ExternalURL("https://discord.gg/barteryard"),
+                          "twitter": MetadataViews.ExternalURL("https://twitter.com/barteryard")
+                      }
+                  )
+                case Type<MetadataViews.Traits>():
+                  let traitsView: [MetadataViews.Trait] = []
+                  let traits = self.attributes
+                  let traitTypes = BarterYardClubWerewolf.getTraitsTypes()
+                  for trait in traits {
+                    let traitView = MetadataViews.Trait(name: traitTypes[trait.traitType]!, value: trait.value, displayType:"String", rarity: nil)
+                    traitsView.append(traitView)
+                  }
+                  return MetadataViews.Traits(traitsView)
             }
-
             return nil
         }
 
         destroy() {
-            BarterYardClubWerewolf.burnNFT()
-            emit Burn(id: self.id)
+          BarterYardClubWerewolf.burnNFT()
+          emit Burn(id: self.id)
         }
     }
 
@@ -473,6 +542,8 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
         self.totalSupply = self.totalSupply - 1
     }
 
+
+
     // Resource that an admin or something similar would own to be
     // able to mint new NFTs
     //
@@ -489,9 +560,10 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
             animation: MetadataViews.IPFSFile,
         ) : @BarterYardClubWerewolf.NFT {
             // create a new NFT
+            var nftId: UInt64 = BarterYardStats.getNextTokenId()
             var newNFT <- create NFT(
                 // Start ID at 1
-                id: BarterYardClubWerewolf.totalSupply + 1,
+                id: nftId,
                 name: name,
                 description: description,
                 attributes: attributes,
@@ -508,7 +580,6 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
             }
 
             emit Mint(id: newNFT.id)
-
             BarterYardClubWerewolf.totalSupply = BarterYardClubWerewolf.totalSupply + 1
             BarterYardClubWerewolf.timezonedWerewolves.insert(key: 0, {
                 newNFT.id: true
@@ -523,6 +594,7 @@ pub contract BarterYardClubWerewolf: NonFungibleToken {
                 traitType,
             )
         }
+
 
         pub fun addTrait(traitType: Int8, value: String) {
             pre {

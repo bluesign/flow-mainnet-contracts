@@ -3,7 +3,10 @@
 */
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 import FUSD from 0x3c5959b568896393
+import FindUtils from 0x097bafa4e0b48eef
+import Profile from 0x097bafa4e0b48eef
 
 // GooberXContract - The contract Erik needs to party !
 pub contract GooberXContract : NonFungibleToken {
@@ -84,7 +87,7 @@ pub contract GooberXContract : NonFungibleToken {
   }
 
   // Goober NFT
-  pub resource NFT: NonFungibleToken.INFT {
+  pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
   
     // NFT id
     pub let id: UInt64
@@ -109,6 +112,105 @@ pub contract GooberXContract : NonFungibleToken {
       GooberXContract.gooberRegister.append(self.data.gooberID)
       GooberXContract.mintedGoobers.append(self.data)
       GooberXContract.mintedGoobersIndex[self.data.gooberID] = GooberXContract.mintedGoobers.length - 1
+    }
+
+    pub fun getViews(): [Type] {
+        return [
+            Type<MetadataViews.Display>(), 
+            Type<MetadataViews.ExternalURL>(),
+            Type<MetadataViews.Royalties>(),
+            Type<MetadataViews.NFTCollectionData>(),
+            Type<MetadataViews.NFTCollectionDisplay>(), 
+            Type<MetadataViews.Traits>()
+        ]
+    }
+
+    pub fun resolveView(_ view: Type): AnyStruct? {
+      switch view {
+        case Type<MetadataViews.Display>():
+          var name = "Party Goob #".concat(self.id.toString())
+          if let nameValue = self.data.metadata["name"] {
+            if let n = nameValue! as? String {
+              name = n!
+            }
+          }
+
+          return MetadataViews.Display(
+            name: name,
+            description: "Party Goob #".concat(self.id.toString()),
+            thumbnail: MetadataViews.IPFSFile(
+            cid: self.data.uri.slice(from: "ipfs://".length, upTo: self.data.uri.length),
+            path: nil
+          )
+        )
+
+        case Type<MetadataViews.ExternalURL>(): 
+          return MetadataViews.ExternalURL(url: "https://partymansion.io/gooberz/".concat(self.id.toString()))
+
+        case Type<MetadataViews.Royalties>(): 
+
+        let cap = Profile.findReceiverCapability(address: GooberXContract.account.address, path: /public/fusdReceiver, type: Type<@FUSD.Vault>())!
+
+        return MetadataViews.Royalties([
+          MetadataViews.Royalty(receiver: cap, cut: 0.06, description: "Party Mansion")
+        ])
+
+        case Type<MetadataViews.NFTCollectionData>(): 
+          return MetadataViews.NFTCollectionData(
+            storagePath: GooberXContract.CollectionStoragePath,
+            publicPath: GooberXContract.CollectionPublicPath,
+            providerPath: /private/GooberzPartyFolksCollection,
+            publicCollection: Type<&GooberXContract.Collection{GooberXContract.GooberCollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+            publicLinkedType: Type<&GooberXContract.Collection{GooberXContract.GooberCollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+            providerLinkedType: Type<&GooberXContract.Collection{GooberXContract.GooberCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+            createEmptyCollectionFunction: fun (): @NonFungibleToken.Collection {
+            return <- GooberXContract.createEmptyCollection()
+          }
+        )
+
+        case Type<MetadataViews.NFTCollectionDisplay>(): 
+          return MetadataViews.NFTCollectionDisplay(
+          name: "Party Mansion Gooberz",
+          description: "The Party Gooberz is a fun and comical art collection of 3550 collectibles living on the Flow Blockchain. As one of the first PFP collectibles on Flow, we enjoy bringing the party and hanging with friends. So grab a drink, pump up the music, and get ready to party because The Party Goobz are ready to go within Party Mansion!",
+          externalURL: MetadataViews.ExternalURL(url: "https://partymansion.io/"),
+          squareImage: MetadataViews.Media(file: MetadataViews.IPFSFile(cid: "QmeiwpEXCidsPae3ZPpSJTKVit1R2LHiF4cw5pvmMPRC4x", path: nil), mediaType: "image/jpg"),
+          bannerImage: MetadataViews.Media(file: MetadataViews.IPFSFile(cid: "QmdU1j5nqeQBmVWZZDhz23z6mMPwMp5i2Ka2sBpMhYggPT", path: nil), mediaType: "image/jpg"),
+          socials: {
+            "twitter": MetadataViews.ExternalURL(url: "https://mobile.twitter.com/the_goobz_nft"),
+            "discord": MetadataViews.ExternalURL(url: "http://discord.gg/zJRNqKuDQH")
+          }
+        )
+
+        case Type<MetadataViews.Traits>(): 
+          let traits : [MetadataViews.Trait] = [] 
+          for traitName in self.data.metadata.keys {
+            if FindUtils.hasSuffix(traitName, suffix: "Cnt") {
+              continue
+            }
+            let traitValue = self.data.metadata[traitName]
+            let max = self.data.metadata[traitName.concat("Cnt")]
+            if traitValue != nil {
+              if let t = traitValue! as? String {
+                if max != nil {
+                  if let m = max! as? UInt32 {
+                    // The data here does not account for gooberz that are burned right now. 
+                    // The partymansion.io currently shows the latests data after burn 
+
+                    // Add a burn registry and fetch all the burnt data / traits. 
+                    traits.append(MetadataViews.Trait(name: FindUtils.to_snake_case(traitName), value: t, displayType: "String", rarity: MetadataViews.Rarity(score: UFix64(m!), max: 5975.0, description: "The rarity here is including burned Gooberz")))
+                    continue
+                  }
+                }
+                traits.append(MetadataViews.Trait(name: FindUtils.to_snake_case(traitName), value: t, displayType: "String", rarity: nil))
+                continue
+              }
+            }
+          }
+      
+          return MetadataViews.Traits(traits)
+
+      }
+      return nil
     }
   }
 
@@ -276,7 +378,7 @@ pub contract GooberXContract : NonFungibleToken {
   // Collection
   // A collection of Goober NFTs owned by an account
   //
-  pub resource Collection: GooberCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+  pub resource Collection: GooberCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
     // dictionary of NFT conforming tokens
     // NFT is a resource type with an `UInt64` ID field
     //
@@ -345,6 +447,14 @@ pub contract GooberXContract : NonFungibleToken {
         } else {
           return nil
         }
+    }
+
+    pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
+      if self.ownedNFTs[id] != nil {
+        let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+        return ref as! &GooberXContract.NFT
+      } 
+      panic("Missing NFT. ID : ".concat(id.toString()))
     }
 
     // List all goobers the user of the current collection owns
@@ -595,5 +705,4 @@ pub contract GooberXContract : NonFungibleToken {
     self.giveaways = {}
   }
 }
-
  

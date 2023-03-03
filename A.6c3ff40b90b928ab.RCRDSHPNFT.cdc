@@ -19,23 +19,161 @@ pub contract RCRDSHPNFT: NonFungibleToken {
 
         pub fun getViews(): [Type] {
             return [
-                Type<MetadataViews.Display>()
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Traits>()
             ]
         }
 
-        pub fun resolveView(_ view: Type): AnyStruct? {
-            switch view {
-                case Type<MetadataViews.Display>():
-                    let name = self.metadata["name"]!
-                    let serial = self.metadata["serial_number"]!
 
-                    return MetadataViews.Display(
-                        name: name.concat(" #").concat(serial),
-                        description: self.metadata["description"]!,
-                        thumbnail: MetadataViews.HTTPFile(
-                            url: self.metadata["uri"]!.concat("/thumbnail")
-                        )
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+
+            let metadata = self.metadata
+
+            fun getMetaValue(_ key: String, _ defaultVal: String) : String {
+                return metadata[key] ?? defaultVal
+            }
+
+            fun getThumbnail(): MetadataViews.HTTPFile {
+                let url = metadata["uri"] == nil ? "https://rcrdshp-happyfox-assets.s3.amazonaws.com/Purple.svg" : metadata["uri"]!.concat("/thumbnail")
+                return MetadataViews.HTTPFile(url: url)
+            }
+
+            fun createGenericDisplay(): MetadataViews.Display {
+                let name = getMetaValue("name", "?RCRDSHP NFT?")
+                let serial = getMetaValue("serial_number", "?")
+                return MetadataViews.Display(
+                    name: name,
+                    description: getMetaValue("description", "An unknown RCRDSHP Collection NFT"),
+                    thumbnail: getThumbnail()
+                )
+            }
+
+            fun createVoucherDisplay(): MetadataViews.Display {
+                let name = getMetaValue("name", "?RCRDSHP Voucher NFT?")
+                let serial = getMetaValue("voucher_serial_number", "?")
+                let isFlowFest = name.slice(from: 0, upTo: 9) == "Flow fest"
+                return MetadataViews.Display(
+                    name: name.concat(" #").concat(serial),
+                    description: getMetaValue("description", "An unknown RCRDSHP Collection Vouncher NFT"),
+                    thumbnail: isFlowFest ? MetadataViews.HTTPFile(url: "https://rcrdshp-happyfox-assets.s3.amazonaws.com/flowfest-pack.png") : getThumbnail()
+                )
+            }
+
+            fun createTraits(): MetadataViews.Traits {
+                let rarity = metadata["rarity"]
+                if rarity == nil{
+                    return MetadataViews.Traits(traits: [])
+                } else {
+                    let rarityTrait = MetadataViews.Trait(
+                        name: "Rarity",
+                        value: rarity!,
+                        rarity: nil,
+                        displayType: nil
                     )
+                    return MetadataViews.Traits(traits: [rarityTrait])
+                }
+            }
+
+            fun createExternalURL(): MetadataViews.ExternalURL {
+                return MetadataViews.ExternalURL(url: metadata["uri"] ?? "https://app.rcrdshp.com")
+            }
+
+            fun createCollectionData(): MetadataViews.NFTCollectionData {
+                return MetadataViews.NFTCollectionData(
+                                                storagePath: RCRDSHPNFT.collectionStoragePath,
+                                                publicPath: RCRDSHPNFT.collectionPublicPath,
+                                                providerPath: /private/RCRDSHPNFTCollection,
+                                                publicCollection: Type<&RCRDSHPNFT.Collection{RCRDSHPNFT.RCRDSHPNFTCollectionPublic}>(),
+                                                publicLinkedType: Type<&RCRDSHPNFT.Collection{RCRDSHPNFT.RCRDSHPNFTCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                                                providerLinkedType: Type<&RCRDSHPNFT.Collection{RCRDSHPNFT.RCRDSHPNFTCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                                                createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                                                    return <-RCRDSHPNFT.createEmptyCollection()
+                                                })
+                )
+            }
+
+            fun createCollectionDisplay(): MetadataViews.NFTCollectionDisplay {
+                    let squareMedia = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://rcrdshp-happyfox-assets.s3.amazonaws.com/Purple.svg"
+                        ),
+                        mediaType: "image/svg+xml"
+                    )
+                    let bannerMedia = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://rcrdshp-happyfox-assets.s3.amazonaws.com/banner.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "The RCRDSHP Collection",
+                        description: "Here comes the drop!",
+                        externalURL: MetadataViews.ExternalURL("https://app.rcrdshp.com"),
+                        squareImage: squareMedia,
+                        bannerImage: bannerMedia,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/rcrdshp"),
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/rcrdshp"),
+                            "discord": MetadataViews.ExternalURL("https://discord.gg/rcrdshp"),
+                            "facebook": MetadataViews.ExternalURL("https://www.facebook.com/rcrdshp")
+                        }
+                    )
+            }
+
+            fun createRoyalties(): MetadataViews.Royalties {
+               let royalties : [MetadataViews.Royalty] = []
+               return MetadataViews.Royalties(royalties: royalties)
+            }
+
+            fun parseUInt64(_ string: String) : UInt64? {
+                let chars : {Character : UInt64} = {
+                    "0" : 0 ,
+                    "1" : 1 ,
+                    "2" : 2 ,
+                    "3" : 3 ,
+                    "4" : 4 ,
+                    "5" : 5 ,
+                    "6" : 6 ,
+                    "7" : 7 ,
+                    "8" : 8 ,
+                    "9" : 9
+                }
+                var number : UInt64 = 0
+                var i = 0
+                while i < string.length {
+                    if let n = chars[string[i]] {
+                            number = number * 10 + n
+                    } else {
+                        return nil
+                    }
+                    i = i + 1
+                }
+                return number
+            }
+
+
+            switch view {
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(parseUInt64(getMetaValue("serial_number", "0")) ?? 0)
+                case Type<MetadataViews.Display>():
+                    return metadata["type"] == "Voucher" ? createVoucherDisplay() : createGenericDisplay()
+                case Type<MetadataViews.ExternalURL>():
+                    return createExternalURL()
+                case Type<MetadataViews.NFTCollectionData>():
+                    return createCollectionData()
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    return createCollectionDisplay()
+                case Type<MetadataViews.Royalties>():
+                    return createRoyalties()
+                case Type<MetadataViews.Traits>():
+                    return createTraits()
             }
             return nil
         }
@@ -111,7 +249,7 @@ pub contract RCRDSHPNFT: NonFungibleToken {
         }
 
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let rcrdshpNFT = nft as! &RCRDSHPNFT.NFT
             return rcrdshpNFT as &AnyResource{MetadataViews.Resolver}
         }

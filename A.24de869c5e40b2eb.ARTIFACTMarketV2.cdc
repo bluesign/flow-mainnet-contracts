@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Unlicense
 
 import FungibleToken from 0xf233dcee88fe0abe
-import NonFungibleToken, MetadataViews from 0x1d7e57aa55817448
-import ARTIFACTV2, ARTIFACTPackV2, ARTIFACTAdminV2, Interfaces from 0x24de869c5e40b2eb
+import NonFungibleToken from 0x1d7e57aa55817448
+import ARTIFACTV2 from 0x24de869c5e40b2eb
+import ARTIFACTPackV3 from 0x24de869c5e40b2eb
+import ARTIFACTAdminV2 from 0x24de869c5e40b2eb
+import Interfaces from 0x24de869c5e40b2eb
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract ARTIFACTMarketV2 {
 
@@ -90,7 +94,7 @@ pub contract ARTIFACTMarketV2 {
             nftSaleCuts: [SaleCut]
         ) {
             pre {
-                salePrice > 0.0 : "Listing must have non-zero price"
+                salePrice >= 0.0 : "Listing must be not negative price"
                 sellerCapability.borrow() != nil: 
                     "Sellers's Receiver Capability is invalid!"
                 ARTIFACTMarketV2.totalSaleCuts(saleCuts: saleCuts) <= 100.0: "SaleCuts can't be greater a 100"
@@ -135,6 +139,10 @@ pub contract ARTIFACTMarketV2 {
             self.whitelist = whitelist
             self.preSaleBuyerMaxLimit = preSaleBuyerMaxLimit
         }
+
+        pub fun getBuyers(): Int {
+            return self.buyers.keys.length
+        }
     }
 
     // SaleCut
@@ -166,9 +174,9 @@ pub contract ARTIFACTMarketV2 {
     // The interface that a user can publish a capability to their sale
     // to allow others to access their sale
     pub resource interface ManagerPublic {
-       pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV2.Collection{ARTIFACTPackV2.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64)
+       pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV3.Collection{ARTIFACTPackV3.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64)
 
-       pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV2.Collection{ARTIFACTPackV2.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64)
+       pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV3.Collection{ARTIFACTPackV3.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64)
 
         pub fun getIDs(): [UInt64]
 
@@ -243,8 +251,8 @@ pub contract ARTIFACTMarketV2 {
         //
         pub fun createListing(nftID: UInt64?, packTemplateID: UInt64?, salePrice: UFix64, saleCuts: [SaleCut], salePaymentVaultType: Type, sellerCapability: Capability<&{FungibleToken.Receiver}>, databaseID: String, whitelist: [Address], isPreSale: Bool, preSaleBuyerMaxLimit: {Address: UInt64}, preSalePrice: UFix64, nftSaleCuts: [SaleCut]) {
             pre {
-                salePrice > 0.0 : "must have a price above 0"
-                preSalePrice > 0.0 : "must have a preSalePrice greater than 0"
+                salePrice >= 0.0 : "must not be negative price"
+                preSalePrice >= 0.0 : "must have a not negative preSalePrice "
                 nftID != nil || packTemplateID != nil: "must pass one template ID"
                 (self.getNumberValue(value: nftID != nil) + self.getNumberValue(value: packTemplateID != nil)) == 1 : "must pass only one template ID"
             }
@@ -309,7 +317,7 @@ pub contract ARTIFACTMarketV2 {
         /// Parameters: userCollection: The nft collection 
         /// Parameters: quantity: Quantity of pack to buy
         ///
-        pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV2.Collection{ARTIFACTPackV2.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64) {
+        pub fun purchase(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV3.Collection{ARTIFACTPackV3.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64) {
             pre {
                 !self.listings[listingID]!.isPreSale : "sale is not available"
             }
@@ -328,7 +336,7 @@ pub contract ARTIFACTMarketV2 {
         /// Parameters: userCollection: The nft collection 
         /// Parameters: quantity: Quantity of pack to buy
         ///
-        pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV2.Collection{ARTIFACTPackV2.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64) {
+        pub fun purchaseOnPreSale(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV3.Collection{ARTIFACTPackV3.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64) {
             pre {
                 self.listings[listingID]!.isPreSale : "sale is not available"
                 self.listings[listingID]!.whitelist.contains(userPackCollection.owner!.address) :"sale available for users in whitelist"
@@ -344,7 +352,7 @@ pub contract ARTIFACTMarketV2 {
             self.purchaseListing(listingID: listingID, buyTokens: buyTokens, databaseID: databaseID, owner: owner, userPackCollection: userPackCollection, userCollection: userCollection, quantity: quantity)
         }
 
-        access(self) fun purchaseListing(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV2.Collection{ARTIFACTPackV2.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64){
+        access(self) fun purchaseListing(listingID: UInt64, buyTokens: &FungibleToken.Vault, databaseID: String, owner: Address, userPackCollection: &ARTIFACTPackV3.Collection{ARTIFACTPackV3.CollectionPublic}, userCollection: &ARTIFACTV2.Collection{ARTIFACTV2.CollectionPublic}, quantity: UInt64){
             pre {
                 quantity <= 200 : "Max quantity is 200"
                 self.listings.containsKey(listingID) : "listingID not found"
@@ -397,7 +405,7 @@ pub contract ARTIFACTMarketV2 {
         // returns: AnyStruct the NFT reference
         access(self) fun getTemplateInformation(listing: Listing): AnyStruct {
             if(listing.packTemplateID != nil){
-                return ARTIFACTPackV2.getPackTemplate(templateId: listing.packTemplateID!)!
+                return ARTIFACTPackV3.getPackTemplate(templateId: listing.packTemplateID!)!
             } else if (listing.nftID != nil) {
                 return listing.nftID
             } 
@@ -433,7 +441,7 @@ pub contract ARTIFACTMarketV2 {
         // returns: @NonFungibleToken.NFT the NFT or Pack
         access(self) fun getNFT(nft: AnyStruct, owner: Address, listing: Listing, quantity: UInt64): @NonFungibleToken.NFT {
             if(listing.packTemplateID != nil){
-                let packTemplate = nft as! ARTIFACTPackV2.PackTemplate
+                let packTemplate = nft as! ARTIFACTPackV3.PackTemplate
                 if(packTemplate.maxQuantityPerTransaction < quantity){
                     panic("quantity is greater than max quantity")
                 }
@@ -460,8 +468,8 @@ pub contract ARTIFACTMarketV2 {
         //
         access(self) fun removeListingByGenericNFT(nft: AnyStruct, listing: Listing) {
             if(listing.packTemplateID != nil){
-                let packTemplate = nft as! ARTIFACTPackV2.PackTemplate
-                if (packTemplate.totalSupply <= ARTIFACTPackV2.numberMintedByPack[listing.ID]!){
+                let packTemplate = nft as! ARTIFACTPackV3.PackTemplate
+                if (packTemplate.totalSupply <= ARTIFACTPackV3.numberMintedByPack[listing.ID]!){
                     self.removeListing(listingID: listing.ID)
                 }
             } else if (listing.nftID != nil) {
@@ -479,6 +487,11 @@ pub contract ARTIFACTMarketV2 {
         /// getListings returns an array of Listing that are for sale
         pub fun getListings(): [Listing] {
             return self.listings.values
+        }
+
+        /// getListings returns an array of Listing that are for sale
+        pub fun getBuyersByListingID(listingID: UInt64): Int {
+            return self.listings[listingID]!.getBuyers()
         }
         
         // updateWhitelist
@@ -538,10 +551,10 @@ pub contract ARTIFACTMarketV2 {
 
         self.nextListingID = 1
         
-        if(self.account.borrow<&{ARTIFACTPackV2.CollectionPublic}>(from: ARTIFACTPackV2.collectionStoragePath) == nil) {
-            let collection <- ARTIFACTPackV2.createEmptyCollection() as! @ARTIFACTPackV2.Collection 
-            self.account.save<@ARTIFACTPackV2.Collection>(<- collection, to: ARTIFACTPackV2.collectionStoragePath)
-            self.account.link<&{ARTIFACTPackV2.CollectionPublic}>(ARTIFACTPackV2.collectionPublicPath, target: ARTIFACTPackV2.collectionStoragePath)
+        if(self.account.borrow<&{ARTIFACTPackV3.CollectionPublic}>(from: ARTIFACTPackV3.collectionStoragePath) == nil) {
+            let collection <- ARTIFACTPackV3.createEmptyCollection() as! @ARTIFACTPackV3.Collection 
+            self.account.save<@ARTIFACTPackV3.Collection>(<- collection, to: ARTIFACTPackV3.collectionStoragePath)
+            self.account.link<&{ARTIFACTPackV3.CollectionPublic}>(ARTIFACTPackV3.collectionPublicPath, target: ARTIFACTPackV3.collectionStoragePath)
         }
 
         if(self.account.borrow<&{ARTIFACTMarketV2.ManagerPublic}>(from: ARTIFACTMarketV2.marketStoragePath) == nil) {

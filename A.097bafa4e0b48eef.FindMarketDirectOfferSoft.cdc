@@ -21,7 +21,7 @@ pub contract FindMarketDirectOfferSoft {
 		access(contract) var directOfferAccepted:Bool
 		access(contract) var validUntil: UFix64?
 		access(contract) var saleItemExtraField: {String : AnyStruct}
-		access(contract) let totalRoyalties: UFix64 
+		access(contract) let totalRoyalties: UFix64
 
 		init(pointer: AnyStruct{FindViews.Pointer}, callback: Capability<&MarketBidCollection{MarketBidCollectionPublic}>, validUntil: UFix64?, saleItemExtraField: {String : AnyStruct}) {
 			self.pointer=pointer
@@ -42,7 +42,7 @@ pub contract FindMarketDirectOfferSoft {
 		}
 
 		//Here we do not get a vault back, it is sent in to the method itself
-		pub fun acceptNonEscrowedBid() { 
+		pub fun acceptNonEscrowedBid() {
 			if !self.offerCallback.check() {
 				panic("Bidder unlinked the bid collection capability. Bidder Address : ".concat(self.offerCallback.address.toString()))
 			}
@@ -110,7 +110,7 @@ pub contract FindMarketDirectOfferSoft {
 
 		pub fun getBuyerName() : String? {
 			if let name = FIND.reverseLookup(self.offerCallback.address) {
-				return name 
+				return name
 			}
 			return nil
 		}
@@ -124,7 +124,7 @@ pub contract FindMarketDirectOfferSoft {
 		}
 
 		pub fun getValidUntil() : UFix64? {
-			return self.validUntil 
+			return self.validUntil
 		}
 
 		pub fun setPointer(_ pointer: FindViews.AuthNFTPointer) {
@@ -139,6 +139,10 @@ pub contract FindMarketDirectOfferSoft {
 			return self.pointer.valid()
 		}
 
+		pub fun checkSoulBound() : Bool {
+			return self.pointer.checkSoulBound()
+		}
+
 		pub fun getSaleItemExtraField() : {String : AnyStruct} {
 			return self.saleItemExtraField
 		}
@@ -146,9 +150,13 @@ pub contract FindMarketDirectOfferSoft {
 		access(contract) fun setSaleItemExtraField(_ field: {String : AnyStruct}) {
 			self.saleItemExtraField = field
 		}
-		
+
 		pub fun getTotalRoyalties() : UFix64 {
 			return self.totalRoyalties
+		}
+
+		pub fun validateRoyalties() : Bool {
+			return self.totalRoyalties == self.pointer.getTotalRoyaltiesCut()
 		}
 
 		pub fun getDisplay() : MetadataViews.Display {
@@ -164,8 +172,8 @@ pub contract FindMarketDirectOfferSoft {
 		//fetch all the tokens in the collection
 		pub fun getIds(): [UInt64]
 		pub fun containsId(_ id: UInt64): Bool
-		access(contract) fun cancelBid(_ id: UInt64) 
-		access(contract) fun registerIncreasedBid(_ id: UInt64) 
+		access(contract) fun cancelBid(_ id: UInt64)
+		access(contract) fun registerIncreasedBid(_ id: UInt64)
 
 		//place a bid on a token
 		access(contract) fun registerBid(item: FindViews.ViewReadPointer, callback: Capability<&MarketBidCollection{MarketBidCollectionPublic}>, validUntil: UFix64?, saleItemExtraField: {String : AnyStruct})
@@ -216,25 +224,18 @@ pub contract FindMarketDirectOfferSoft {
 			let saleItem=self.borrow(id)
 
 			let tenant=self.getTenant()
-			let nftType= saleItem.getItemType()
 			let ftType= saleItem.getFtType()
 
-			let actionResult=tenant.allowedAction(listingType: Type<@FindMarketDirectOfferSoft.SaleItem>(), nftType: nftType, ftType: ftType, action: FindMarket.MarketAction(listing:false, name: "cancel bid in direct offer soft"), seller: nil, buyer: nil)
-
-			if !actionResult.allowed {
-				panic(actionResult.message)
-			}
-			
 			let status="cancel"
 			let balance=saleItem.getBalance()
 			let buyer=saleItem.getBuyer()!
 			let buyerName=FIND.reverseLookup(buyer)
 			let profile = Profile.find(buyer)
 
-			var nftInfo:FindMarket.NFTInfo?=nil 
+			var nftInfo:FindMarket.NFTInfo?=nil
 			if saleItem.checkPointer() {
-				nftInfo=saleItem.toNFTInfo(true)
-			} 
+				nftInfo=saleItem.toNFTInfo(false)
+			}
 
 			emit DirectOffer(tenant:tenant.name, id: saleItem.getId(), saleID: saleItem.uuid, seller:self.owner!.address, sellerName: FIND.reverseLookup(self.owner!.address), amount: balance, status:status, vaultType: ftType.identifier, nft:nftInfo, buyer: buyer, buyerName: buyerName, buyerAvatar: profile.getAvatar(), endsAt: saleItem.validUntil, previousBuyer:nil, previousBuyerName:nil)
 
@@ -270,7 +271,7 @@ pub contract FindMarketDirectOfferSoft {
 			let nftInfo=saleItem.toNFTInfo(true)
 
 			emit DirectOffer(tenant:tenant.name, id: id, saleID: saleItem.uuid, seller:owner, sellerName: FIND.reverseLookup(owner), amount: balance, status:status, vaultType: ftType.identifier, nft:nftInfo, buyer: buyer, buyerName: buyerName, buyerAvatar: profile.getAvatar(), endsAt: saleItem.validUntil, previousBuyer:nil, previousBuyerName:nil)
-		
+
 		}
 
 
@@ -304,9 +305,9 @@ pub contract FindMarketDirectOfferSoft {
 				let nftInfo=saleItemRef.toNFTInfo(true)
 
 				emit DirectOffer(tenant:tenant.name, id: id, saleID: saleItemRef.uuid, seller:owner, sellerName: FIND.reverseLookup(owner), amount: balance, status:status, vaultType: ftType.identifier, nft:nftInfo, buyer: buyer, buyerName: buyerName, buyerAvatar: profile.getAvatar(), endsAt: saleItemRef.validUntil, previousBuyer:nil, previousBuyerName:nil)
-			
 
-				return 
+
+				return
 			}
 
 
@@ -351,7 +352,7 @@ pub contract FindMarketDirectOfferSoft {
 
 
 			emit DirectOffer(tenant:tenant.name, id: id, saleID: saleItem.uuid, seller:owner, sellerName: FIND.reverseLookup(owner), amount: balance, status:status, vaultType: ftType.identifier, nft:nftInfo, buyer: buyer, buyerName: buyerName, buyerAvatar: profile.getAvatar(), endsAt: saleItem.validUntil, previousBuyer:previousBuyer, previousBuyerName:previousBuyerName)
-		
+
 
 		}
 
@@ -366,26 +367,20 @@ pub contract FindMarketDirectOfferSoft {
 			let saleItem=self.borrow(id)
 
 			let tenant=self.getTenant()
-			let nftType= saleItem.getItemType()
 			let ftType= saleItem.getFtType()
 
-			let actionResult=tenant.allowedAction(listingType: Type<@FindMarketDirectOfferSoft.SaleItem>(), nftType: nftType, ftType: ftType, action: FindMarket.MarketAction(listing:false, name: "reject offer in direct offer soft"), seller: nil, buyer: nil)
 
-			if !actionResult.allowed {
-				panic(actionResult.message)
-			}
-
-			let status = "cancel_rejected"
+			var status = "cancel_rejected"
 			let owner=self.owner!.address
 			let balance=saleItem.getBalance()
 			let buyer=saleItem.getBuyer()!
 			let buyerName=FIND.reverseLookup(buyer)
 			let profile = Profile.find(buyer)
 
-			var nftInfo:FindMarket.NFTInfo?=nil 
+			var nftInfo:FindMarket.NFTInfo?=nil
 			if saleItem.checkPointer() {
-				nftInfo=saleItem.toNFTInfo(true)
-			} 
+				nftInfo=saleItem.toNFTInfo(false)
+			}
 
 			emit DirectOffer(tenant:tenant.name, id: id, saleID: saleItem.uuid, seller:owner, sellerName: FIND.reverseLookup(owner), amount: balance, status:status, vaultType: ftType.identifier, nft:nftInfo, buyer: buyer, buyerName: buyerName, buyerAvatar: profile.getAvatar(), endsAt: saleItem.validUntil, previousBuyer:nil, previousBuyerName:nil)
 
@@ -434,8 +429,8 @@ pub contract FindMarketDirectOfferSoft {
 			let nftInfo=saleItem.toNFTInfo(true)
 
 			emit DirectOffer(tenant:tenant.name, id: id, saleID: saleItem.uuid, seller:owner, sellerName: FIND.reverseLookup(owner), amount: balance, status:status, vaultType: ftType.identifier, nft:nftInfo, buyer: buyer, buyerName: buyerName, buyerAvatar: profile.getAvatar(), endsAt: saleItem.validUntil, previousBuyer:nil, previousBuyerName:nil)
-		
-	
+
+
 		}
 
 		/// this is called from a bid when a seller accepts
@@ -459,7 +454,7 @@ pub contract FindMarketDirectOfferSoft {
 			let ftType= saleItem.getFtType()
 
 			let actionResult=tenant.allowedAction(listingType: Type<@FindMarketDirectOfferSoft.SaleItem>(), nftType: nftType, ftType: ftType, action: FindMarket.MarketAction(listing:false, name: "fulfill directOffer"), seller: self.owner!.address, buyer: saleItem.offerCallback.address)
-			
+
 			if !actionResult.allowed {
 				panic(actionResult.message)
 			}
@@ -485,17 +480,28 @@ pub contract FindMarketDirectOfferSoft {
 			let resolved : {Address : String} = {}
 			resolved[buyer] = buyerName ?? ""
 			resolved[owner] = sellerName ?? ""
-			resolved[FindMarketDirectOfferSoft.account.address] =  "find" 
-			// Have to make sure the tenant always have the valid find name 
+			resolved[FindMarketDirectOfferSoft.account.address] =  "find"
+			// Have to make sure the tenant always have the valid find name
 			resolved[FindMarket.tenantNameAddress[tenant.name]!] =  tenant.name
 
-			FindMarket.pay(tenant: tenant.name, id:id, saleItem: saleItem, vault: <- vault, royalty:royalty, nftInfo: nftInfo, cuts:cuts, resolver: fun(address:Address): String? { return FIND.reverseLookup(address) }, resolvedAddress: resolved)
+			FindMarket.pay(tenant: tenant.name, id:id, saleItem: saleItem, vault: <- vault, royalty:royalty, nftInfo: nftInfo, cuts:cuts, resolver: fun(address:Address): String? { return FIND.reverseLookup(address) }, resolvedAddress: resolved, dapperMerchAddress: FIND.getMerchantAddress())
 
 			destroy <- self.items.remove(key: id)
 		}
 
 		pub fun getIds(): [UInt64] {
 			return self.items.keys
+		}
+
+		pub fun getRoyaltyChangedIds(): [UInt64] {
+			let ids : [UInt64] = []
+			for id in self.getIds() {
+				let item = self.borrow(id)
+				if !item.validateRoyalties() {
+					ids.append(id)
+				}
+			}
+			return ids
 		}
 
 		pub fun containsId(_ id: UInt64): Bool {
@@ -565,7 +571,7 @@ pub contract FindMarketDirectOfferSoft {
 		}
 
 		pub fun getBidExtraField() : {String : AnyStruct} {
-			return self.bidExtraField 
+			return self.bidExtraField
 		}
 	}
 
@@ -638,6 +644,11 @@ pub contract FindMarketDirectOfferSoft {
 				panic("Valid until is before current time")
 			}
 
+			// check soul bound
+			if item.checkSoulBound() {
+				panic("This item is soul bounded and cannot be traded")
+			}
+
 			if self.owner!.address == item.owner() {
 				panic("You cannot bid on your own resource")
 			}
@@ -648,6 +659,15 @@ pub contract FindMarketDirectOfferSoft {
 				panic("You already have an bid for this item, use increaseBid on that bid")
 			}
 			let tenant=self.getTenant()
+
+			// Check if it is onefootball. If so, listing has to be at least $0.65 (DUC)
+			if tenant.name == "onefootball" {
+				// ensure it is not a 0 dollar listing
+				if amount <= 0.65 {
+					panic("Offer price should be greater than 0.65")
+				}
+			}
+
 			let from=getAccount(item.owner()).getCapability<&SaleItemCollection{SaleItemCollectionPublic}>(tenant.getPublicPath(Type<@SaleItemCollection>()))
 
 			let bid <- create Bid(from: from, itemUUID:uuid, nftCap: nftCap, vaultType: vaultType, nonEscrowedBalance:amount, bidExtraField: bidExtraField)
@@ -695,7 +715,7 @@ pub contract FindMarketDirectOfferSoft {
 			self.cancelBidFromSaleItem(id)
 		}
 
-		//called from saleItem when things are cancelled 
+		//called from saleItem when things are cancelled
 		//if the bid is canceled from seller then we move the vault tokens back into your vault
 		access(contract) fun cancelBidFromSaleItem(_ id: UInt64) {
 			let bid <- self.bids.remove(key: id) ?? panic("missing bid")

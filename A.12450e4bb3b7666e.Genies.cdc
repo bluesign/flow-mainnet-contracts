@@ -1,5 +1,6 @@
 
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 
 /*
     Genies is structured similarly to TopShot.
@@ -183,7 +184,11 @@ pub contract Genies: NonFungibleToken {
 
             let collection = (&Genies.collectionByID[collectionID] as &Genies.GeniesCollection?)!
             collection.close()
-            self.collectionsOpen = self.collectionsOpen - 1 as UInt32
+            // Add this check to fix the underflow issue caused by the mismatch of collectionsOpen and actual Open counts.
+            // Remove the if check in the next release 
+            if self.collectionsOpen > 0 {
+                self.collectionsOpen = self.collectionsOpen - 1 as UInt32
+            }   
         }
 
         // Recursively ensure that all of the collections are closed,
@@ -302,7 +307,7 @@ pub contract Genies: NonFungibleToken {
         access(contract) let editionIDs: [UInt32]
         pub var editionsActive: UInt32
 
-        // Create and add an Edition to the series.
+        // Create and add an Edition to the collection.
         // You can only do so via this function, which updates the relevant fields.
         //
         pub fun addEdition(
@@ -325,6 +330,27 @@ pub contract Genies: NonFungibleToken {
 
             return editionID
         }
+
+        // Update metadata field of an Edition to the collection
+        //
+        pub fun updateEdition(
+            editionID: UInt32,
+            editionMetadata: {String: String}
+        ) {
+            pre {
+                Genies.editionByID[editionID] != nil: "editionID doesn't exist"
+                self.editionIDs.contains(editionID) : "editionID doesn't belong to this collection"
+            }
+
+            let edition = (&Genies.editionByID[editionID] as &Edition?)!
+            for key in editionMetadata.keys {
+                let value = editionMetadata[key]
+                if value != nil {
+                    edition.setMetadata(key: key, value: value!)
+                }
+            }
+        }
+
 
         // Close an Edition, and update the relevant fields
         //
@@ -351,6 +377,7 @@ pub contract Genies: NonFungibleToken {
         //
         access(contract) fun close() {
             pre{
+                self.open: "Already closed"
                 self.editionsActive == 0:
                     "All editions in this collection must be closed before closing it"
             }
@@ -444,6 +471,10 @@ pub contract Genies: NonFungibleToken {
             emit EditionRetired(id: self.id)
         }
 
+        pub fun setMetadata(key: String, value: String) {
+            self.metadata[key] = value
+        }
+
         // Mint a Genies NFT in this edition, with the given minting mintingDate.
         // Note that this will panic if this edition is retired.
         //
@@ -514,7 +545,7 @@ pub contract Genies: NonFungibleToken {
 
     // A Genies NFT
     //
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
         pub let id: UInt64
         pub let editionID: UInt32
         pub let serialNumber: UInt32
@@ -546,6 +577,120 @@ pub contract Genies: NonFungibleToken {
 
             emit NFTMinted(id: self.id, editionID: self.editionID, serialNumber: self.serialNumber)
         }
+
+        pub fun getWearableSKU(): String {
+            let edition = Genies.getEditionData(id: self.editionID)
+            if edition.metadata["avatarWearableSKU"] != nil {
+                return edition.metadata["avatarWearableSKU"]!
+            } else {
+                return ""
+            }
+        }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Traits>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            let edition = Genies.getEditionData(id: self.editionID)
+            let collection = Genies.getGeniesCollectionData(id: edition.collectionID)
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: edition.name,
+                        description: "Serial #"
+                                    .concat(self.serialNumber.toString())
+                                    .concat(" of ")
+                                    .concat(edition.name)
+                                    .concat(" from ")
+                                    .concat(collection.name)
+                                    .concat(" collection"),
+                        thumbnail: MetadataViews.HTTPFile(
+                                    url:"https://warehouse-assets.genies.com/"
+                                        .concat(self.getWearableSKU())
+                                        .concat("/wearable-container.png")
+                        )
+                    )
+                case Type<MetadataViews.Editions>():
+                    return MetadataViews.Editions([
+                        MetadataViews.Edition(
+                            name: edition.name,
+                            number: UInt64(self.serialNumber),
+                            max: UInt64(edition.numMinted),
+                        )
+                    ])
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.id
+                    )
+                case Type<MetadataViews.Royalties>():
+                    var royalties: [MetadataViews.Royalty] = []
+                    return MetadataViews.Royalties(royalties) 
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://warehouse.genies.com/nft/".concat(self.id.toString()))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: Genies.CollectionStoragePath,
+                        publicPath: Genies.CollectionPublicPath,
+                        providerPath: /private/GeniesNFTCollection,
+                        publicCollection: Type<&Genies.Collection{Genies.GeniesNFTCollectionPublic}>(),
+                        publicLinkedType: Type<&Genies.Collection{Genies.GeniesNFTCollectionPublic, NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&Genies.Collection{Genies.GeniesNFTCollectionPublic, NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <- Genies.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "Genies",
+                        description: "Empowering humans to build avatar ecosystems.",
+                        externalURL: MetadataViews.ExternalURL("https://warehouse.genies.com"),
+                        squareImage: MetadataViews.Media(
+                                        file: MetadataViews.HTTPFile(
+                                            url: "https://warehouse.genies.com/static/images/logo.png"
+                                        ),
+                                        mediaType: "image/png"
+                                    ),
+                        bannerImage: MetadataViews.Media(
+                                        file: MetadataViews.HTTPFile(
+                                            url: "https://warehouse.genies.com/static/images/banner.png"
+                                        ),
+                                        mediaType: "image/png"
+                                    ),
+                        socials: {
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/genies"),
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/genies"),
+                            "tiktok": MetadataViews.ExternalURL("https://www.tiktok.com/@genies"),
+                            "discord": MetadataViews.ExternalURL("https://discord.com/invite/genies")
+                        }
+                    )
+                case Type<MetadataViews.Traits>():
+                    let excludedTraits = ["rarity", "type", "designSlot", "publisher"];
+                    let traitsView = MetadataViews.dictToTraits(dict: edition.metadata, excludedNames: excludedTraits);
+                    
+                    if edition.metadata["designSlot"] != nil {
+                        let designSlot = edition.metadata["designSlot"]!
+                        let designSlotTrait = MetadataViews.Trait(
+                            name: "designSlot", 
+                            value: designSlot.slice(from: 20, upTo: designSlot.length), 
+                            displayType: "String", 
+                            rarity: nil
+                        ) 
+                        traitsView.addTrait(designSlotTrait)
+                    }
+                    return traitsView
+            }
+            return nil
+        }
     }
 
     //------------------------------------------------------------
@@ -575,7 +720,8 @@ pub contract Genies: NonFungibleToken {
         NonFungibleToken.Provider,
         NonFungibleToken.Receiver,
         NonFungibleToken.CollectionPublic,
-        GeniesNFTCollectionPublic
+        GeniesNFTCollectionPublic,
+        MetadataViews.ResolverCollection
     {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an UInt64 ID field
@@ -638,7 +784,21 @@ pub contract Genies: NonFungibleToken {
         // borrowGeniesNFT gets a reference to an NFT in the collection
         //
         pub fun borrowGeniesNFT(id: UInt64): &Genies.NFT? {
-            return (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)! as! &Genies.NFT
+            if self.ownedNFTs[id] != nil {
+                return (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)! as! &Genies.NFT
+            } else {
+                return nil
+            }
+        }
+
+        // borrowViewResolver
+        // Gets a reference to the MetadataViews resolver in the collection,
+        // giving access to all metadata information made available.
+        //
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let GeniesNft = nft as! &Genies.NFT
+            return GeniesNft as &AnyResource{MetadataViews.Resolver}
         }
 
         // Collection destructor

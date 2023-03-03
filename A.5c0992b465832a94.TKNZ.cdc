@@ -1,7 +1,5 @@
-// Deployed for TKNZ Ltd. - https://tknz.gg
-
 /*
-    Description: Smart Contract for TKNZ
+    Description: Central Smart Contract for TKNZ
 
     This smart contract contains the core functionality for TKNZ
 
@@ -402,7 +400,7 @@ pub contract TKNZ: NonFungibleToken {
                 pre {
                     TKNZ.drops[dropID] != nil: "The drop with the provided ID does not exist"
                 }
-                let drop = &TKNZ.drops[dropID] as &Drop
+                let drop = (&TKNZ.drops[dropID] as &Drop?)!
                 let dropData = TKNZ.dropDatas[dropID]!
                 self.dropID = dropID
                 self.name = dropData.name
@@ -539,7 +537,7 @@ pub contract TKNZ: NonFungibleToken {
             
             // Get a reference to the Drop and return it
             // use `&` to indicate the reference to the object and type
-            return &TKNZ.drops[dropID] as &Drop
+            return (&TKNZ.drops[dropID] as &Drop?)!
         }
 
         // startNewSeries ends the current series by incrementing
@@ -692,7 +690,7 @@ pub contract TKNZ: NonFungibleToken {
         // read NFT data.
         //
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+            return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
         // borrowNFTReference returns a borrowed reference to a NFT
@@ -707,7 +705,7 @@ pub contract TKNZ: NonFungibleToken {
         // Returns: A reference to the NFT
         pub fun borrowNFTReference(id: UInt64): &TKNZ.NFT? {
             if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &TKNZ.NFT
             } else {
                 return nil

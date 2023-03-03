@@ -1,352 +1,501 @@
 // SPDX-License-Identifier: UNLICENSED
 
+import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 
-/**
+// NFTStorefront
+//
+// A general purpose sale support contract for Flow NonFungibleTokens.
+// 
+// Each account that wants to offer NFTs for sale installs a Storefront,
+// and lists individual sales within that Storefront as SaleOffers.
+// There is one Storefront per account, it handles sales of all NFT types
+// for that account.
+//
+// Each SaleOffer can have one or more "cut"s of the sale price that
+// goes to one or more addresses. Cuts can be used to pay listing fees
+// or other considerations.
+// Each NFT may be listed in one or more SaleOffers, the validity of each
+// SaleOffer can easily be checked.
+// 
+// Purchasers can watch for SaleOffer events and check the NFT type and
+// ID to see if they wish to buy the offered item.
+// Marketplaces and other aggregators can watch for SaleOffer events
+// and list items of interest.
+//
+pub contract NFTStorefront {
+    // NFTStorefrontInitialized
+    // This contract has been deployed.
+    // Event consumers can now expect events from this contract.
+    //
+    pub event NFTStorefrontInitialized()
 
-# CricketMoments
+    // StorefrontInitialized
+    // A Storefront resource has been created.
+    // Event consumers can now expect events from this Storefront.
+    // Note that we do not specify an address: we cannot and should not.
+    // Created resources do not have an owner address, and may be moved
+    // after creation in ways we cannot check.
+    // SaleOfferAvailable events can be used to determine the address
+    // of the owner of the Storefront (...its location) at the time of
+    // the offer but only at that precise moment in that precise transaction.
+    // If the offerer moves the Storefront while the offer is valid, that
+    // is on them.
+    //
+    pub event StorefrontInitialized(storefrontResourceID: UInt64)
 
-The main contract managing the cricket moments/NFTs created by Faze.
+    // StorefrontDestroyed
+    // A Storefront has been destroyed.
+    // Event consumers can now stop processing events from this Storefront.
+    // Note that we do not specify an address.
+    //
+    pub event StorefrontDestroyed(storefrontResourceID: UInt64)
 
-## `NFT` Resource
+    // SaleOfferAvailable
+    // A sale offer has been created and added to a Storefront resource.
+    // The Address values here are valid when the event is emitted, but
+    // the state of the accounts they refer to may be changed outside of the
+    // NFTStorefront workflow, so be careful to check when using them.
+    //
+    pub event SaleOfferAvailable(
+        storefrontAddress: Address,
+        saleOfferResourceID: UInt64,
+        nftType: Type,
+        nftID: UInt64,
+        ftVaultType: Type,
+        price: UFix64
+    )
 
-Each NFT created using this contract consists of - 
-- id : globally unique identifier for the NFT
-- momentId : The moment of which the NFT is a copy 
-- serial : serial number of this NFT
-- metadata : Extra metadata for the NFT. It contains a description and an IPFS url, which 
-contains the link to the video/image.
+    // SaleOfferCompleted
+    // The sale offer has been resolved. It has either been accepted, or removed and destroyed.
+    //
+    pub event SaleOfferCompleted(saleOfferResourceID: UInt64, storefrontResourceID: UInt64, accepted: Bool)
+
+    // StorefrontStoragePath
+    // The location in storage that a Storefront resource should be located.
+    pub let StorefrontStoragePath: StoragePath
+
+    // StorefrontPublicPath
+    // The public location for a Storefront link.
+    pub let StorefrontPublicPath: PublicPath
 
 
-## `Collection` resource
+    // SaleCut
+    // A struct representing a recipient that must be sent a certain amount
+    // of the payment when a token is sold.
+    //
+    pub struct SaleCut {
+        // The receiver for the payment.
+        // Note that we do not store an address to find the Vault that this represents,
+        // as the link or resource that we fetch in this way may be manipulated,
+        // so to find the address that a cut goes to you must get this struct and then
+        // call receiver.borrow()!.owner.address on it.
+        // This can be done efficiently in a script.
+        pub let receiver: Capability<&{FungibleToken.Receiver}> 
 
-Each account that owns cricket moments would need to have an instance
-of the Collection resource stored in their account storage.
-
-The Collection resource has methods that the owner and other users can call.
-
-## `CricketMomentsCollectionPublic` resource interfaces
-
-An Interface which is implemented by the collection resource. It contains 
-functions for depositing moments, borrowing moments and getting id's of all
- the moments stored in the collection.  
-
-## Locking Moments 
-The NFTMinter resource can lock specific moments. After locking a particular moment, no more copies 
-of that moment can be minted. Whether a moment is locked or not can also be read easily 
-using isMomentLocked function. 
-
-*/
-pub contract CricketMoments: NonFungibleToken {
-
-    // Events
-    pub event ContractInitialized()
-    pub event Withdraw(id: UInt64, from: Address?)
-    pub event Deposit(id: UInt64, to: Address?)
-    pub event Minted(id: UInt64, momentId:UInt64, serial:UInt64, ipfs:String)
-
-    // Named Paths
-    pub let CollectionStoragePath: StoragePath
-    pub let CollectionPublicPath: PublicPath
-    pub let MinterStoragePath: StoragePath
-    pub let CollectionProviderPrivatePath: PrivatePath
-
-    // totalSupply, the total number of CricketMoments that have been minted
-    pub var totalSupply: UInt64
-
-    // The total number of unique moments that have been minted
-    pub var totalMomentIds: UInt64
-
-    // A dictionary to track the moments that have been locked. No more copies of a locked moment can be minted
-    access(self) var locked: {UInt64:Bool}
-
-    // A dictionary to store the next serial number to be minted for a particular moment Id. 
-    access(self) var nextSerial: {UInt64:UInt64}
-
-    // NFT
-    // A Moment as an NFT
-    pub resource NFT: NonFungibleToken.INFT {
-        // Token's ID
-        pub let id: UInt64
-
-        // Token's momentId to identify the moment
-        pub let momentId: UInt64
-
-        // Token's serial number 
-        pub let serial: UInt64
-
-        // Token's metadata as a string dictionary
-        access(self) let metadata: {String : String}
+        // The amount of the payment FungibleToken that will be paid to the receiver.
+        pub let amount: UFix64
 
         // initializer
-        init(id: UInt64, momentId: UInt64, serial: UInt64, metadata: {String : String}) {
-            self.id = id
-            self.momentId = momentId
-            self.serial = serial
-            self.metadata = metadata
-        }
-
-        // get complete metadata
-        pub fun getMetadata() : {String:String} {
-            return self.metadata;
-        }
-
-        // get metadata field by key
-        pub fun getMetadataField(key:String) : String? {
-            if let value = self.metadata[key] {
-                return value
-            }
-            return nil;
-        }
-    }
-
-    // This is the interface that users can cast their CricketMoments Collection as
-    // to allow others to deposit CricketMoments into their Collection. It also allows for reading
-    // the details of CricketMoments in the Collection.
-    pub resource interface CricketMomentsCollectionPublic {
-        pub fun deposit(token: @NonFungibleToken.NFT)
-        pub fun getIDs(): [UInt64]
-        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowCricketMoment(id: UInt64): &CricketMoments.NFT? {
-            // If the result isn't nil, the id of the returned reference
-            // should be the same as the argument to the function
-            post {
-                (result == nil) || (result?.id == id):
-                    "Cannot borrow Moment reference: The Id of the returned reference is incorrect"
-            }
-        }
-    }
-
-    // Collection
-    // A collection of Moment NFTs owned by an account
-    //
-    pub resource Collection: CricketMomentsCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
-        // dictionary of NFT conforming tokens
-        // NFT is a resource type with an `UInt64` ID field
-        pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
-
-        // withdraw
-        // Removes an NFT from the collection and moves it to the caller
-        pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
-            let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
-
-            emit Withdraw(id: token.id, from: self.owner?.address)
-
-            return <-token
-        }
-
-        // deposit
-        // Takes a NFT and adds it to the collections dictionary
-        pub fun deposit(token: @NonFungibleToken.NFT) {
-            let token <- token as! @CricketMoments.NFT
-
-            let id: UInt64 = token.id
-
-            // add the new token to the dictionary which removes the old one
-            let oldToken <- self.ownedNFTs[id] <- token
-
-            emit Deposit(id: id, to: self.owner?.address)
-
-            destroy oldToken
-        }
-
-        // getIDs
-        // Returns an array of the IDs that are in the collection
         //
-        pub fun getIDs(): [UInt64] {
-            return self.ownedNFTs.keys
+        init(receiver: Capability<&{FungibleToken.Receiver}>, amount: UFix64) {
+            self.receiver = receiver
+            self.amount = amount
         }
+    }
+
+
+    // SaleOfferDetails
+    // A struct containing a SaleOffer's data.
+    //
+    pub struct SaleOfferDetails {
+        // The Storefront that the SaleOffer is stored in.
+        // Note that this resource cannot be moved to a different Storefront,
+        // so this is OK. If we ever make it so that it *can* be moved,
+        // this should be revisited.
+        pub var storefrontID: UInt64
+        // Whether this offer has been accepted or not.
+        pub var accepted: Bool
+        // The Type of the NonFungibleToken.NFT that is being offered.
+        pub let nftType: Type
+        // The ID of the NFT within that type.
+        pub let nftID: UInt64
+        // The Type of the FungibleToken that payments must be made in.
+        pub let salePaymentVaultType: Type
+        // The amount that must be paid in the specified FungibleToken.
+        pub let salePrice: UFix64
+        // This specifies the division of payment between recipients.
+        pub let saleCuts: [SaleCut]
+
+        // setToAccepted
+        // Irreversibly set this offer as accepted.
+        //
+        access(contract) fun setToAccepted() {
+            self.accepted = true
+        }
+
+        // initializer
+        //
+        init (
+            nftType: Type,
+            nftID: UInt64,
+            salePaymentVaultType: Type,
+            saleCuts: [SaleCut],
+            storefrontID: UInt64
+        ) {
+            self.storefrontID = storefrontID
+            self.accepted = false
+            self.nftType = nftType
+            self.nftID = nftID
+            self.salePaymentVaultType = salePaymentVaultType
+
+            // Store the cuts
+            assert(saleCuts.length > 0, message: "SaleOffer must have at least one payment cut recipient")
+            self.saleCuts = saleCuts
+
+            // Calculate the total price from the cuts
+            var salePrice = 0.0
+            // Perform initial check on capabilities, and calculate sale price from cut amounts.
+            for cut in self.saleCuts {
+                // Make sure we can borrow the receiver.
+                // We will check this again when the token is sold.
+                cut.receiver.borrow()
+                    ?? panic("Cannot borrow receiver")
+                // Add the cut amount to the total price
+                salePrice = salePrice + cut.amount
+            }
+            assert(salePrice > 0.0, message: "SaleOffer must have non-zero price")
+
+            // Store the calculated sale price
+            self.salePrice = salePrice
+        }
+    }
+
+
+    // SaleOfferPublic
+    // An interface providing a useful public interface to a SaleOffer.
+    //
+    pub resource interface SaleOfferPublic {
+        // borrowNFT
+        // This will assert in the same way as the NFT standard borrowNFT()
+        // if the NFT is absent, for example if it has been sold via another offer.
+        //
+        pub fun borrowNFT(): &NonFungibleToken.NFT
+
+        // accept
+        // Accept the offer, buying the token.
+        // This pays the beneficiaries and returns the token to the buyer.
+        //
+        pub fun accept(payment: @FungibleToken.Vault): @NonFungibleToken.NFT
+
+        // getDetails
+        //
+        pub fun getDetails(): SaleOfferDetails
+    }
+
+
+    // SaleOffer
+    // A resource that allows an NFT to be sold for an amount of a given FungibleToken,
+    // and for the proceeds of that sale to be split between several recipients.
+    // 
+    pub resource SaleOffer: SaleOfferPublic {
+        // The simple (non-Capability, non-complex) details of the sale
+        access(self) let details: SaleOfferDetails
+
+        // A capability allowing this resource to withdraw the NFT with the given ID from its collection.
+        // This capability allows the resource to withdraw *any* NFT, so you should be careful when giving
+        // such a capability to a resource and always check its code to make sure it will use it in the
+        // way that it claims.
+        access(contract) let nftProviderCapability: Capability<&{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>
 
         // borrowNFT
-        // Gets a reference to an NFT in the collection
-        // so that the caller can read its id
+        // This will assert in the same way as the NFT standard borrowNFT()
+        // if the NFT is absent, for example if it has been sold via another offer.
         //
-        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT
+        pub fun borrowNFT(): &NonFungibleToken.NFT {
+            let ref = self.nftProviderCapability.borrow()!.borrowNFT(id: self.getDetails().nftID)
+            //- CANNOT DO THIS IN PRECONDITION: "member of restricted type is not accessible: isInstance"
+            //  result.isInstance(self.getDetails().nftType): "token has wrong type"
+            assert(ref.isInstance(self.getDetails().nftType), message: "token has wrong type")
+            assert(ref.id == self.getDetails().nftID, message: "token has wrong ID")
+            return ref as &NonFungibleToken.NFT
         }
 
-        // borrowCricketMoment
-        // Gets a reference to an NFT in the collection as a Moment,
-        // exposing all of its fields (including the momentId, serial, and metadata).
-        // This is safe as there are no functions that can be called on the Moment.
-        // Metadata is also a private field, therefore can't be changed using borrowed object.
+        // getDetails
+        // Get the details of the current state of the SaleOffer as a struct.
+        // This avoids having more public variables and getter methods for them, and plays
+        // nicely with scripts (which cannot return resources).
         //
-        pub fun borrowCricketMoment(id: UInt64): &CricketMoments.NFT? {
-            if self.ownedNFTs[id] != nil {
-                let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT
-                return ref as! &CricketMoments.NFT
+        pub fun getDetails(): SaleOfferDetails {
+            return self.details
+        }
+
+        // accept
+        // Accept the offer, buying the token.
+        // This pays the beneficiaries and returns the token to the buyer.
+        //
+        pub fun accept(payment: @FungibleToken.Vault): @NonFungibleToken.NFT {
+            pre {
+                self.details.accepted == false: "offer has already been accepted"
+                payment.isInstance(self.details.salePaymentVaultType): "payment vault is not requested fungible token"
+                payment.balance == self.details.salePrice: "payment vault does not contain requested price"
+            }
+
+            // Make sure the offer cannot be accepted again.
+            self.details.setToAccepted()
+
+            // Fetch the token to return to the purchaser.
+            let nft <-self.nftProviderCapability.borrow()!.withdraw(withdrawID: self.details.nftID)
+            // Neither receivers nor providers are trustworthy, they must implement the correct
+            // interface but beyond complying with its pre/post conditions they are not gauranteed
+            // to implement the functionality behind the interface in any given way.
+            // Therefore we cannot trust the Collection resource behind the interface,
+            // and we must check the NFT resource it gives us to make sure that it is the correct one.
+            assert(nft.isInstance(self.details.nftType), message: "withdrawn NFT is not of specified type")
+            assert(nft.id == self.details.nftID, message: "withdrawn NFT does not have specified ID")
+
+            // Rather than aborting the transaction if any receiver is absent when we try to pay it,
+            // we send the cut to the first valid receiver.
+            // The first receiver should therefore either be the seller, or an agreed recipient for
+            // any unpaid cuts.
+            var residualReceiver: &{FungibleToken.Receiver}? = nil
+
+            // Pay each beneficiary their amount of the payment.
+            for cut in self.details.saleCuts {
+                if let receiver = cut.receiver.borrow() {
+                   let paymentCut <- payment.withdraw(amount: cut.amount)
+                    receiver.deposit(from: <-paymentCut)
+                    if (residualReceiver == nil) {
+                        residualReceiver = receiver
+                    }
+                }
+            }
+
+            assert(residualReceiver != nil, message: "No valid payment receivers")
+
+            // At this point, if all recievers were active and availabile, then the payment Vault will have
+            // zero tokens left, and this will functionally be a no-op that consumes the empty vault
+            residualReceiver!.deposit(from: <-payment)
+
+            // If the offer is accepted, we regard it as completed here.
+            // Otherwise we regard it as completed in the destructor.
+            emit SaleOfferCompleted(
+                saleOfferResourceID: self.uuid,
+                storefrontResourceID: self.details.storefrontID,
+                accepted: self.details.accepted
+            )
+
+            return <-nft
+        }
+
+        // destructor
+        //
+        destroy () {
+            // If the offer has not been accepted, we regard it as completed here.
+            // Otherwise we regard it as completed in accept().
+            // This is because we destroy the offer in Storefront.removeSaleOffer()
+            // or Storefront.cleanup() .
+            // If we change this destructor, revisit those functions.
+            
+            if !self.details.accepted {
+              log("Destroying sale offer")
+                emit SaleOfferCompleted(
+                    saleOfferResourceID: self.uuid,
+                    storefrontResourceID: self.details.storefrontID,
+                    accepted: self.details.accepted
+                )
+            }
+        }
+
+        // initializer
+        //
+        init (
+            nftProviderCapability: Capability<&{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>,
+            nftType: Type,
+            nftID: UInt64,
+            salePaymentVaultType: Type,
+            saleCuts: [SaleCut],
+            storefrontID: UInt64
+        ) {
+            // Store the sale information
+            self.details = SaleOfferDetails(
+                nftType: nftType,
+                nftID: nftID,
+                salePaymentVaultType: salePaymentVaultType,
+                saleCuts: saleCuts,
+                storefrontID: storefrontID
+            )
+
+            // Store the NFT provider
+            self.nftProviderCapability = nftProviderCapability
+
+            // Check that the provider contains the NFT.
+            // We will check it again when the token is sold.
+            // We cannot move this into a function because initializers cannot call member functions.
+            let provider = self.nftProviderCapability.borrow()
+            assert(provider != nil, message: "cannot borrow nftProviderCapability")
+
+            // This will precondition assert if the token is not available.
+            let nft = provider!.borrowNFT(id: self.details.nftID)
+            assert(nft.isInstance(self.details.nftType), message: "token is not of specified type")
+            assert(nft.id == self.details.nftID, message: "token does not have specified ID")
+        }
+    }
+
+    // StorefrontManager
+    // An interface for adding and removing SaleOffers within a Storefront,
+    // intended for use by the Storefront's owner
+    //
+    pub resource interface StorefrontManager {
+        // createSaleOffer
+        // Allows the Storefront owner to create and insert SaleOffers.
+        //
+        pub fun createSaleOffer(
+            nftProviderCapability: Capability<&{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>,
+            nftType: Type,
+            nftID: UInt64,
+            salePaymentVaultType: Type,
+            saleCuts: [SaleCut]
+        ): UInt64
+        // removeSaleOffer
+        // Allows the Storefront owner to remove any sale offer, acepted or not.
+        //
+        pub fun removeSaleOffer(saleOfferResourceID: UInt64)
+    }
+
+    // StorefrontPublic
+    // An interface to allow listing and borrowing SaleOffers, and purchasing items via SaleOffers
+    // in a Storefront.
+    //
+    pub resource interface StorefrontPublic {
+        pub fun getSaleOfferIDs(): [UInt64]
+        pub fun borrowSaleOffer(saleOfferResourceID: UInt64): &SaleOffer{SaleOfferPublic}?
+        pub fun cleanup(saleOfferResourceID: UInt64)
+   }
+
+    // Storefront
+    // A resource that allows its owner to manage a list of SaleOffers, and anyone to interact with them
+    // in order to query their details and purchase the NFTs that they represent.
+    //
+    pub resource Storefront : StorefrontManager, StorefrontPublic {
+        // The dictionary of SaleOffer uuids to SaleOffer resources.
+        access(self) var saleOffers: @{UInt64: SaleOffer}
+
+        // insert
+        // Create and publish a SaleOffer for an NFT.
+        //
+         pub fun createSaleOffer(
+            nftProviderCapability: Capability<&{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>,
+            nftType: Type,
+            nftID: UInt64,
+            salePaymentVaultType: Type,
+            saleCuts: [SaleCut]   
+         ): UInt64 {
+             
+            let saleOffer <- create SaleOffer(
+                nftProviderCapability: nftProviderCapability,
+                nftType: nftType,
+                nftID: nftID,
+                salePaymentVaultType: salePaymentVaultType,
+                saleCuts: saleCuts,
+                storefrontID: self.uuid
+            )
+
+            let saleOfferResourceID = saleOffer.uuid
+            let saleOfferPrice = saleOffer.getDetails().salePrice
+
+            // Add the new offer to the dictionary.
+            let oldOffer <- self.saleOffers[saleOfferResourceID] <- saleOffer
+            // Note that oldOffer will always be nil, but we have to handle it.
+            destroy oldOffer
+
+            emit SaleOfferAvailable(
+                storefrontAddress: self.owner?.address!,
+                saleOfferResourceID: saleOfferResourceID,
+                nftType: nftType,
+                nftID: nftID,
+                ftVaultType: salePaymentVaultType,
+                price: saleOfferPrice
+            )
+
+            return saleOfferResourceID
+        }
+
+        // removeSaleOffer
+        // Remove a SaleOffer that has not yet been accepted from the collection and destroy it.
+        //
+        pub fun removeSaleOffer(saleOfferResourceID: UInt64) {
+
+            let offer <- self.saleOffers.remove(key: saleOfferResourceID)
+                ?? panic("missing SaleOffer")
+    
+            // This will emit a SaleOfferCompleted event.
+            destroy offer
+        }
+
+        // getSaleOfferIDs
+        // Returns an array of the SaleOffer resource IDs that are in the collection
+        //
+        pub fun getSaleOfferIDs(): [UInt64] {
+            return self.saleOffers.keys
+        }
+
+        // borrowSaleItem
+        // Returns a read-only view of the SaleItem for the given saleOfferID if it is contained by this collection.
+        //
+        pub fun borrowSaleOffer(saleOfferResourceID: UInt64): &SaleOffer{SaleOfferPublic}? {
+            if self.saleOffers[saleOfferResourceID] != nil {
+                return &self.saleOffers[saleOfferResourceID] as! &SaleOffer{SaleOfferPublic}
             } else {
                 return nil
             }
         }
 
-        // destructor
-        destroy() {
-            destroy self.ownedNFTs
+        // cleanup
+        // Remove an offer *if* it has been accepted.
+        // Anyone can call, but at present it only benefits the account owner to do so.
+        // Kind purchasers can however call it if they like.
+        //
+        pub fun cleanup(saleOfferResourceID: UInt64) {
+            pre {
+                self.saleOffers[saleOfferResourceID] != nil: "could not find offer with given id"
+            }
+
+            let offer <- self.saleOffers.remove(key: saleOfferResourceID)!
+            assert(offer.getDetails().accepted == true, message: "offer is not accepted, only admin can remove")
+            destroy offer
         }
 
-        // initializer
+        // destructor
+        //
+        destroy () {
+            destroy self.saleOffers
+
+            // Let event consumers know that this storefront will no longer exist
+            emit StorefrontDestroyed(storefrontResourceID: self.uuid)
+        }
+
+        // constructor
         //
         init () {
-            self.ownedNFTs <- {}
+            self.saleOffers <- {}
+
+            // Let event consumers know that this storefront exists
+            emit StorefrontInitialized(storefrontResourceID: self.uuid)
         }
     }
 
-    // createEmptyCollection
-    // public function that anyone can call to create a new empty collection
+    // createStorefront
+    // Make creating a Storefront publicly accessible.
     //
-    pub fun createEmptyCollection(): @NonFungibleToken.Collection {
-        return <- create Collection()
+    pub fun createStorefront(): @Storefront {
+        return <-create Storefront()
     }
 
-    // NFTMinter
-    // Resource that an admin or something similar would own to be
-    // able to mint new NFTs
-    //
-    pub resource NFTMinter {
+    init () {
+        self.StorefrontStoragePath = /storage/NFTStorefront
+        self.StorefrontPublicPath = /public/NFTStorefront
 
-        // mintNFTs
-        // Mints multiple new NFTs with the same momentId
-        // Increments serial number
-        // deposits all in the recipients collection using their collection reference
-        //
-        pub fun mintNewNFTs(recipient: &{NonFungibleToken.CollectionPublic}, serialQuantity: UInt64, metadata: {String : String}) {
-
-
-            var serialNumber = 1 as UInt64
-            var ipfs: String = metadata["ipfs"] ?? panic("IPFS url not available")
-            while serialNumber <= serialQuantity {
-                emit Minted(
-                    id: CricketMoments.totalSupply, 
-                    momentId:CricketMoments.totalMomentIds, 
-                    serial:serialNumber,
-                    ipfs:ipfs
-                    )
-
-                // create NFT and deposit it in the recipient's account using their reference
-                recipient.deposit(token: <-create CricketMoments.NFT(
-                    id: CricketMoments.totalSupply, 
-                    momentId: CricketMoments.totalMomentIds, 
-                    serial: serialNumber, 
-                    metadata: metadata
-                ))
-
-                serialNumber = serialNumber + (1 as UInt64)
-
-                CricketMoments.totalSupply = CricketMoments.totalSupply + (1 as UInt64)
-            }
-            // Save current serial number so that next copies of the same moment can start from here
-            CricketMoments.nextSerial[CricketMoments.totalMomentIds] = (serialNumber as UInt64)
-            // Initialize locked as false for a new Moment.
-            CricketMoments.locked[CricketMoments.totalMomentIds] = false
-            // Increment totalMomentIds
-            CricketMoments.totalMomentIds = CricketMoments.totalMomentIds + (1 as UInt64)
-        }
-
-        // Mint more NFTs for a particular momentId that already exists
-        pub fun mintOldNFTs(recipient: &{NonFungibleToken.CollectionPublic}, momentId:UInt64, serialQuantity: UInt64, metadata: {String : String}) {
-
-            var ipfs: String = metadata["ipfs"] ?? panic("IPFS url not available")
-            var serialNumber = CricketMoments.nextSerial[momentId] ?? panic("momentId not present")
-            var isLocked = CricketMoments.locked[momentId] ?? panic("momentId not present")
-            if (isLocked==true){
-                panic("Moment already locked. Can't mint any more NFTs for this momentId")
-            }
-
-            var i = 1 as UInt64
-            while i <= serialQuantity {
-                emit Minted(
-                    id: CricketMoments.totalSupply, 
-                    momentId:momentId, 
-                    serial:serialNumber,
-                    ipfs:ipfs
-                    )
-
-                // deposit it in the recipient's account using their reference
-                recipient.deposit(token: <-create CricketMoments.NFT(
-                    id: CricketMoments.totalSupply, 
-                    momentId: momentId, 
-                    serial: serialNumber, 
-                    metadata: metadata
-                ))
-
-                serialNumber = serialNumber + (1 as UInt64)
-                i = i + 1 as UInt64
-                CricketMoments.totalSupply = CricketMoments.totalSupply + (1 as UInt64)
-            }
-            // Save current serial number so that next copies of the same moment can start from here
-            // No need to increment totalMomentIds
-            CricketMoments.nextSerial[momentId] = serialNumber
-
-        }
-
-        // Lock a particular momentId, so that no more moments with this momentId can be minted. 
-        pub fun lockMoment(momentId:UInt64) {
-
-            if (CricketMoments.locked[momentId]==nil) {
-                panic("Moment not minted yet")
-            }
-            CricketMoments.locked[momentId]=true
-        }
-    }
-
-    // fetch
-    // Get a reference to a CricketMoments from an account's Collection, if available.
-    // If an account does not have a CricketMoments.Collection, panic.
-    // If it has a collection but does not contain the itemID, return nil.
-    // If it has a collection and that collection contains the itemID, return a reference to that.
-    //
-    pub fun fetch(_ from: Address, id: UInt64): &CricketMoments.NFT? {
-        let collection = getAccount(from)
-            .getCapability(CricketMoments.CollectionPublicPath)
-            .borrow<&CricketMoments.Collection{CricketMoments.CricketMomentsCollectionPublic}>()
-            ?? panic("Couldn't get collection")
-        // We trust CricketMoments.Collection.borrowMoment to get the correct itemID
-        // (it checks it before returning it).
-        return collection.borrowCricketMoment(id: id)
-    }
-
-    // get next serial for a momentId (nextSerial -1 indicates number of copies minted for this momentId)
-    pub fun getNextSerial(momentId:UInt64): UInt64? {
-        
-        if let nextSerial = self.nextSerial[momentId] {
-            return nextSerial
-        }
-        return nil
-    }
-
-    // check if a moment is locked. No more copies of a locked moment can be minted 
-    pub fun isMomentLocked(momentId:UInt64): Bool? {
-        
-        if let isLocked = self.locked[momentId] {
-            return isLocked
-        }
-        return nil
-    }
-
-    // initializer
-    //
-    init() {
-        // Set our named paths
-        self.CollectionStoragePath = /storage/CricketMomentsCollection
-        self.CollectionPublicPath = /public/CricketMomentsCollection
-        self.MinterStoragePath = /storage/CricketMomentsMinter
-        self.CollectionProviderPrivatePath = /private/cricketMomentsCollectionProvider
-        
-        // Initialize the total supply
-        self.totalSupply = 0
-
-        // Initialize the total Moment IDs
-        self.totalMomentIds = 0
-        
-        // Initialize locked and nextSerial as empty dictionaries
-        self.locked = {}
-        self.nextSerial = {}
-
-        // Create a Minter resource and save it to storage
-        let minter <- create NFTMinter()
-        self.account.save(<-minter, to: self.MinterStoragePath)
-
-        emit ContractInitialized()
+        emit NFTStorefrontInitialized()
     }
 }

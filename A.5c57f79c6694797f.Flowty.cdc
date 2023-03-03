@@ -1,9 +1,9 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 import FUSD from 0x3c5959b568896393
 
 import FlowtyUtils from 0x5c57f79c6694797f
-import CoatCheck from 0x5c57f79c6694797f
 
 // Flowty
 //
@@ -319,7 +319,8 @@ pub contract Flowty {
             paymentVaultType: Type,
             paymentCuts: [PaymentCut],
             flowtyStorefrontID: UInt64,
-            expiresAfter: UFix64
+            expiresAfter: UFix64,
+            royaltyRate: UFix64
         ) {
             self.flowtyStorefrontID = flowtyStorefrontID
             self.funded = false
@@ -330,8 +331,8 @@ pub contract Flowty {
             self.term = term
             self.paymentVaultType = paymentVaultType
             self.listedTime = getCurrentBlock().timestamp
-            self.royaltyRate = Flowty.Royalties[self.nftType.identifier]!.Rate
             self.expiresAfter = expiresAfter
+            self.royaltyRate = royaltyRate
 
             assert(paymentCuts.length > 0, message: "Listing must have at least one payment cut recipient")
             self.paymentCuts = paymentCuts
@@ -440,7 +441,6 @@ pub contract Flowty {
                 self.isFundingEnabled(): "Funding is not enabled or this listing has expired"
                 self.details.funded == false: "listing has already been funded"
                 payment.isInstance(self.details.paymentVaultType): "payment vault is not requested fungible token"
-                Flowty.Royalties[self.details.nftType.identifier] != nil: "royalty information not found for given collection"
                 payment.balance == self.details.getTotalPayment(): "payment vault does not contain requested amount"
                 self.nftProviderCapability.check(): "nftProviderCapability failed check"
             }
@@ -450,6 +450,9 @@ pub contract Flowty {
 
             // Fetch the token to return to the purchaser.
             let nft <-self.nftProviderCapability.borrow()!.withdraw(withdrawID: self.details.nftID)
+            let ref = &nft as &NonFungibleToken.NFT
+            assert(FlowtyUtils.isSupported(ref), message: "nft type is not supported")
+
             // Neither receivers nor providers are trustworthy, they must implement the correct
             // interface but beyond complying with its pre/post conditions they are not gauranteed
             // to implement the functionality behind the interface in any given way.
@@ -486,7 +489,12 @@ pub contract Flowty {
             // Royalty
             // Deposit royalty amount 
             let royalty = self.details.royaltyRate
-            let royaltyVault <- payment.withdraw(amount: self.details.amount * royalty)
+
+            var royaltyVault: @FungibleToken.Vault? <- nil
+            if self.details.royaltyRate > 0.0 {
+                let tmp <- royaltyVault <- payment.withdraw(amount: self.details.amount * royalty)
+                destroy tmp
+            }
 
             assert(residualReceiver != nil, message: "No valid payment receivers")
 
@@ -567,7 +575,8 @@ pub contract Flowty {
             paymentVaultType: Type,
             paymentCuts: [PaymentCut],
             flowtyStorefrontID: UInt64,
-            expiresAfter: UFix64
+            expiresAfter: UFix64,
+            royaltyRate: UFix64
         ) {
             // Store the sale information
             self.details = ListingDetails(
@@ -579,7 +588,8 @@ pub contract Flowty {
                 paymentVaultType: paymentVaultType,
                 paymentCuts: paymentCuts,
                 flowtyStorefrontID: flowtyStorefrontID,
-                expiresAfter: expiresAfter
+                expiresAfter: expiresAfter,
+                royaltyRate: royaltyRate
             )
 
             // Store the NFT provider
@@ -704,6 +714,8 @@ pub contract Flowty {
         // get the amount stored in a vault for royalty payouts
         //
         pub fun getRoyaltyAmount(): UFix64?
+
+        pub fun settleFunding()
     }
 
     // Funding
@@ -770,12 +782,17 @@ pub contract Flowty {
             FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.ownerNFTCollection)
 
             let royaltyVault <- self.royaltyVault <- nil
-            let vault <-! royaltyVault!
-            vault.deposit(from: <-payment.withdraw(amount: self.details.repaymentAmount))
-            destroy payment
-            assert(vault.balance == self.details.repaymentAmount + royaltyAmount, message: "insufficient balance to send to lender" )
+            if royaltyVault != nil {
+                let vault <-! royaltyVault!
+                vault.deposit(from: <-payment.withdraw(amount: self.details.repaymentAmount))
+                destroy payment
+                assert(vault.balance == self.details.repaymentAmount + royaltyAmount, message: "insufficient balance to send to lender" )
 
-            FlowtyUtils.trySendFungibleTokenVault(vault: <-vault, receiver: self.lenderFungibleTokenReceiver)
+                FlowtyUtils.trySendFungibleTokenVault(vault: <-vault, receiver: self.lenderFungibleTokenReceiver)
+            } else {
+                FlowtyUtils.trySendFungibleTokenVault(vault: <-payment, receiver: self.lenderFungibleTokenReceiver)
+                destroy royaltyVault
+            }
 
             let borrower = self.ownerNFTCollection.address
             let lender = self.lenderFungibleTokenReceiver.address
@@ -845,26 +862,56 @@ pub contract Flowty {
                 self.details.settled == false: "funding has already been settled"
             }
 
-            self.details.setToSettled()
+            let lender = self.lenderNFTCollection.address
+            let borrower = self.ownerNFTCollection.address
+            let borrowerTokenBalance = FlowtyUtils.getTokenBalance(address: borrower, vaultType: self.details.paymentVaultType)
 
-            // Move NFT to the lender account
+            let ref = &self.NFT as &NonFungibleToken.NFT?
+            let royalties = ref!.resolveView(Type<MetadataViews.Royalties>()) as! MetadataViews.Royalties?
+
             let NFT <- self.NFT <- nil
             let nftID = NFT?.id
             let nftType = NFT?.getType()!
-            assert(nftID != nil, message: "NFT is already moved")
 
-            let royalty = Flowty.getRoyalty(nftTypeIdentifier: self.getListingDetails().nftType.identifier)
-            let royaltyTokenPath = Flowty.TokenPaths[self.details.paymentVaultType.identifier]!
-            let receiverCap = getAccount(royalty.Address).getCapability<&AnyResource{FungibleToken.Receiver}>(royaltyTokenPath)
+            if borrowerTokenBalance >= self.details.repaymentAmount && self.fusdProviderCapability?.check() == true {
+                // borrower has funds to repay loan
+                // repay lender
+                // return NFT to owner
+                self.details.setToRepaid()
 
-            let royaltyVault <- self.royaltyVault <- nil
+                let borrowerVault = self.fusdProviderCapability!.borrow()!
+                let payment <- borrowerVault.withdraw(amount: self.details.repaymentAmount)
 
-            FlowtyUtils.trySendFungibleTokenVault(vault: <-royaltyVault!, receiver: receiverCap)
+                FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.ownerNFTCollection)
+
+                let repaymentVault <- payment
+                let royaltyVault <- self.royaltyVault <- nil
+                if royaltyVault != nil {
+                    repaymentVault.deposit(from: <-royaltyVault!)
+                } else {
+                    destroy royaltyVault
+                }
+
+                FlowtyUtils.trySendFungibleTokenVault(vault: <-repaymentVault, receiver: self.lenderFungibleTokenReceiver)
+
+                emit FundingRepaid(
+                    fundingResourceID: self.uuid, 
+                    listingResourceID: self.details.listingResourceID, 
+                    borrower: borrower,
+                    lender: lender,
+                    nftID: nftID!,
+                    nftType: nftType.identifier,
+                    repaymentAmount: self.details.repaymentAmount
+                )
+
+                return
+            }
+            
+            // loan defaults; move NFT to lender as payment
+            self.details.setToSettled()
+            assert(NFT != nil, message: "NFT is already moved")
             FlowtyUtils.trySendNFT(nft: <-NFT!, receiver: self.lenderNFTCollection)
-
-            let lender = self.lenderNFTCollection.address
-            let borrower = self.ownerNFTCollection.address
-
+        
             emit FundingSettled(
                 fundingResourceID: self.uuid, 
                 listingResourceID: self.details.listingResourceID, 
@@ -874,6 +921,30 @@ pub contract Flowty {
                 nftType: nftType.identifier,
                 repaymentAmount: self.details.repaymentAmount
             )
+            
+            let royaltyVault <- self.royaltyVault <- nil
+            if royaltyVault == nil {
+                destroy royaltyVault
+                return
+            }
+
+            let v <- royaltyVault!
+            let originalBalance = v.balance
+            if v.balance == 0.0 {
+                destroy v
+                return
+            }
+
+            if royalties == nil {
+                // no defined royalties on this NFT, return is back to the lender
+                FlowtyUtils.trySendFungibleTokenVault(vault: <-v, receiver: self.lenderFungibleTokenReceiver)
+                return
+            }
+
+            // distribute royalties!
+            let royaltyTokenPath = Flowty.TokenPaths[self.details.paymentVaultType.identifier]!
+            let cuts = royalties!.getRoyalties()
+            FlowtyUtils.distributeRoyalties(v: <-v, cuts: cuts, path: royaltyTokenPath)
         }
 
         // timeRemaining
@@ -1192,15 +1263,20 @@ pub contract Flowty {
                 FlowtyUtils.isTokenSupported(type: paymentVaultType): "provided payment type is not supported"
                 // make sure that the FUSD vault has at least the listing fee
                 payment.balance == Flowty.ListingFee: "payment vault does not contain requested listing fee amount"
-                // ensure that this nft type is supported
-                Flowty.SupportedCollections[nftType.identifier] != nil: "nftType is not supported: ".concat(nftType.identifier)
                 // check that the repayment token type is the same as the payment token if repayment is not nil
                 fusdProviderCapability == nil || fusdProviderCapability!.check() && fusdProviderCapability!.borrow()!.getType() == paymentVaultType: "repayment vault type and payment vault type do not match"
                 // There are no listing fees right now so this will ensure that no one attempts to send any
                 payment.balance == 0.0: "no listing fee required"
                 // make sure the payment type is the same as paymentVaultType
                 payment.getType() == paymentVaultType: "payment type and paymentVaultType do not match"
+                nftProviderCapability.check(): "invalid nft provider"
             }
+
+            let nft = nftProviderCapability.borrow()!.borrowNFT(id: nftID)
+            assert(nft.getType() == nftType, message: "incorrect nft type")
+            assert(FlowtyUtils.isSupported(nft), message: "nft type is not supported")
+
+            let royaltyRate = FlowtyUtils.getRoyaltyRate(nft)
 
             let listing <- create Listing(
                 nftProviderCapability: nftProviderCapability,
@@ -1214,11 +1290,11 @@ pub contract Flowty {
                 paymentVaultType: paymentVaultType,
                 paymentCuts: paymentCuts,
                 flowtyStorefrontID: self.uuid,
-                expiresAfter: expiresAfter
+                expiresAfter: expiresAfter,
+                royaltyRate: royaltyRate
             )
 
             let listingResourceID = listing.uuid
-            let royaltyRate = listing.getDetails().royaltyRate
             let expiration = listing.getDetails().expiresAfter
 
             // Add the new listing to the dictionary.
@@ -1331,12 +1407,28 @@ pub contract Flowty {
         return self.account.borrow<&Flowty.FlowtyMarketplace>(from: Flowty.FlowtyMarketplaceStoragePath)!
     }
 
+    pub fun borrowMarketplacePublic(): &Flowty.FlowtyMarketplace{FlowtyMarketplacePublic} {
+        let mp = self.account.getCapability<&Flowty.FlowtyMarketplace{Flowty.FlowtyMarketplacePublic}>(Flowty.FlowtyMarketplacePublicPath).borrow()
+            ?? panic("marketplac does not exist")
+        return mp
+    }
+
+    pub fun getRoyaltySafe(nftTypeIdentifier: String): Royalty? {
+        return Flowty.Royalties[nftTypeIdentifier]
+    }
+
     pub fun getRoyalty(nftTypeIdentifier: String): Royalty {
         return Flowty.Royalties[nftTypeIdentifier]!
     }
 
     pub fun getTokenPaths(): {String:PublicPath} {
         return self.TokenPaths
+    }
+
+    pub fun settleFunding(fundingResourceID: UInt64) {
+       let marketplace = Flowty.borrowMarketplace()
+       let funding = marketplace.borrowFunding(fundingResourceID: fundingResourceID)
+       funding!.settleFunding()
     }
 
     // FlowtyAdmin
@@ -1386,7 +1478,7 @@ pub contract Flowty {
         self.FusdReceiverPublicPath = /public/fusdReceiver
         self.FusdBalancePublicPath = /public/fusdBalance
 
-        self.ListingFee = 1.0 // Fixed FUSD
+        self.ListingFee = 0.0 // Fixed FUSD
         self.FundingFee = 0.1 // Percentage of the interest, a number between 0 and 1.
         self.SuspendedFundingPeriod = 300.0 // Period in seconds
         self.Royalties = {}

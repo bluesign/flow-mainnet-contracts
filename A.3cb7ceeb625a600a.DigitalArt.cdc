@@ -191,7 +191,7 @@ pub contract DigitalArt: NonFungibleToken {
                         self.evergreenProfile.buildRoyalties(defaultReceiverPath: MetadataViews.getRoyaltyReceiverPublicPath())
                     )
                 case Type<MetadataViews.ExternalURL>():
-                    return MetadataViews.ExternalURL(DigitalArt.getWebFriendlyURL(url: self.metadata.contentURI))
+                    return MetadataViews.ExternalURL(url: "https://app.sequel.space/tokens/digital-art/".concat(self.id.toString()))
                 case Type<MetadataViews.NFTCollectionData>():
                     return MetadataViews.NFTCollectionData(
                         storagePath: DigitalArt.CollectionStoragePath,

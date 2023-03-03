@@ -1,4 +1,5 @@
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract TicalUniverse: NonFungibleToken {
 
@@ -333,7 +334,7 @@ pub contract TicalUniverse: NonFungibleToken {
     }
 
     // The resource that represents the Collectible NFT
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 
         // Global unique Collectible Id
         pub let id: UInt64
@@ -357,6 +358,71 @@ pub contract TicalUniverse: NonFungibleToken {
         destroy() {
             emit CollectibleDestroyed(id: self.id)
         }
+
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties(
+                        []
+                    )
+                case Type<MetadataViews.Display>():
+                    let metadata = TicalUniverse.getItemMetadata(itemId: self.data.itemId)!
+                    let assetUrl = metadata["Asset"]!
+                    return MetadataViews.Display(
+                        name: metadata["Title"]!,
+                        description: metadata["Description"]!,
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: assetUrl.slice(from: 0, upTo: assetUrl.length - 3).concat("gif")
+                        )
+                    )
+                case Type<MetadataViews.Editions>():
+                    let editionInfo = MetadataViews.Edition(name: "Tical Universe", number: self.id, max: nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.uuid
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://www.tunegonft.com/collectible/".concat(self.uuid.toString()))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: TicalUniverse.CollectionStoragePath,
+                        publicPath: TicalUniverse.CollectionPublicPath,
+                        providerPath: TicalUniverse.CollectionPrivatePath,
+                        publicCollection: Type<&TicalUniverse.Collection{TicalUniverse.TicalUniverseCollectionPublic}>(),
+                        publicLinkedType: Type<&TicalUniverse.Collection{TicalUniverse.TicalUniverseCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&TicalUniverse.Collection{TicalUniverse.TicalUniverseCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-TicalUniverse.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    return TicalUniverse.getCollectionDisplay()
+                case Type<MetadataViews.Traits>():
+                    let metadata = TicalUniverse.getItemMetadata(itemId: self.data.itemId)
+                    let traitsView = metadata != nil ? MetadataViews.dictToTraits(dict: metadata!, excludedNames: []) : nil
+                    return traitsView
+            }
+            return nil
+        }
+
     }
 
     // Admin is an authorization resource that allows the owner to modify
@@ -421,7 +487,7 @@ pub contract TicalUniverse: NonFungibleToken {
 
     // Collection is a resource that every user who owns NFTs
     // will store in their account to manage their NFTS
-    pub resource Collection: TicalUniverseCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: TicalUniverseCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
         // Dictionary of Collectible conforming tokens
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
@@ -507,6 +573,13 @@ pub contract TicalUniverse: NonFungibleToken {
                 return nil
             }
         }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let ref = nft as! &TicalUniverse.NFT
+            return ref as &AnyResource{MetadataViews.Resolver}
+        }
+
 
         // If a transaction destroys the Collection object,
         // All the NFTs contained within are also destroyed!
@@ -609,6 +682,24 @@ pub contract TicalUniverse: NonFungibleToken {
         } else {
             return nil
         }
+    }
+
+    pub fun getCollectionDisplay(): MetadataViews.NFTCollectionDisplay {
+        let media = MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                    url: "https://tunegonft.com/assets/images/collections-page/tical.png"
+                ),
+                mediaType: "image/png"
+            )
+        let socials: {String:MetadataViews.ExternalURL} = {}
+        return MetadataViews.NFTCollectionDisplay(
+            name: "Tical Universe",
+            description: "The Genesis NFT drop represents the dawn of Method Man’s Tical Universe and the birth and introduction of the original Tical Universe heroes and villains.",
+            externalURL: MetadataViews.ExternalURL("https://www.tunegonft.com/collection-details/95487a67-a66a-43d5-913d-46fa8a644f4c"),
+            squareImage: media,
+            bannerImage: media,
+            socials: socials
+        )
     }
 
     // -----------------------------------------------------------------------

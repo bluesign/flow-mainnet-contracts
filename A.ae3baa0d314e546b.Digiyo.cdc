@@ -1,5 +1,6 @@
 //SPDX-License-Identifier: MIT
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract Digiyo: NonFungibleToken {
     // events
@@ -200,7 +201,7 @@ pub contract Digiyo: NonFungibleToken {
         }
     }
     
-    pub resource NFT: NonFungibleToken.INFT { // Resource representing the Instance NFTs
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver { // Resource representing the Instance NFTs
         pub let id: UInt64 // global unique instance ID
         pub let data: InstanceData // struct of instance metadata
         init(serialNumber: UInt32, assetID: UInt32, setID: UInt32) {
@@ -209,6 +210,96 @@ pub contract Digiyo: NonFungibleToken {
             self.data = InstanceData(setID: setID, assetID: assetID, serialNumber: serialNumber) // set the metadata struct
             emit InstanceMinted(instanceID: self.id, assetID: assetID, setID: self.data.setID, serialNumber: self.data.serialNumber)
         }
+
+        pub fun name(): String {
+            let fullName: String = Digiyo.getAssetMetaDataByField(assetID: self.data.assetID, field: "FullName") ?? ""
+            let assetType: String = Digiyo.getAssetMetaDataByField(assetID: self.data.assetID, field: "AssetType") ?? ""
+            return fullName.concat(" ").concat(assetType)
+        }
+
+        pub fun description(): String {
+            let setName: String = Digiyo.getSetName(setID: self.data.setID) ?? ""
+            let serialNumber: String = self.data.serialNumber.toString()
+            let seriesNumber: String = Digiyo.getSetSeries(setID: self.data.setID)?.toString() ?? ""
+            return "A series ".concat(seriesNumber).concat(" ").concat(setName).concat(" instance with serial number ").concat(serialNumber)
+        }
+
+        pub fun thumbnail(): String {
+            let cid: String = Digiyo.getAssetMetaDataByField(assetID: self.data.assetID, field: "CID") ?? ""
+            return "https://ipfs.io/ipfs/".concat(cid)
+        }
+
+        
+
+        pub fun metadata(): {String: AnyStruct} {
+            let metadata: {String: AnyStruct} = Digiyo.getAssetMetaData(assetID: self.data.assetID) ?? {}
+            return metadata
+        }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(name: self.name(), description: self.description(), thumbnail: MetadataViews.HTTPFile(url: self.thumbnail()))
+                case Type<MetadataViews.Editions>():
+                    let editionInfo = MetadataViews.Edition(name: "digiYo NFT Edition", number: UInt64(self.data.assetID), max: nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(editionList)
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(UInt64(self.data.serialNumber))
+                case Type<MetadataViews.Royalties>():
+                    let royalties : [MetadataViews.Royalty] = []
+                    return MetadataViews.Royalties(cutInfos: royalties)
+                case Type<MetadataViews.ExternalURL>():
+                    let cid: String = Digiyo.getAssetMetaDataByField(assetID: self.data.assetID, field: "CID") ?? ""
+                    return MetadataViews.ExternalURL("https://digiyo.io/assets/".concat(cid))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: Digiyo.collectionStoragePath,
+                        publicPath: Digiyo.collectionPublicPath,
+                        providerPath: /private/DigiyoCollection,
+                        publicCollection: Type<&Digiyo.Collection{Digiyo.DigiyoNFTCollectionPublic}>(),
+                        publicLinkedType: Type<&Digiyo.Collection{Digiyo.DigiyoNFTCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&Digiyo.Collection{Digiyo.DigiyoNFTCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {return <-Digiyo.createEmptyCollection()})
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let square = MetadataViews.Media(file: MetadataViews.IPFSFile(cid: "QmT2MJQpPNrURCUoei3qUVhsG2Zs6ffsbwZXagUCeCq8BX", path: ""), mediaType: "image/svg+xml")
+                    let banner = MetadataViews.Media(file: MetadataViews.IPFSFile(cid: "QmQfSjHT9Ew2ZLJsiVYRE9GoTrvN6dobncaTXkm14kFKhj", path: ""), mediaType: "image/svg+xml")
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "digiYo",
+                        description: "digiYo is a sports NFT marketplace where users can freely and easily create, customize and mint NFTs that provide unique experiences to their community.",
+                        externalURL: MetadataViews.ExternalURL("https://digiyo.io"),
+                        squareImage: square,
+                        bannerImage: banner,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/digiyo3"),
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/digiyo.nft"),
+                            "facebook": MetadataViews.ExternalURL("https://www.facebook.com/batstoiofficial")
+                        }
+                    )
+                case Type<MetadataViews.Traits>():
+                    let excludedTraits: [String] = []
+                    let metadata: {String: AnyStruct} = self.metadata()
+                    let traitsView = MetadataViews.dictToTraits(dict: metadata, excludedNames: excludedTraits)
+                    return traitsView
+
+            }
+            return nil
+        }
+
         destroy() {
             emit InstanceDestroyed(id: self.id)
         }
@@ -274,11 +365,12 @@ pub contract Digiyo: NonFungibleToken {
                     "Cannot borrow Instance reference: The ID of the returned reference is incorrect"
             }
         }
+        //pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} 
     }
 
     // Collection is a resource that every user who owns NFTs 
     // will store in their account to manage their NFTS
-    pub resource Collection: DigiyoNFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: DigiyoNFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
 
         // Dictionary of Instance conforming tokens
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
@@ -348,6 +440,12 @@ pub contract Digiyo: NonFungibleToken {
             } else {
                 return nil
             }
+        }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)! 
+            let digiyoNFT = nft as! &Digiyo.NFT
+            return digiyoNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         // If a transaction destroys the Collection object,

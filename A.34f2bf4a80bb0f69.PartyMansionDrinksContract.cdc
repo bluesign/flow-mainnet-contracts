@@ -6,6 +6,8 @@ import NonFungibleToken from 0x1d7e57aa55817448
 import FlowToken from 0x1654653399040a61
 import MetadataViews from 0x1d7e57aa55817448
 import PartyMansionGiveawayContract from 0x34f2bf4a80bb0f69
+import FindUtils from 0x097bafa4e0b48eef
+import Profile from 0x097bafa4e0b48eef
                                                                                             
 //                               ..`                                                                  
 //                              +..o                                                                  
@@ -291,7 +293,13 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
         //
         pub fun getViews(): [Type] {
             return [
-                Type<MetadataViews.Display>()
+                Type<MetadataViews.Display>(), 
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(), 
+                Type<MetadataViews.Traits>(), 
+                Type<MetadataViews.Rarity>()
             ]
         }
 
@@ -310,6 +318,72 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
                             path: nil
                         )
                     )
+
+                case Type<MetadataViews.ExternalURL>(): 
+                    return MetadataViews.ExternalURL(url: "https://partymansion.io/beers/".concat(self.id.toString()))
+
+                case Type<MetadataViews.Royalties>(): 
+
+                    let pmCap = Profile.findReceiverCapability(address: PartyMansionDrinksContract.account.address, path: /public/flowTokenReceiver, type: Type<@FlowToken.Vault>())!
+                    let ownerCap = Profile.findReceiverCapability(address: self.originalOwner, path: /public/flowTokenReceiver, type: Type<@FlowToken.Vault>())!
+
+                    return MetadataViews.Royalties([
+                        MetadataViews.Royalty(receiver: pmCap, cut: 0.05, description: "Party Mansion"),
+                        MetadataViews.Royalty(receiver: ownerCap, cut: 0.01, description: "First Owner")
+                    ])
+
+                case Type<MetadataViews.NFTCollectionData>(): 
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: PartyMansionDrinksContract.CollectionStoragePath,
+                        publicPath: PartyMansionDrinksContract.CollectionPublicPath,
+                        providerPath: /private/PartyMansionDrinkCollectionPublic,
+                        publicCollection: Type<&PartyMansionDrinksContract.Collection{PartyMansionDrinksContract.DrinkCollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                        publicLinkedType: Type<&PartyMansionDrinksContract.Collection{PartyMansionDrinksContract.DrinkCollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&PartyMansionDrinksContract.Collection{PartyMansionDrinksContract.DrinkCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: fun (): @NonFungibleToken.Collection {
+                            return <- PartyMansionDrinksContract.createEmptyCollection()
+                        }
+                    )
+
+                case Type<MetadataViews.NFTCollectionDisplay>(): 
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "Party Mansion Drinks",
+                        description: "What is a Party without drinks!? The Party Beers are an fun art collection of whacky drinks that can only be found at the bar in Party Mansion. These collectibles were first airdropped to Party Gooberz and will be a staple in the Mansion, Drink up!",
+                        externalURL: MetadataViews.ExternalURL(url: "https://partymansion.io/"),
+                        squareImage: MetadataViews.Media(file: MetadataViews.IPFSFile(cid: "QmSEJEwqdpotJ7RX42RKDy5sVgQzhNy3XiDmFsc81wgzNC", path: nil), mediaType: "image/jpg"),
+                        bannerImage: MetadataViews.Media(file: MetadataViews.IPFSFile(cid: "QmVyXgw67QVAU98765yfQAB1meZhnSnYVoL6mz6UpzSw7W", path: nil), mediaType: "image/jpg"),
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL(url: "https://mobile.twitter.com/the_goobz_nft"),
+                            "discord": MetadataViews.ExternalURL(url: "http://discord.gg/zJRNqKuDQH")
+                        }
+                    )
+                
+                case Type<MetadataViews.Traits>(): 
+                    let traits : [MetadataViews.Trait] = [] 
+                    for traitName in self.data.metadata.keys {
+                        let traitValue = self.data.metadata[traitName] 
+                        if traitValue != nil {
+                            if let tv = traitValue! as? String {
+                                traits.append(MetadataViews.Trait(name: FindUtils.to_snake_case(traitName), value: tv!, displayType: "String", rarity: nil))
+                                continue
+                            }
+                        }
+                    }
+                    
+                    var drinkType = "Beer"
+                    switch self.data.drinkType{
+                        case DrinkType.Whisky : 
+                            drinkType = "Whisky"
+                        case DrinkType.LongDrink : 
+                            drinkType = "LongDrink"
+                    }
+                    traits.append(MetadataViews.Trait(name: "drink_type", value: drinkType, displayType: "String", rarity: nil))
+            
+                    return traits
+
+                case Type<MetadataViews.Rarity>(): 
+                    return MetadataViews.Rarity(score: nil , max: nil, description: PartyMansionDrinksContract.rarityToString(rarity: self.data.rarity))
+
             }
             return nil
         }
@@ -628,7 +702,7 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
     // Polish
     // “Człowiek nie wielbłąd, pić musi”
     //
-    pub resource Collection: DrinkCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: DrinkCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
         //
@@ -717,6 +791,14 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
             } else {
                 return nil
             }
+        }
+
+        pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver} {
+            if self.ownedNFTs[id] != nil {
+                let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+                return ref as! &PartyMansionDrinksContract.NFT
+            } 
+            panic("Missing NFT. ID : ".concat(id.toString()))
         }
 
         // destructor
@@ -1086,3 +1168,4 @@ pub contract PartyMansionDrinksContract : NonFungibleToken {
         self.whiskyCellar = []
     }
 }
+ 

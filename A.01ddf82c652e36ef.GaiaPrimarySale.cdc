@@ -89,6 +89,10 @@ pub contract GaiaPrimarySale {
             data: AdminSignedData,
             sig: String
         ): @[NonFungibleToken.NFT]
+        pub fun claimNFTs(
+            data: AdminSignedData,
+            sig: String
+        ): @[NonFungibleToken.NFT]
     }
 
     pub resource interface PrimarySalePrivate {
@@ -282,6 +286,40 @@ pub contract GaiaPrimarySale {
 
             let receiver = self.paymentReceiverCap.borrow()!
             receiver.deposit(from: <- payment)
+
+            let minter = self.minterCap.borrow() ?? panic("cannot borrow minter")
+
+            var i: Int = 0
+            let nfts: @[NonFungibleToken.NFT] <- []
+            while i < data.assetIDs.length {
+                let assetID = data.assetIDs[i]
+                assert(self.availableAssetIDs.containsKey(assetID), message: "NFT is not available for purchase: ".concat(assetID.toString()))
+                self.availableAssetIDs.remove(key: assetID)
+                let nft <- minter.mint(assetID: assetID, creator: data.purchaserAddress)
+                emit NFTPurchased(externalID: self.externalID, nftType: nft.getType(), assetID: assetID, nftID: nft.id, purchaserAddress: data.purchaserAddress, priceType: data.priceType, price: price)
+                nfts.append(<-nft)
+                i = i + 1
+            }
+            assert(nfts.length == data.assetIDs.length, message: "nft count mismatch")
+
+            return <- nfts
+        }
+
+        pub fun claimNFTs(
+            data: AdminSignedData,
+            sig: String
+        ): @[NonFungibleToken.NFT] {
+            pre {
+                self.externalID == data.externalID: "externalID mismatch"
+                self.status == PrimarySaleStatus.OPEN: "primary sale is not open"
+                data.assetIDs.length > 0: "must purchase at least one NFT"
+                self.verifyAdminSignedData(data: data, sig: sig): "invalid admin signature for data"
+                data.expiration >= UInt64(getCurrentBlock().timestamp): "expired signature"
+            }
+
+            let price = self.prices[data.priceType] ?? panic("Invalid price type")
+
+            assert(price == 0.0, message: "Can only claim zero price assets")
 
             let minter = self.minterCap.borrow() ?? panic("cannot borrow minter")
 

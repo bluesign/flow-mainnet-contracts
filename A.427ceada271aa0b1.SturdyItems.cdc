@@ -64,23 +64,68 @@ pub contract SturdyItems: NonFungibleToken {
                 return []
             }
             return [
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
                 Type<MetadataViews.Display>(),
+                Type<MetadataViews.Medias>(),
                 Type<MetadataViews.Royalties>()
             ]
         }
 
         pub fun resolveView(_ view: Type): AnyStruct? {
             let metadata = HoodlumsMetadata.getMetadata(tokenID: self.id)
+            let thumbnailCID = metadata!["thumbnailCID"] != nil ? metadata!["thumbnailCID"]! : metadata!["imageCID"]!
             switch view {
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://ipfs.io/ipfs/".concat(thumbnailCID))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: SturdyItems.CollectionStoragePath,
+                        publicPath: SturdyItems.CollectionPublicPath,
+                        providerPath: /private/SturdyItemsCollection,
+                        publicCollection: Type<&SturdyItems.Collection{SturdyItems.SturdyItemsCollectionPublic}>(),
+                        publicLinkedType: Type<&SturdyItems.Collection{SturdyItems.SturdyItemsCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&SturdyItems.Collection{SturdyItems.SturdyItemsCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-SturdyItems.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let media = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(url: "https://ipfs.io/ipfs/bafkreigos42bix6eyvdqwgsbpwwpiemttt772g7ql5khsrutzrfflc4bpq"),
+                        mediaType: "image/jpeg"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "Hoodlums",
+                        description: "",
+                        externalURL: MetadataViews.ExternalURL("https://hoodlumsnft.com/"),
+                        squareImage: media,
+                        bannerImage: media,
+                        socials: {}
+                    )
                 case Type<MetadataViews.Display>():
                     return MetadataViews.Display(
                         name: self.tokenTitle,
                         description: self.tokenDescription,
-                        thumbnail: MetadataViews.IPFSFile(
-                            cid: metadata != nil && metadata!["imageCID"] != nil ? metadata!["imageCID"]! : "",
-                            path: nil
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: "https://ipfs.io/ipfs/".concat(thumbnailCID)
                         )
                     )
+                case Type<MetadataViews.Medias>():
+                    let medias: [MetadataViews.Media] = [];
+                    let imageCID = metadata!["imageCID"]
+                    if imageCID != nil {
+                        medias.append(
+                            MetadataViews.Media(
+                                file: MetadataViews.HTTPFile(
+                                    url: "https://ipfs.io/ipfs/".concat(thumbnailCID)
+                                ),
+                                mediaType: "image/jpeg"
+                            )
+                        )
+                    }
+                    return MetadataViews.Medias(medias)
                 case Type<MetadataViews.Royalties>():
                     return MetadataViews.Royalties(
                         [

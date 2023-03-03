@@ -76,7 +76,10 @@ pub contract CaaPass: NonFungibleToken {
                 Type<Metadata>(),
                 Type<MetadataViews.Serial>(),
                 Type<MetadataViews.Display>(),
-                Type<MetadataViews.NFTCollectionData>()
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.ExternalURL>()
             ]
         }
 
@@ -92,12 +95,16 @@ pub contract CaaPass: NonFungibleToken {
                     return MetadataViews.Serial(
                         self.id
                     )
+                case Type<MetadataViews.Royalties>():
+                    return MetadataViews.Royalties([])
                 case Type<MetadataViews.Display>():
                     return MetadataViews.Display(
                         name: metadata!.name,
                         description: metadata!.description,
                         thumbnail: MetadataViews.IPFSFile(cid: metadata!.mediaHash, path: nil)
                     )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://thing.fund/")
                 case Type<MetadataViews.NFTCollectionData>():
                     return MetadataViews.NFTCollectionData(
                         storagePath: CaaPass.CollectionStoragePath,
@@ -109,6 +116,30 @@ pub contract CaaPass: NonFungibleToken {
                         createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
                             return <-CaaPass.createEmptyCollection()
                         })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let square = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://raw.githubusercontent.com/williampucs/THiNG.FUND-Minter/main/assets/squareImage.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    let banner = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://raw.githubusercontent.com/williampucs/THiNG.FUND-Minter/main/assets/bannerImage.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "THiNG.FUND Membership Badge",
+                        description: "By holding THiNG.FUND’s membership badge NFTs in your blockchain wallet, you will become a member of THiNG.FUND club, grow with the creators and share the joy and beauty of Web3. At the same time, as a member, you will also get more privileges, including but not limited to obtaining airdrop gifts for creators’ works before obtaining THiNG.FUND limited collections or being invited to participate in offline/online events as a VIP.",
+                        externalURL: MetadataViews.ExternalURL("https://thing.fund/"),
+                        squareImage: square,
+                        bannerImage: banner,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/thing_fund"),
+                            "discord": MetadataViews.ExternalURL("https://discord.gg/thingfund")
+                        }
                     )
             }
             return nil

@@ -30,7 +30,7 @@ pub contract OVOMarketPlace{
         pub let soldTime: UFix64;
 
         init(orderId: UInt64, orderStatue: orderStatues, tokenId: UInt64, sellerAddr: Address, 
-            buyerAddr: Address?, tokenName: String, totalPrice: UFix64, createTime: UFix64
+            buyerAddr: Address?, tokenName: String, totalPrice: UFix64, createTime: UFix64,
             soldTime: UFix64){
                 self.orderId = orderId;
                 self.orderStatue = orderStatue;

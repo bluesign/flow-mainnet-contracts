@@ -1,6 +1,6 @@
 /*
     Description: Central Smart Contract for SportsIcon NFT Collectibles
-    
+
     SportsIcon Collectibles are available as part of "sets", each with
     a fixed edition count.
 
@@ -8,10 +8,11 @@
 */
 
 import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 import SportsIconCounter from 0x8de96244f54db422
 import SportsIconBeneficiaries from 0x8de96244f54db422
 
-pub contract SportsIconCollectible : NonFungibleToken {
+pub contract SportsIconCollectible: NonFungibleToken {
 
     // -----------------------------------------------------------------------
     // NonFungibleToken Standard Events
@@ -26,6 +27,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
     pub event Mint(id: UInt64)
     pub event Burn(id: UInt64)
     pub event SetCreated(setID: UInt64)
+    pub event SetRemoved(setID: UInt64)
 
     // -----------------------------------------------------------------------
     // Named Paths
@@ -109,7 +111,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
     pub struct SetMetadata {
         access(self) let setID: UInt64
         access(self) var mediaURL: String
-        access(self) var metadata: {String : String}
+        access(self) var metadata: {String: String}
         access(self) var maxNumberOfEditions: UInt64
         access(self) var editionCount: UInt64
         access(self) var publicFUSDSalePrice: UFix64?
@@ -145,7 +147,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
             return self.setID
         }
 
-        pub fun getMetadata(): {String : String} {
+        pub fun getMetadata(): {String: String} {
             return self.metadata
         }
 
@@ -196,7 +198,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
         }
 
         // A public sale allowing for direct minting from the contract is considered active if we have a valid public
-        // sale price listing, current time is after start time, and current time is before end time 
+        // sale price listing, current time is after start time, and current time is before end time
         pub fun isPublicSaleActive(): Bool {
             let curBlockTime = getCurrentBlock().timestamp
             return (self.publicSaleStartTime != nil && curBlockTime >= self.publicSaleStartTime!) &&
@@ -212,6 +214,15 @@ pub contract SportsIconCollectible : NonFungibleToken {
             }
             self.editionCount = self.editionCount + 1
             return self.editionCount
+        }
+
+        access(contract) fun updateMaxNumberOfEditions(maxNumberOfEditions: UInt64) {
+            pre {
+                maxNumberOfEditions > 0 : "Max number of editions should be above 0"
+                maxNumberOfEditions >= self.editionCount : "Number of editions is larger than max allowed editions"
+                maxNumberOfEditions <= self.maxNumberOfEditions : "Max number of editions is larger than previous max number of editions"
+            }
+            self.maxNumberOfEditions = maxNumberOfEditions
         }
 
         access(contract) fun updateSetMetadata(_ newMetadata: {String: String}) {
@@ -260,7 +271,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
     // -----------------------------------------------------------------------
     // NonFungibleToken Standard Resources
     // -----------------------------------------------------------------------
-    pub resource NFT: NonFungibleToken.INFT {
+    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
         pub let id: UInt64
 
         pub let setID: UInt64
@@ -301,9 +312,82 @@ pub contract SportsIconCollectible : NonFungibleToken {
         destroy() {
             emit Burn(id: self.uuid)
         }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>()
+            ]
+        }
+
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<MetadataViews.Display>():
+                    let metadata = SportsIconCollectible.getSetMetadataForNFTByUUID(uuid: self.uuid)!.getMetadata()
+                    let name = metadata["title"] != nil ? metadata["title"]! : "SportsIcon Collectible #".concat(self.id.toString())
+                    let description = metadata["description"] != nil ? metadata["description"]! : name
+                    let url = metadata["coverImageURL"] != nil ? metadata["coverImageURL"]! : ""
+
+                    return MetadataViews.Display(
+                        name: name,
+                        description: description,
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: url
+                        ),
+                    )
+                case Type<MetadataViews.Royalties>():
+                    let royalties: [MetadataViews.Royalty] = []
+                    return MetadataViews.Royalties(royalties)
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://sportsicon.com/nfts/".concat(self.setID.toString()))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: SportsIconCollectible.CollectionStoragePath,
+                        publicPath: SportsIconCollectible.CollectionPublicPath,
+                        providerPath: SportsIconCollectible.CollectionPrivatePath,
+                        publicCollection: Type<&SportsIconCollectible.Collection{SportsIconCollectible.CollectibleCollectionPublic}>(),
+                        publicLinkedType: Type<&SportsIconCollectible.Collection{SportsIconCollectible.CollectibleCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&SportsIconCollectible.Collection{SportsIconCollectible.CollectibleCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-SportsIconCollectible.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let squareImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://sportsicon.com/images/sportsicon-logo-flow.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    let bannerImage = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://sportsicon.com/images/sportsicon-banner-flow.jpg"
+                        ),
+                        mediaType: "image/jpeg"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "SportsIcon Collection",
+                        description: "The world's first sports-focused NFT marketplace.",
+                        externalURL: MetadataViews.ExternalURL("https://sportsicon.com"),
+                        squareImage: squareImage,
+                        bannerImage: bannerImage,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/sportsicon"),
+                            "discord": MetadataViews.ExternalURL("http://discord.gg/mfAx4nzqEe"),
+                            "telegram": MetadataViews.ExternalURL("https://t.me/sportsiconchat"),
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/_SportsIcon_/"),
+                            "youtube": MetadataViews.ExternalURL("https://www.youtube.com/channel/UCpwABtrFnRHMMM1k7zIf93w")
+                        }
+                    )
+            }
+            return nil
+        }
     }
 
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectibleCollectionPublic {
+    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection, CollectibleCollectionPublic {
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
         init() {
@@ -354,13 +438,19 @@ pub contract SportsIconCollectible : NonFungibleToken {
             return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
 
-        pub fun borrowCollectible(id: UInt64) : &SportsIconCollectible.NFT? {
+        pub fun borrowCollectible(id: UInt64): &SportsIconCollectible.NFT? {
             if self.ownedNFTs[id] == nil {
                 return nil
             } else {
                 let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &SportsIconCollectible.NFT
             }
+        }
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let SportsIconCollectibleNFT = nft as! &SportsIconCollectible.NFT
+            return SportsIconCollectibleNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         pub fun getIDs(): [UInt64] {
@@ -387,7 +477,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
     ): UInt64 {
         let id = SportsIconCounter.nextSetID
 
-        let newSet = SportsIconCollectible.SetMetadata(setID: id, mediaURL: mediaURL, maxNumberOfEditions: maxNumberOfEditions, data: data,
+        let newSet = SportsIconCollectible.SetMetadata(setID: id, mediaURL: mediaURL, maxNumberOfEditions: maxNumberOfEditions, metadata: data,
             mintBeneficiaries: mintBeneficiaries, marketBeneficiaries: marketBeneficiaries)
 
         self.collectibleData[id] = {}
@@ -396,8 +486,18 @@ pub contract SportsIconCollectible : NonFungibleToken {
         SportsIconCounter.incrementSetCounter()
 
         emit SetCreated(setID: id)
-        
+
         return id
+    }
+
+    access(account) fun removeNFTSet(setID: UInt64) {
+        let nftSet = SportsIconCollectible.setData.remove(key: setID)
+            ?? panic("missing set metadata")
+
+        self.collectibleData[setID] = nil
+        self.setData[setID] = nil
+
+        emit SetRemoved(setID: setID)
     }
 
     /*
@@ -436,6 +536,10 @@ pub contract SportsIconCollectible : NonFungibleToken {
         SportsIconCollectible.setData[setID]!.updatePublicSaleEndTime(endTime)
     }
 
+    access(account) fun updateMaxNumberOfEditions(setID: UInt64, maxNumberOfEditions: UInt64) {
+        SportsIconCollectible.setData[setID]!.updateMaxNumberOfEditions(maxNumberOfEditions: maxNumberOfEditions)
+    }
+
     /*
         Minting functions to create editions within a set
     */
@@ -460,11 +564,11 @@ pub contract SportsIconCollectible : NonFungibleToken {
     pub fun createEmptyCollection(): @NonFungibleToken.Collection {
         return <- create Collection()
     }
-    
+
     // -----------------------------------------------------------------------
     // SportsIcon Functions
     // -----------------------------------------------------------------------
-    
+
     // Retrieves all sets (This can be expensive)
     pub fun getMetadatas(): {UInt64: SportsIconCollectible.SetMetadata} {
         return self.setData
@@ -505,7 +609,7 @@ pub contract SportsIconCollectible : NonFungibleToken {
         self.CollectionStoragePath = /storage/sportsIconCollectibleCollection
         self.CollectionPublicPath = /public/sportsIconCollectibleCollection
         self.CollectionPrivatePath = /private/sportsIconCollectibleCollection
-        
+
         self.totalSupply = 0
         self.collectibleData = {}
         self.setData = {}

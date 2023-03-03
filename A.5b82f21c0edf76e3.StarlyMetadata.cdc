@@ -75,10 +75,19 @@ pub contract StarlyMetadata {
             let edition = cardEdition.edition.toString()
             let editions = card.editions.toString()
             let creatorName = cardEdition.collection.creator.name
+
+            var thumbnail: String? = ""
+            let mediaSize = cardEdition.card.mediaSizes[0]
+            if mediaSize.screenshot != nil {
+                thumbnail = mediaSize.screenshot
+            } else {
+                thumbnail = mediaSize.url
+            }
+
             return MetadataViews.Display(
                 name: title.concat(" #").concat(edition).concat("/").concat(editions).concat(" by ").concat(creatorName),
                 description: cardEdition.card.description,
-                thumbnail: MetadataViews.HTTPFile(url: cardEdition.card.mediaSizes[0]!.url)
+                thumbnail: MetadataViews.HTTPFile(thumbnail!)
             )
         }
         return nil
@@ -140,8 +149,6 @@ pub contract StarlyMetadata {
                 MetadataViews.Trait(name:"Creator (Name)", value: creator.name, displayType: "String", rarity: nil),
                 MetadataViews.Trait(name:"Creator (Username)", value: creator.username, displayType: "String", rarity: nil),
                 MetadataViews.Trait(name:"Creator (URL)", value: creator.url, displayType: "String", rarity: nil),
-                MetadataViews.Trait(name:"Edition", value: cardEdition.edition, displayType: "Numeric", rarity: nil),
-                MetadataViews.Trait(name:"Editions", value: card.editions, displayType: "Numeric", rarity: nil),
                 MetadataViews.Trait(name:"Collector Score", value: cardEdition.score ?? 0.0, displayType: "Numeric", rarity: nil),
                 MetadataViews.Trait(name:"URL", value: cardEdition.url, displayType: "String", rarity: nil),
                 MetadataViews.Trait(name:"Preview URL", value: cardEdition.previewUrl, displayType: "String", rarity: nil)

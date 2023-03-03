@@ -16,6 +16,7 @@ pub contract SturdyTokens: NonFungibleToken {
   pub event TemplateUpdated(template: SturdyTokensTemplate)
   pub event SetLocked(setID: UInt64)
   pub event SetUnlocked(setID: UInt64)
+  pub event Burned(owner: Address?, id: UInt64, templateID: UInt64, setID: UInt64)
   
   pub let CollectionStoragePath: StoragePath
   pub let CollectionPublicPath: PublicPath
@@ -87,8 +88,6 @@ pub contract SturdyTokens: NonFungibleToken {
 
   pub struct Royalty {
     pub let address: Address
-    pub let primaryCut: UFix64
-    pub let secondaryCut: UFix64
     pub let description: String
 
     init(address: Address, primaryCut: UFix64, secondaryCut: UFix64, description: String) {
@@ -97,8 +96,6 @@ pub contract SturdyTokens: NonFungibleToken {
           secondaryCut >= 0.0 && secondaryCut <= 1.0 : "secondaryCut value should be in valid range i.e [0,1]"
       }
       self.address = address
-      self.primaryCut = primaryCut
-      self.secondaryCut = secondaryCut
       self.description = description
     }
   }
@@ -110,22 +107,79 @@ pub contract SturdyTokens: NonFungibleToken {
     
     pub fun getViews(): [Type] {
       return [
+        Type<MetadataViews.ExternalURL>(),
+        Type<MetadataViews.NFTCollectionData>(),
+        Type<MetadataViews.NFTCollectionDisplay>(),
         Type<MetadataViews.Display>(),
+        Type<MetadataViews.Medias>(),
         Type<MetadataViews.Royalties>()
       ]
     }
 
      pub fun resolveView(_ view: Type): AnyStruct? {
+      let metadata = SturdyTokens.sturdyTokensTemplates[self.templateID]!.getMetadata()
+      let thumbnailCID = metadata["thumbnailCID"] != nil ? metadata["thumbnailCID"]! : metadata["imageCID"]!
       switch view {
+        case Type<MetadataViews.ExternalURL>():
+          return MetadataViews.ExternalURL("https://ipfs.io/ipfs/".concat(thumbnailCID))
+        case Type<MetadataViews.NFTCollectionData>():
+          return MetadataViews.NFTCollectionData(
+              storagePath: SturdyTokens.CollectionStoragePath,
+              publicPath: SturdyTokens.CollectionPublicPath,
+              providerPath: /private/SturdyTokensCollection,
+              publicCollection: Type<&SturdyTokens.Collection{SturdyTokens.SturdyTokensCollectionPublic}>(),
+              publicLinkedType: Type<&SturdyTokens.Collection{SturdyTokens.SturdyTokensCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+              providerLinkedType: Type<&SturdyTokens.Collection{SturdyTokens.SturdyTokensCollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+              createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                  return <-SturdyTokens.createEmptyCollection()
+              })
+          )
+        case Type<MetadataViews.NFTCollectionDisplay>():
+          let media = MetadataViews.Media(
+            file: MetadataViews.HTTPFile(url: "https://ipfs.io/ipfs/bafkreigzbmx5vrynlnau2bchis76gz2jp7fylcs3kh6aqbfzhky22sko3y"),
+            mediaType: "image/jpeg"
+          )
+          return MetadataViews.NFTCollectionDisplay(
+            name: "Sturdy Exchange",
+            description: "",
+            externalURL: MetadataViews.ExternalURL("https://sturdy.exchange/"),
+            squareImage: media,
+            bannerImage: media,
+            socials: {}
+          )
         case Type<MetadataViews.Display>():
           return MetadataViews.Display(
             name: SturdyTokens.sturdyTokensTemplates[self.templateID]!.name,
             description: SturdyTokens.sturdyTokensTemplates[self.templateID]!.description,
-            thumbnail: MetadataViews.IPFSFile(
-              cid: SturdyTokens.sturdyTokensTemplates[self.templateID]!.getMetadata()["imageCID"]!,
-              path: nil
+            thumbnail: MetadataViews.HTTPFile(
+              url: "https://ipfs.io/ipfs/".concat(SturdyTokens.sturdyTokensTemplates[self.templateID]!.getMetadata()["imageCID"]!)
             )
           )
+        case Type<MetadataViews.Medias>():
+          let medias: [MetadataViews.Media] = [];
+          let videoCID = SturdyTokens.sturdyTokensTemplates[self.templateID]!.getMetadata()["videoCID"]
+          let imageCID = SturdyTokens.sturdyTokensTemplates[self.templateID]!.getMetadata()["imageCID"]
+          if videoCID != nil {
+            medias.append(
+              MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                  url: "https://ipfs.io/ipfs/".concat(videoCID!)
+                ),
+                mediaType: "video/mp4"
+              )
+            )
+          }
+          else if imageCID != nil {
+            medias.append(
+              MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                  url: "https://ipfs.io/ipfs/".concat(imageCID!)
+                ),
+                mediaType: "image/jpeg"
+              )
+            )
+          }
+          return MetadataViews.Medias(medias)
         case Type<MetadataViews.Royalties>():
           let setID = SturdyTokens.sturdyTokensTemplates[self.templateID]!.addedToSet
           let setRoyalties = SturdyTokens.getSetRoyalties(setID: setID)
@@ -135,7 +189,7 @@ pub contract SturdyTokens: NonFungibleToken {
               MetadataViews.Royalty(
                 receiver: getAccount(royalty.address)
                     .getCapability<&{FungibleToken.Receiver}>(/public/dapperUtilityCoinReceiver),
-                cut: royalty.secondaryCut,
+                cut: 0.05,
                 description: royalty.description
               )
             )
@@ -147,6 +201,10 @@ pub contract SturdyTokens: NonFungibleToken {
 
     pub fun getNFTMetadata(): {String: String} {
       return SturdyTokens.sturdyTokensTemplates[self.templateID]!.getMetadata()
+    }
+
+    pub fun getSetID(): UInt64 {
+      return SturdyTokens.sturdyTokensTemplates[self.templateID]!.addedToSet
     }
 
     init(initID: UInt64, initTemplateID: UInt64, serialNumber: UInt64) {
@@ -204,6 +262,14 @@ pub contract SturdyTokens: NonFungibleToken {
       return exampleNFT as &AnyResource{MetadataViews.Resolver}
     }
 
+    pub fun burn(burnID: UInt64) {
+      let token <- self.withdraw(withdrawID: burnID) as! @SturdyTokens.NFT
+      let templateID = token.templateID
+      let setID = SturdyTokens.sturdyTokensTemplates[templateID]!.addedToSet
+      destroy token;
+      emit Burned(owner: self.owner?.address, id: burnID, templateID: templateID, setID: setID)
+    }
+
     destroy() {
       destroy self.ownedNFTs
     }
@@ -224,12 +290,9 @@ pub contract SturdyTokens: NonFungibleToken {
     access(self) var templateIDs: [UInt64]
     access(self) var availableTemplateIDs: [UInt64]
     access(self) var lockedTemplates: {UInt64: Bool}
-    access(self) var metadata: {String: String}
     pub var locked: Bool
     pub var nextSetSerialNumber: UInt64
     pub var isPublic: Bool
-    pub var sturdyRoyaltyAddress: Address
-    pub var sturdyRoyaltySecondaryCut: UFix64
     pub var artistRoyalties: [Royalty]
 
 
@@ -242,10 +305,7 @@ pub contract SturdyTokens: NonFungibleToken {
       self.availableTemplateIDs = []
       self.nextSetSerialNumber = 1
       self.isPublic = false
-      self.sturdyRoyaltyAddress = sturdyRoyaltyAddress
-      self.sturdyRoyaltySecondaryCut = sturdyRoyaltySecondaryCut
       self.artistRoyalties = []
-      self.metadata = {}
       
       SturdyTokens.nextSetID = SturdyTokens.nextSetID + 1
       emit SetCreated(setID: self.setID)
@@ -261,14 +321,6 @@ pub contract SturdyTokens: NonFungibleToken {
 
     pub fun makeSetPrivate() {
       self.isPublic = false
-    }
-
-    pub fun updateSturdyRoyaltyAddress(sturdyRoyaltyAddress: Address) {
-      self.sturdyRoyaltyAddress = sturdyRoyaltyAddress
-    }
-
-    pub fun updateSturdyRoyaltySecondaryCut(sturdyRoyaltySecondaryCut: UFix64) {
-      self.sturdyRoyaltySecondaryCut = sturdyRoyaltySecondaryCut
     }
 
     pub fun addArtistRoyalty(royalty: Royalty) {
@@ -397,15 +449,15 @@ pub contract SturdyTokens: NonFungibleToken {
       
     let set = (&SturdyTokens.sets[setID] as &Set?)!
     var sturdyRoyaltyPrimaryCut: UFix64 = 1.00
-    for royalty in set.artistRoyalties {
-      sturdyRoyaltyPrimaryCut = sturdyRoyaltyPrimaryCut - royalty.primaryCut
-    }
+    // for royalty in set.artistRoyalties {
+    //   sturdyRoyaltyPrimaryCut = sturdyRoyaltyPrimaryCut - royalty.primaryCut
+    // }
     let royalties = [
       Royalty(
-        address: set.sturdyRoyaltyAddress,
+        address: 0xd43cf319894f9662,
         primaryCut: sturdyRoyaltyPrimaryCut,
-        secondaryCut: set.sturdyRoyaltySecondaryCut,
-        description: "Sturdy Exchange"
+        secondaryCut: 0.10,
+        description: "Sturdy Royalty"
       )
     ]
     royalties.appendAll(set.artistRoyalties)
@@ -426,7 +478,7 @@ pub contract SturdyTokens: NonFungibleToken {
     }
 
     pub fun createAndMintNFT(recipient: &{NonFungibleToken.CollectionPublic}, templateID: UInt64, setID: UInt64, name: String, description: String, metadata: {String: String}) {
-      if SturdyTokens.sturdyTokensTemplates[SturdyTokens.nextTemplateID] != nil {
+      if SturdyTokens.sturdyTokensTemplates[templateID] != nil {
         panic("Template already exists")
       }
       SturdyTokens.sturdyTokensTemplates[templateID] = SturdyTokensTemplate(

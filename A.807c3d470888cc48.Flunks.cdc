@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-
+import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
 
@@ -91,7 +91,13 @@ pub contract Flunks: NonFungibleToken {
     
     pub fun getViews(): [Type] {
       return [
-        Type<MetadataViews.Display>()
+        Type<MetadataViews.Display>(),
+        Type<MetadataViews.NFTCollectionData>(),
+        Type<MetadataViews.NFTCollectionDisplay>(),
+        Type<MetadataViews.ExternalURL>(),
+        Type<MetadataViews.Traits>(),
+        Type<MetadataViews.Edition>(),
+        Type<MetadataViews.Royalties>()
       ]
     }
 
@@ -99,12 +105,70 @@ pub contract Flunks: NonFungibleToken {
       switch view {
         case Type<MetadataViews.Display>():
           return MetadataViews.Display(
-            name: self.getNFTTemplate().name,
+            name: self.getNFTTemplate().name.concat(" #").concat(self.serialNumber.toString()),
             description: self.getNFTTemplate().description,
             thumbnail: MetadataViews.HTTPFile(
               url: self.getNFTTemplate().getMetadata()["uri"]!
             )
           )
+
+        case Type<MetadataViews.ExternalURL>():
+          return MetadataViews.ExternalURL(
+            url: "https://flunks.io/"
+          )
+
+        case Type<MetadataViews.NFTCollectionData>():
+          return MetadataViews.NFTCollectionData(
+            storagePath: Flunks.CollectionStoragePath,
+            publicPath: Flunks.CollectionPublicPath,
+            providerPath: /private/FlunksPrivateProvider,
+            publicCollection: Type<&Flunks.Collection{NonFungibleToken.CollectionPublic}>(),
+            publicLinkedType: Type<&Flunks.Collection{NonFungibleToken.CollectionPublic, Flunks.FlunksCollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+            providerLinkedType: Type<&Flunks.Collection{NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+            createEmptyCollection: (fun (): @NonFungibleToken.Collection {
+              return <-Flunks.createEmptyCollection()
+            }),
+          )
+
+        case Type<MetadataViews.NFTCollectionDisplay>():
+          let media = MetadataViews.Media(
+            file: MetadataViews.HTTPFile(
+              url: "https://storage.googleapis.com/flunks_public/website-assets/classroom.png"
+            ),
+            mediaType: "image/png"
+          )
+          return MetadataViews.NFTCollectionDisplay(
+            name: "Flunks",
+            description: "Flunks are cute but mischievous high-schoolers wreaking havoc #onFlow",
+            externalURL: MetadataViews.ExternalURL("https://flunks.io/"),
+            squareImage: media,
+            bannerImage: media,
+            socials: {
+              "twitter": MetadataViews.ExternalURL("https://twitter.com/flunks_nft")
+            }
+          )
+
+        case Type<MetadataViews.Traits>():
+          let excludedTraits = ["mimetype", "uri", "pixelUri", "path", "cid"]
+          let traitsView = MetadataViews.dictToTraits(dict: self.getNFTTemplate().getMetadata(), excludedNames: excludedTraits)
+          return traitsView
+
+        case Type<MetadataViews.Edition>():
+          return MetadataViews.Edition(
+            name: "Flunks",
+            edition: self.serialNumber,
+            editionSize: 9999
+          )
+
+        case Type<MetadataViews.Royalties>():
+          return MetadataViews.Royalties(cutInfos: [])
+          // let merchant = getAccount(0x0cce91b08cb58286)
+
+				  // return [MetadataViews.Royalty(
+          //   recepient: merchant.getCapability<&{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath()),
+          //   cut: 0.05,
+          //   description: "Dapper Wallet Royalty",
+          // )]
       }
 
       return nil
@@ -344,8 +408,8 @@ pub contract Flunks: NonFungibleToken {
 
     pub fun updateFlunksTemplate(templateID: UInt64, newMetadata: {String: String}) {
       pre {
-        Flunks.FlunksTemplates.containsKey(templateID) != nil:
-          "Template does not exits."
+        Flunks.FlunksTemplates.containsKey(templateID):
+          "Template does not exit."
       }
       Flunks.FlunksTemplates[templateID]!.updateMetadata(newMetadata: newMetadata)
     }
@@ -386,3 +450,4 @@ pub contract Flunks: NonFungibleToken {
     emit ContractInitialized()
   }
 }
+ 

@@ -1,14 +1,9 @@
 /*
-    Description:
-    
-    This smart contract contains the core functionality for Gamisodes NFTs. 
+    Description: 
 
-    NFTs will be minted in groups called Editions. Each item in the edition will contain identical metadata except for 
-    the editionNumber (or print number). Editions can either be open (no limit to number of items minted), or closed 
-    (only a fixed number of items can be printed).
+    authors:
 
-    authors: Matthew Balazsi, Joseph Djenandji, Jennifer McIntyre
-
+    INSERT DESCRIPTION HERE
     
 */
 
@@ -474,7 +469,7 @@ pub contract Gamisodes: NonFungibleToken {
                         publicPath: Gamisodes.CollectionPublicPath,
                         providerPath: /private/GamisodesCollection,
                         publicCollection: Type<&Gamisodes.Collection{Gamisodes.GamisodesCollectionPublic}>(),
-                        publicLinkedType: Type<&Gamisodes.Collection{GamisodesCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                        publicLinkedType: Type<&Gamisodes.Collection{GamisodesCollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
                         providerLinkedType: Type<&Gamisodes.Collection{GamisodesCollectionPublic,NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
                         createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
                             return <-Gamisodes.createEmptyCollection()
@@ -494,7 +489,7 @@ pub contract Gamisodes: NonFungibleToken {
 
                 case Type<MetadataViews.Serial>():
                     return MetadataViews.Serial(
-                        self.id
+                        UInt64(self.data.editionNumber)
                     )
                 
 

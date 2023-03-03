@@ -84,30 +84,93 @@ pub contract GoatedGoats: NonFungibleToken {
 
         pub fun getViews(): [Type] {
             return [
-                Type<MetadataViews.Display>()
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Traits>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.Royalties>()
             ]
         }
 
-				access(account) fun removeTrait(_ key: String) : @GoatedGoatsTrait.NFT? {
-					return <- self.traits.remove(key: key)
-				}
+                access(account) fun removeTrait(_ key: String) : @GoatedGoatsTrait.NFT? {
+                    return <- self.traits.remove(key: key)
+                }
 
-				access(account) fun setTrait( key: String, value: @GoatedGoatsTrait.NFT?) : @GoatedGoatsTrait.NFT? {
-					let old <- self.traits[key] <- value
-					return <- old
-				}
+                access(account) fun setTrait( key: String, value: @GoatedGoatsTrait.NFT?) : @GoatedGoatsTrait.NFT? {
+                    let old <- self.traits[key] <- value
+                    return <- old
+                }
 
         pub fun resolveView(_ view: Type): AnyStruct? {
+            let metadata= self.getMetadata()
             switch view {
+                //init(name: String, value: AnyStruct, displayType: String?, rarity: Rarity?) {
+                case Type<MetadataViews.Traits>():
+                    let traits : [MetadataViews.Trait] =[]
+                    if let slots = self.getTraitSlots() {
+                        traits.append(MetadataViews.Trait(name:"TraitSlots", value: slots , displayType:"Number", rarity: nil))
+                    }
+                    if let skinFileName = metadata["skinFileName"] {
+                        let skin = GoatedGoats.formatFileName(value: skinFileName, prefix:"skin")
+                        let skinRarity = metadata["skinRarity"]!
+                        traits.append(MetadataViews.Trait(name:"Skin", value: skin, displayType:"String", rarity: MetadataViews.Rarity(score:nil, max:nil, description: skinRarity)))
+                    }
+
+                    for traitSlot in self.traits.keys {
+                        let ref = (&self.traits[traitSlot] as &GoatedGoatsTrait.NFT?)!
+                        let metadata = ref.getMetadata()
+                        let traitSlotName = metadata["traitSlot"]!
+                        let traitName = GoatedGoats.formatFileName(value: metadata["fileName"]!, prefix: traitSlotName)
+                        
+                        traits.append(MetadataViews.Trait(name:traitSlot, value: traitName, displayType:"String", rarity: MetadataViews.Rarity(score:nil, max:nil, description: metadata["rarity"]!)))
+                    }
+
+                    return MetadataViews.Traits(traits)
+
+
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                                        storagePath: GoatedGoats.CollectionStoragePath, 
+                                        publicPath: GoatedGoats.CollectionPublicPath, 
+                                        providerPath: /private/GoatCollection, 
+                                        publicCollection: Type<&GoatedGoats.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, GoatedGoats.GoatCollectionPublic, MetadataViews.ResolverCollection}>(),
+                                        publicLinkedType: Type<&GoatedGoats.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, GoatedGoats.GoatCollectionPublic, MetadataViews.ResolverCollection}>(), 
+                                        providerLinkedType: Type<&GoatedGoats.Collection{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, GoatedGoats.GoatCollectionPublic, MetadataViews.ResolverCollection}>(), createEmptyCollectionFunction: fun(): @NonFungibleToken.Collection {return <- GoatedGoats.createEmptyCollection()})
+
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let externalURL = MetadataViews.ExternalURL("https://goatedgoats.com")
+                    let squareImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://goatedgoats.com/_ipx/w_32,q_75/%2FLogo.png?url=%2FLogo.png&w=32&q=75"), mediaType: "image/png")
+
+                    let bannerImage = MetadataViews.Media(file: MetadataViews.HTTPFile(url: "https://goatedgoats.com/_ipx/w_32,q_75/%2FLogo.png?url=%2FLogo.png&w=32&q=75"), mediaType: "image/png")
+
+                    let socialMap : {String : MetadataViews.ExternalURL} = {
+                        "twitter" : MetadataViews.ExternalURL("https://twitter.com/goatedgoats")
+                    }
+                    return MetadataViews.NFTCollectionDisplay(name: "GoatedGoats", description: "GoatedGoats", externalURL: externalURL, squareImage: squareImage, bannerImage: bannerImage, socials: socialMap)
+
+
                 case Type<MetadataViews.Display>():
                     var ipfsImage = MetadataViews.IPFSFile(cid: "No thumbnail cid set", path: "No thumbnail pat set")
-                    if (self.getMetadata().containsKey("thumbnailCID")) {
-                        ipfsImage = MetadataViews.IPFSFile(cid: self.getMetadata()["thumbnailCID"]!, path: self.getMetadata()["thumbnailPath"])
+                    if (metadata.containsKey("thumbnailCID")) {
+                        ipfsImage = MetadataViews.IPFSFile(cid: metadata["thumbnailCID"]!, path: metadata["thumbnailPath"])
                     }
                     return MetadataViews.Display(
-                        name: self.getMetadata()["name"] ?? "Goated Goat ".concat(self.goatID.toString()),
-                        description: self.getMetadata()["description"] ?? "No description set",
+                        name: metadata["name"] ?? "Goated Goat ".concat(self.goatID.toString()),
+                        description: metadata["description"] ?? "No description set",
                         thumbnail: ipfsImage
+                    )
+                
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL(
+                        "https://GoatedGoats.com"
+                    )
+                
+                case Type<MetadataViews.Royalties>():
+                    let royaltyReceiver = getAccount(0xd7081a5c66dc3e7f).getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+
+                    return MetadataViews.Royalties(
+                        [MetadataViews.Royalty(recepient: royaltyReceiver, cut: 0.05, description: "This is the royalty receiver for goats")]
                     )
             }
 
@@ -139,7 +202,7 @@ pub contract GoatedGoats: NonFungibleToken {
         pub fun getEquippedTraits(): [{String: AnyStruct}] {
             let traitsData: [{String: AnyStruct}] = []
             for traitSlot in self.traits.keys {
-                let ref = (&self.traits[traitSlot] as! &GoatedGoatsTrait.NFT?)!
+                let ref = (&self.traits[traitSlot] as &GoatedGoatsTrait.NFT?)!
                 let map: {String: AnyStruct} = {}
                 map["traitID"] = ref.id
                 map["traitPackID"] = ref.packID
@@ -283,6 +346,13 @@ pub contract GoatedGoats: NonFungibleToken {
         } else {
             return nil
         }
+    }
+
+    access(contract) fun formatFileName(value:String, prefix:String):String {
+        let length= value.length
+        let start=prefix.length+1
+        let trimmed = value.slice(from:start, upTo: length-4)
+        return  trimmed
     }
 
     // -----------------------------------------------------------------------

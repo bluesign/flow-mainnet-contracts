@@ -1,4 +1,4 @@
-import NonFungibleToken from 0xa8d493db1bb4df56
+import NonFungibleToken from 0x1d7e57aa55817448
 import SolarpupsNFT from 0xa8d493db1bb4df56
 import FungibleToken from 0xf233dcee88fe0abe
 import FlowToken from 0x1654653399040a61

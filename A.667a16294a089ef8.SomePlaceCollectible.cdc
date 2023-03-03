@@ -269,12 +269,14 @@ pub contract SomePlaceCollectible : NonFungibleToken {
                 Type<MetadataViews.Royalties>(),
                 Type<MetadataViews.ExternalURL>(),
                 Type<MetadataViews.NFTCollectionData>(),
-                Type<MetadataViews.NFTCollectionDisplay>()
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Traits>()
             ]
         }
 
         pub fun resolveView(_ view: Type): AnyStruct? {
-            let metadata: {String: AnyStruct} = SomePlaceCollectible.getMetadataByEditionID(setID: self.setID, editionNumber: self.editionNumber)!.getMetadata()
+            let metadata: {String: String} = SomePlaceCollectible.getMetadataByEditionID(setID: self.setID, editionNumber: self.editionNumber)!.getMetadata()
+            let traits: {String: String} = SomePlaceCollectible.getMetadataByEditionID(setID: self.setID, editionNumber: self.editionNumber)!.getTraits()
             switch view {
                 case Type<MetadataViews.Display>():
                     return MetadataViews.Display(
@@ -331,6 +333,10 @@ pub contract SomePlaceCollectible : NonFungibleToken {
                             "twitter": MetadataViews.ExternalURL("https://twitter.com/some_place")
                         }
                     )
+                case Type<MetadataViews.Traits>():
+                    let traitsView = MetadataViews.dictToTraits(dict: traits, excludedNames: nil)
+                    return traitsView
+
             }
             return nil
         }
@@ -601,3 +607,4 @@ pub contract SomePlaceCollectible : NonFungibleToken {
     }
 
 }
+ 

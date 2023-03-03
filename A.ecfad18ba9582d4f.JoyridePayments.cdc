@@ -1,6 +1,7 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import JoyrideMultiToken from 0xecfad18ba9582d4f
 import JoyrideAccounts from 0xecfad18ba9582d4f
+import GameEscrowMarker from 0xecfad18ba9582d4f
 
 pub contract JoyridePayments {
 
@@ -61,7 +62,9 @@ pub contract JoyridePayments {
     pub let gameID: String
 
     init(vault: @FungibleToken.Vault, playerID : String, gameID : String, txID : String) {
-      self.vault <- vault
+      let gameEscrowMarker <- GameEscrowMarker.createEmptyVault()
+      gameEscrowMarker.depositToEscrowVault(gameID: gameID, vault: <-vault)
+      self.vault <- gameEscrowMarker
       self.playerID = playerID
       self.transactionID = txID
       self.gameID = gameID
@@ -83,7 +86,23 @@ pub contract JoyridePayments {
         emit TxFailed_ByTxTypeAndTxID(txID: txID, txType: "RefundTX", notes: txID.concat(": JoyrideAccountsAdmin Accounts Capability Null"))
         return false
       }
-      var vault <- self.vault.withdraw(amount: self.vault.balance)
+      if(self.vault.isInstance(Type<@GameEscrowMarker.Vault>())) {
+        let balance = self.vault.balance
+        let escrow: @GameEscrowMarker.Vault <- self.vault.withdraw(amount: balance) as! @GameEscrowMarker.Vault
+        var vault <- escrow.withdrawFromEscrowVault(amount: balance)
+        let identifier = vault.getType().identifier
+        destroy escrow
+        return self.doRefund(vault: <- vault, balance: balance, identifier: identifier, txID: txID)
+      } else {
+        let balance = self.vault.balance
+        var vault <- self.vault.withdraw(amount: self.vault.balance)
+        let identifier = vault.getType().identifier
+        return self.doRefund(vault: <- vault, balance: balance, identifier: identifier, txID: txID)
+      }
+    }
+
+    priv fun doRefund(vault: @FungibleToken.Vault, balance: UFix64, identifier: String, txID: String): Bool {
+      let accountsAdmin = JoyridePayments.accountsCapability!.borrow()
       let undepositable <- accountsAdmin!.PlayerDeposit(playerID:self.playerID, vault: <-vault)
       if(undepositable != nil) {
         emit TxFailed_ByTxTypeAndTxID(txID: txID, txType: "RefundTX", notes: txID.concat(": Failed to deposit Admin Withdrawn vault in PlayerAccount"))
@@ -91,7 +110,7 @@ pub contract JoyridePayments {
         return false
       } else {
         destroy undepositable
-        emit DebitTransactionReverted(playerID: self.playerID, txID: self.transactionID, tokenContext: self.vault.getType().identifier, amount: self.vault.balance, gameID: self.gameID)
+        emit DebitTransactionReverted(playerID: self.playerID, txID: self.transactionID, tokenContext: identifier, amount: balance, gameID: self.gameID)
         return true
       }
     }
@@ -119,13 +138,30 @@ pub contract JoyridePayments {
         return false
       }
 
-      let vault <- self.vault.withdraw(amount: profit)
+      if(self.vault.isInstance(Type<@GameEscrowMarker.Vault>())) {
+        let balance = self.vault.balance
+        let escrow: @GameEscrowMarker.Vault <- self.vault.withdraw(amount: balance) as! @GameEscrowMarker.Vault
+        var vault <- escrow.withdrawFromEscrowVault(amount: balance)
+        let identifier = vault.getType().identifier
+        destroy escrow
+        return self.doFinalize(vault: <- vault, balance: balance, identifier: identifier, profit: profit,txID: txID, devPercentage: devPercentage)
+      } else {
+        let balance = self.vault.balance
+        var vault <- self.vault.withdraw(amount: self.vault.balance)
+        let identifier = vault.getType().identifier
+        return self.doFinalize(vault: <- vault, balance: balance, identifier: identifier, profit: profit, txID: txID, devPercentage: devPercentage)
+      }
+    }
 
-      let remainder <- accountsAdmin!.ShareProfitsWithDevPercentage(profits: <- vault, inGameID: self.gameID, fromPlayerID: self.playerID, devPercentage: devPercentage)
-      remainder.deposit(from: <- self.vault.withdraw(amount: self.vault.balance))
+    priv fun doFinalize(vault: @FungibleToken.Vault, balance: UFix64, identifier: String, profit: UFix64, txID: String, devPercentage: UFix64): Bool {
+      let accountsAdmin = JoyridePayments.accountsCapability!.borrow()
+      let profitVault <- vault.withdraw(amount: profit)
+      let remainder <- accountsAdmin!.ShareProfitsWithDevPercentage(profits: <- profitVault, inGameID: self.gameID, fromPlayerID: self.playerID, devPercentage: devPercentage)
+      vault.deposit(from: <- remainder)
 
-      treasury!.deposit(vault: JoyrideMultiToken.Vaults.treasury, from: <-remainder)
-      emit DebitTransactionFinalized(playerID: self.playerID, txID: self.transactionID, tokenContext: self.vault.getType().identifier, amount: self.vault.balance, gameID: self.gameID, profit: profit)
+      let treasury = JoyridePayments.treasuryCapability!.borrow()
+      treasury!.deposit(vault: JoyrideMultiToken.Vaults.treasury, from: <-vault)
+      emit DebitTransactionFinalized(playerID: self.playerID, txID: self.transactionID, tokenContext: identifier, amount: balance, gameID: self.gameID, profit: profit)
       return true
     }
   }

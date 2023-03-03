@@ -1,7 +1,126 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import MetadataViews from 0x1d7e57aa55817448
+import CoCreatable from 0x7752ea736384322f
 
 pub contract TheFabricantMetadataViews {
+
+// -----------------------------------------------------------------------
+// TheFabricantNFT Contract Views
+// -----------------------------------------------------------------------
+// These are the standard views for TF NFTs that they should implement
+
+// NOTE: TODO: There is a metadata view for original recipient
+// currently in discussion: https://github.com/onflow/flow-nft/issues/119
+pub struct TFNFTIdentifierV1 {
+   pub let uuid: UInt64
+   pub let id: UInt64
+   pub let name: String
+   pub let collection : String
+   pub let editions: MetadataViews.Editions
+   pub let address: Address
+   pub let originalRecipient: Address
+
+    
+    init(
+        uuid: UInt64,
+        id: UInt64,
+        name: String,
+        collection : String,
+        editions: MetadataViews.Editions,
+        address: Address,
+        originalRecipient: Address
+    ) {
+    self.uuid = uuid
+    self.id = id
+    self.name = name
+    self.collection = collection
+    self.editions = editions
+    self.address = address
+    self.originalRecipient = originalRecipient
+    }
+}
+
+pub struct TFNFTSimpleView {
+    pub let uuid: UInt64
+    pub let id: UInt64
+    pub let name: String
+    pub let description: String
+    pub let collection : String
+    pub let collectionId: String
+    pub let metadata: {String: AnyStruct}?
+    pub let media: MetadataViews.Medias
+    pub let images: {String: String}
+    pub let videos: {String: String}
+    pub let externalURL: MetadataViews.ExternalURL
+    pub let rarity: MetadataViews.Rarity?
+    pub let traits: MetadataViews.Traits?
+    pub let characteristics: {String: {CoCreatable.Characteristic}}?
+    pub let coCreatable: Bool
+    pub let coCreator: Address
+    pub let isRevealed: Bool?
+    pub let editions: MetadataViews.Editions
+    pub let originalRecipient: Address
+    pub let royalties: MetadataViews.Royalties
+    pub let royaltiesTFMarketplace: TheFabricantMetadataViews.Royalties
+    pub let revealableTraits: {String: Bool}?
+    pub let address: Address
+
+     
+    init(
+        uuid: UInt64,
+        id: UInt64,
+        name: String,
+        description: String,
+        collection : String,
+        collectionId: String,
+        metadata: {String: AnyStruct}?,
+        media: MetadataViews.Medias,
+        images: {String: String},
+        videos: {String: String},
+        externalURL: MetadataViews.ExternalURL,
+        rarity: MetadataViews.Rarity?,
+        traits: MetadataViews.Traits?,
+        characteristics: {String: {CoCreatable.Characteristic}}?,
+        coCreatable: Bool,
+        coCreator: Address,
+        isRevealed: Bool?,
+        editions: MetadataViews.Editions,
+        originalRecipient: Address,
+        royalties: MetadataViews.Royalties,
+        royaltiesTFMarketplace: TheFabricantMetadataViews.Royalties,
+        revealableTraits: {String: Bool}?,
+        address: Address,
+    ) {
+        self.uuid = uuid
+        self.id = id
+        self.name = name
+        self.description = description
+        self.collection = collection
+        self.collectionId = collectionId
+        self.metadata = metadata
+        self.media = media
+        self.images = images
+        self.videos = videos
+        self.externalURL = externalURL
+        self.rarity = rarity
+        self.traits = traits
+        self.characteristics = characteristics
+        self.coCreatable = coCreatable
+        self.coCreator = coCreator
+        self.isRevealed = isRevealed
+        self.editions = editions
+        self.originalRecipient = originalRecipient
+        self.royalties = royalties
+        self.royaltiesTFMarketplace = royaltiesTFMarketplace
+        self.revealableTraits = revealableTraits
+        self.address = address
+    }
+}
+
+
+// -----------------------------------------------------------------------
+// AccessPass Contract Views
+// -----------------------------------------------------------------------
 
     pub struct AccessPassMetadataViewV2 {
         pub let id: UInt64
@@ -636,3 +755,4 @@ pub contract TheFabricantMetadataViews {
         }
     }
 }
+ 

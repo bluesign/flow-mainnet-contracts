@@ -1,6 +1,7 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
-
+import MetadataViews from 0x1d7e57aa55817448
+import FNSConfig from 0x233eb012d34b0070
 
 // Domains define the domain and sub domain resource
 // Use records and expired to store domain's owner and expiredTime
@@ -250,6 +251,8 @@ pub contract Domains: NonFungibleToken {
 
     pub fun setAddress(chainType: UInt64, address: String)
 
+    pub fun setETHAddress(address: String, publicKey: [UInt8], signature: [UInt8])
+
     pub fun removeText(key: String)
 
     pub fun removeAddress(chainType: UInt64)
@@ -384,7 +387,7 @@ pub contract Domains: NonFungibleToken {
   }
 
   // Domain resource for NFT standard
-  pub resource NFT: DomainPublic, DomainPrivate, NonFungibleToken.INFT{
+  pub resource NFT: DomainPublic, DomainPrivate, NonFungibleToken.INFT, MetadataViews.Resolver{
 
     pub let id: UInt64
     pub let name: String
@@ -417,6 +420,100 @@ pub contract Domains: NonFungibleToken {
       self.receivable = true
       self.createdAt = getCurrentBlock().timestamp
     }
+
+    pub fun getViews(): [Type] {
+      return [
+        Type<MetadataViews.Display>(),
+        Type<MetadataViews.Royalties>(),
+        Type<MetadataViews.Editions>(),
+        Type<MetadataViews.ExternalURL>(),
+        Type<MetadataViews.NFTCollectionData>(),
+        Type<MetadataViews.NFTCollectionDisplay>(),
+        Type<MetadataViews.Serial>(),
+        Type<MetadataViews.Traits>()
+      ]
+    }
+
+
+    pub fun resolveView(_ view: Type): AnyStruct? {
+      let domainName = self.getDomainName()
+      let dataUrl = "https://flowns.org/api/data/domain/".concat(domainName)
+      let thumbnailUrl = "https://flowns.org/api/fns?domain=".concat(domainName)
+      
+      switch view {
+        case Type<MetadataViews.Display>():
+          return MetadataViews.Display(
+              name: domainName,
+              description: "Flowns domain ".concat(domainName),
+              thumbnail: MetadataViews.HTTPFile(
+                  url: thumbnailUrl
+              )
+          )
+        case Type<MetadataViews.Editions>():
+            // There is no max number of NFTs that can be minted from this contract
+            // so the max edition field value is set to nil
+            let editionInfo = MetadataViews.Edition(name: "Flowns Domains NFT Edition", number: self.id, max: nil)
+            let editionList: [MetadataViews.Edition] = [editionInfo]
+            return MetadataViews.Editions(
+                editionList
+            )
+        case Type<MetadataViews.Serial>():
+            return MetadataViews.Serial(
+                self.id
+            )
+        case Type<MetadataViews.Royalties>():
+            let receieverCap =  Domains.account.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+            let royalty= MetadataViews.Royalty(receiver: receieverCap, cut: 0.1, description: "Flowns will take 10% as second trade royalty fee")
+            return MetadataViews.Royalties([royalty])
+            
+        case Type<MetadataViews.ExternalURL>():
+            return MetadataViews.ExternalURL("https://flowns.org/domain/".concat(domainName))
+        case Type<MetadataViews.NFTCollectionData>():
+            return MetadataViews.NFTCollectionData(
+                storagePath: Domains.CollectionStoragePath,
+                publicPath: Domains.CollectionPublicPath,
+                providerPath: Domains.CollectionPrivatePath,
+                publicCollection: Type<&Domains.Collection{Domains.CollectionPublic}>(),
+                publicLinkedType: Type<&Domains.Collection{Domains.CollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                providerLinkedType: Type<&Domains.Collection{Domains.CollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                    return <- Domains.createEmptyCollection()
+                })
+            )
+        case Type<MetadataViews.NFTCollectionDisplay>():
+            let squareMedia = MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                    url: "https://www.flowns.org/_next/image?url=%2Fassets%2Fflowns_v_logo_light.svg&w=256&q=75"
+                ),
+                mediaType: "image/svg+xml"
+            )
+            let banerMedia = MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                    url: "https://www.flowns.org/_next/image?url=%2Fassets%2Fflowns_logo_light.svg&w=128&q=75"
+                ),
+                mediaType: "image/svg+xml"
+            )
+            return MetadataViews.NFTCollectionDisplay(
+              name: "The Flowns domain Collection",
+              description: "This collection is managed by Flowns and present the ownership of domain.",
+              externalURL: MetadataViews.ExternalURL("https://flowns.org"),
+              squareImage: squareMedia,
+              bannerImage: banerMedia,
+              socials: {
+                  "twitter": MetadataViews.ExternalURL("https://twitter.com/flownsorg"),
+                  "discord": MetadataViews.ExternalURL("https://discord.gg/fXz4gBaYXd"),
+                  "website": MetadataViews.ExternalURL("https://flowns.org"),
+                  "medium": MetadataViews.ExternalURL("https://medium.com/@Flowns")
+              }
+            )
+        case Type<MetadataViews.Traits>():
+          let excludedTraits = ["mintedTime"]
+          let traitsView = MetadataViews.dictToTraits(dict: self.texts, excludedNames: excludedTraits)
+          // mintedTime is a unix timestamp, we should mark it with a displayType so platforms know how to show it.
+          return traitsView
+      }
+      return nil
+    }
     
     // get domain full name with root domain
     pub fun getDomainName(): String {
@@ -445,6 +542,7 @@ pub contract Domains: NonFungibleToken {
       pre {
         !Domains.isExpired(self.nameHash) : Domains.domainExpiredTip
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
+        key != "_ethSig": "`_ethSig` is reserved"
       }
       self.texts[key] = value
 
@@ -456,11 +554,50 @@ pub contract Domains: NonFungibleToken {
         !Domains.isExpired(self.nameHash) : Domains.domainExpiredTip
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
       }
-      self.addresses[chainType] = address
 
-      emit DmoainAddressChanged(nameHash: self.nameHash, chainType: chainType, address: address)
+      switch chainType {
+        case 0 :
+          self.addresses[chainType] = address
+          emit DmoainAddressChanged(nameHash: self.nameHash, chainType: chainType, address: address)
+          return
+        case 1 :
+          // verify domain name texts with signature
+          return
+        default:
+          return
+      }
 
     }
+
+    pub fun setETHAddress(address: String, publicKey: [UInt8], signature: [UInt8]) {
+      pre {
+        !Domains.isExpired(self.nameHash) : Domains.domainExpiredTip
+        !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
+        address.length > 0 : "Cannot verify empty message"
+      }
+
+      let prefix = "\u{19}Ethereum Signed Message:\n".concat(address.length.toString())
+
+      assert(Domains.verifySignature(message: address, messagePrefix: prefix, hashTag: nil, hashAlgorithm: HashAlgorithm.KECCAK_256, publicKey: publicKey, signatureAlgorithm: SignatureAlgorithm.ECDSA_secp256k1, signature: signature) == true, message: "Invalid signature")
+
+      let owner = Domains.getRecords(self.nameHash)
+      assert(owner != nil, message: "Can not find owner")
+
+      if owner!.toString() == address {
+
+        let now = getCurrentBlock().timestamp
+        let ethAddr = Domains.ethPublicKeyToAddress(publicKey: publicKey)
+        let verifyStr = "{".concat("\"timestamp\": \"").concat(now.toString()).concat("\", \"message\": \"").concat(address).concat("\", \"publicKey\": \"").concat(String.encodeHex(publicKey)).concat("\", \"ethAddr\": \"").concat(ethAddr).concat("\"}")
+
+        self.texts["_ethSig"] = verifyStr
+
+        
+        self.addresses[1] = ethAddr
+
+        emit DmoainAddressChanged(nameHash: self.nameHash, chainType: 1, address: address)
+      }
+    }
+
 
     pub fun removeText(key: String){
         pre {
@@ -652,6 +789,8 @@ pub contract Domains: NonFungibleToken {
         self.receivable : "Domain is not receivable"
       }
       let typeKey = from.getType().identifier
+      // add type whitelist check 
+      assert(FNSConfig.checkFTWhitelist(typeKey) == true, message: "FT type is not in inbox whitelist")
       let amount = from.balance
       let address = from.owner?.address
       if self.vaults[typeKey] == nil {
@@ -686,6 +825,8 @@ pub contract Domains: NonFungibleToken {
       }
 
       let typeKey = collection.getType().identifier
+      assert(FNSConfig.checkNFTWhitelist(typeKey) == true, message: "NFT type is not in inbox whitelist")
+
       if collection.isInstance(Type<@Domains.Collection>()) {
         panic("Do not nest domain resource")
       }
@@ -711,6 +852,8 @@ pub contract Domains: NonFungibleToken {
         !Domains.isExpired(self.nameHash) : Domains.domainExpiredTip
         !Domains.isDeprecated(nameHash: self.nameHash, domainId: self.id) : Domains.domainDeprecatedTip
       }
+      assert(FNSConfig.checkNFTWhitelist(key) == true, message: "NFT type is not in inbox whitelist")
+
       let collectionRef = (&self.collections[key] as &NonFungibleToken.Collection?)!
 
       emit DomainCollectionDeposited(nameHash: self.nameHash, collectionType: key, itemId: token.id, from: senderRef?.owner?.address)
@@ -758,6 +901,8 @@ pub contract Domains: NonFungibleToken {
     pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
 
     pub fun borrowDomain(id: UInt64): &{Domains.DomainPublic}
+
+    pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver}
   }
 
   // return the content for this NFT
@@ -771,7 +916,7 @@ pub contract Domains: NonFungibleToken {
 
 
   // NFT collection 
-  pub resource Collection: CollectionPublic, CollectionPrivate, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+  pub resource Collection: CollectionPublic, CollectionPrivate, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
 
     pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
@@ -840,6 +985,13 @@ pub contract Domains: NonFungibleToken {
       let ref = &self.ownedNFTs[id] as auth &NonFungibleToken.NFT?
       return ref! as! &Domains.NFT
     }
+
+     pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+        let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+        let domainNFT = nft as! &Domains.NFT
+        return domainNFT as &AnyResource{MetadataViews.Resolver}
+      }
+
 
     access(account) fun mintDomain(name: String, nameHash: String, parentName: String, expiredAt: UFix64, receiver: Capability<&{NonFungibleToken.Receiver}>){
       
@@ -950,6 +1102,41 @@ pub contract Domains: NonFungibleToken {
     return self.deprecated
   }
 
+  pub fun getIdMap(): {String: UInt64 } {
+    return self.idMap
+  }
+
+  pub fun verifySignature(message: String, messagePrefix: String?, hashTag: String?, hashAlgorithm: HashAlgorithm, publicKey: [UInt8], signatureAlgorithm: SignatureAlgorithm, signature: [UInt8]) :Bool {
+      
+    let messageToVerify = (messagePrefix ?? "").concat(message)
+    let keyToVerify = PublicKey(publicKey: publicKey, signatureAlgorithm: signatureAlgorithm)
+    let isValid = keyToVerify.verify(
+        signature: signature,
+        signedData: messageToVerify.utf8,
+        domainSeparationTag: hashTag ?? "",
+        hashAlgorithm: hashAlgorithm
+    )
+    if !isValid {
+        return false
+    }
+    return true
+  }
+
+   pub fun ethPublicKeyToAddress(publicKey:[UInt8]) :String {
+    pre{
+      publicKey.length > 0 : "Invalid public key"
+    }
+    let publicKeyStr = String.encodeHex(publicKey)
+    // let pk = publicKeyStr.slice(from: 2, upTo: publicKey.length)
+    let pkArr = publicKeyStr.decodeHex()
+    let hashed = HashAlgorithm.KECCAK_256.hash(pkArr)
+    let hashedStr = String.encodeHex(hashed)
+    let len = hashedStr.length
+    let addr = hashedStr.slice(from: len-40, upTo: len)
+
+    return "0x".concat(addr)
+
+   }
 
   access(account) fun updateDeprecatedRecords(nameHash: String, records: {UInt64: DomainDeprecatedInfo}) {
     self.deprecated[nameHash] = records

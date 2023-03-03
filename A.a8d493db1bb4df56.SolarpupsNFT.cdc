@@ -1,5 +1,6 @@
-import NonFungibleToken from 0xa8d493db1bb4df56
+import NonFungibleToken from 0x1d7e57aa55817448
 import FungibleToken from 0xf233dcee88fe0abe
+import MetadataViews from 0x1d7e57aa55817448
 
 /**
  * This contract defines the structure and behaviour of Solarpups NFT assets.
@@ -36,7 +37,7 @@ pub contract SolarpupsNFT: NonFungibleToken {
      * an edition information. In addition to that each NFT can have other
      * NFTs which makes it composable.
      */
-    pub resource NFT: NonFungibleToken.INFT, TokenDataAware {
+    pub resource NFT: NonFungibleToken.INFT, TokenDataAware, MetadataViews.Resolver {
         pub let id: UInt64
         pub let data: TokenData
         access(self) let items: @{String:{TokenDataAware, NonFungibleToken.INFT}}
@@ -50,6 +51,88 @@ pub contract SolarpupsNFT: NonFungibleToken {
         destroy() {
           emit BurnAsset(id: self.id, assetId: self.data.assetId)
           destroy self.items
+        }
+
+        pub fun getViews(): [Type] {
+            return [
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>()
+            ]
+        }
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            let asset = SolarpupsNFT.getAsset(assetId: self.data.assetId)
+            let url = "https://cdn.krikeyapp.com/nft_web/nft_images/".concat(self.data.assetId).concat(".png")
+            switch view {
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: "Solarpups NFT",
+                        description: "The world's most adorable and sensitive pup.",
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: url,
+                        )
+                    )
+                case Type<MetadataViews.Editions>():
+                    // There is no max number of NFTs that can be minted from this contract
+                    // so the max edition field value is set to nil
+                    let edition=UInt64(self.data.edition)
+                    let editionInfo = MetadataViews.Edition(name: "Solarpups NFT Edition", number: edition, max: nil)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.id
+                    )
+                case Type<MetadataViews.Royalties>():
+                    let RECEIVER_PATH = /public/flowTokenReceiver
+                    var royaltyReceiver = getAccount(0xcf99ac7bc594366c).getCapability<&{FungibleToken.Receiver}>(RECEIVER_PATH)
+                    let royalty = MetadataViews.Royalty(receiver: royaltyReceiver, cut: asset!.royalty, description: "Solarpups Krikey Creator Royalty")
+                    return MetadataViews.Royalties(
+                        [royalty]
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL(url)
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: SolarpupsNFT.SolarpupsNFTStoragePath,
+                        publicPath: SolarpupsNFT.SolarpupsNFTPublicPath,
+                        providerPath: SolarpupsNFT.SolarpupsNFTPrivatePath,
+                        publicCollection: Type<&SolarpupsNFT.Collection{SolarpupsNFT.CollectionPublic}>(),
+                        publicLinkedType: Type<&SolarpupsNFT.Collection{SolarpupsNFT.CollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Receiver,MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&SolarpupsNFT.Collection{SolarpupsNFT.CollectionPublic,NonFungibleToken.CollectionPublic,NonFungibleToken.Provider,MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-SolarpupsNFT.createEmptyCollection()
+                        })
+                    )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    let media = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://cdn.solarpups.com/web/assets/img/solar-pups/logo.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "The Krikey Solarpups Collection",
+                        description: "The world's most adorable and sensitive pups.",
+                        externalURL: MetadataViews.ExternalURL("https://www.solarpups.com/marketplace"),
+                        squareImage: media,
+                        bannerImage: media,
+                        socials: {
+                            "discord": MetadataViews.ExternalURL("https://discord.com/invite/krikey"),
+                            "facebook": MetadataViews.ExternalURL("https://www.facebook.com/krikeyappAR/"),
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/SolarPupsNFTs"),
+                            "instagram": MetadataViews.ExternalURL("https://www.instagram.com/krikeyapp/?hl=en"),
+                            "youtube": MetadataViews.ExternalURL("https://www.youtube.com/channel/UCdTV4cmkQwWgaZ89ITMO-bg")
+                        }
+                    )
+            }
+            return nil
         }
     }
 
@@ -158,7 +241,7 @@ pub contract SolarpupsNFT: NonFungibleToken {
     /**
      * This resource is used by an account to collect Solarpups NFTs.
      */
-    pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
+    pub resource Collection: CollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
         pub var ownedNFTs:   @{UInt64: NonFungibleToken.NFT}
         pub var ownedAssets: {String: {UInt16:UInt64}}
 
@@ -219,10 +302,6 @@ pub contract SolarpupsNFT: NonFungibleToken {
             return self.ownedAssets.keys
         }
 
-        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT? {
-            return &self.ownedNFTs[id] as &NonFungibleToken.NFT?
-        }
-
         pub fun getTokenIDs(assetId: String): [UInt64] {
             return (self.ownedAssets[assetId] ?? {}).values
         }
@@ -235,13 +314,26 @@ pub contract SolarpupsNFT: NonFungibleToken {
             return self.ownedAssets
         }
 
-        pub fun borrowSolarpupsNFT(tokenId: UInt64): &SolarpupsNFT.NFT? {
-            if self.ownedNFTs[tokenId] != nil {
-                let ref = &self.ownedNFTs[tokenId] as auth &NonFungibleToken.NFT?
-                return ref as! &SolarpupsNFT.NFT
-            } else {
-                return nil
+        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
+            pre {
+                self.ownedNFTs[id] != nil: "this NFT is nil"
             }
+            let ref = &self.ownedNFTs[id] as &NonFungibleToken.NFT?
+            return ref! as! &NonFungibleToken.NFT
+        }
+
+        pub fun borrowSolarpupsNFT(id: UInt64): &SolarpupsNFT.NFT {
+            pre {
+                self.ownedNFTs[id] != nil: "this NFT is nil"
+            }
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let solarpupsNFT = nft as! &SolarpupsNFT.NFT
+            return solarpupsNFT as &SolarpupsNFT.NFT
+        }
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let solarpupsNFT = nft as! &SolarpupsNFT.NFT
+            return solarpupsNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         destroy() {
@@ -262,19 +354,20 @@ pub contract SolarpupsNFT: NonFungibleToken {
     // the details of SolarpupsNFTs in the Collection.
     pub resource interface CollectionPublic {
         pub fun getIDs(): [UInt64]
-        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT?
+        pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
         pub fun getAssetIDs(): [String]
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun batchDeposit(tokens: @NonFungibleToken.Collection)
         pub fun getTokenIDs(assetId: String): [UInt64]
         pub fun getEditions(assetId: String): {UInt16:UInt64}
         pub fun getOwnedAssets(): {String: {UInt16:UInt64}}
-        pub fun borrowSolarpupsNFT(tokenId: UInt64): &NFT? {
-          post {
-            (result == nil) || result?.id == tokenId:
-            "Cannot borrow SolarpupsNFT reference: The ID of the returned reference is incorrect"
-          }
+        pub fun borrowSolarpupsNFT(id: UInt64): &NonFungibleToken.NFT? {
+            post {
+                (result == nil) || (result?.id == id):
+                    "Cannot borrow SolarpupsNFT reference: the ID of the returned reference is incorrect"
+            }
         }
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver}
     }
 
     pub resource MinterFactory {
@@ -329,6 +422,12 @@ pub contract SolarpupsNFT: NonFungibleToken {
         self.account.save(<- create AssetRegistry(), to: self.AssetRegistryStoragePath)
         self.account.save(<- create MinterFactory(), to: self.MinterFactoryStoragePath)
         self.account.save(<- create Collection(),    to: self.SolarpupsNFTStoragePath)
+
+        // create a public capability for the collection	
+        self.account.link<&SolarpupsNFT.Collection{NonFungibleToken.CollectionPublic, SolarpupsNFT.CollectionPublic, MetadataViews.ResolverCollection}>(	
+            self.SolarpupsNFTPublicPath,	
+            target: self.SolarpupsNFTStoragePath	
+        )
 
         emit ContractInitialized()
 	}

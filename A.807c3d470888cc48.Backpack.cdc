@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
+import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
 import Patch from 0x807c3d470888cc48
@@ -164,6 +165,13 @@ pub contract Backpack: NonFungibleToken {
 
         case Type<MetadataViews.Royalties>():
           return MetadataViews.Royalties(cutInfos: [])
+          // let merchant = getAccount(0x0cce91b08cb58286)
+
+				  // return [MetadataViews.Royalty(
+          //   recepient: merchant.getCapability<&{FungibleToken.Receiver}>(MetadataViews.getRoyaltyReceiverPublicPath()),
+          //   cut: 0.05,
+          //   description: "Dapper Wallet Royalty",
+          // )]
       }
 
       return nil

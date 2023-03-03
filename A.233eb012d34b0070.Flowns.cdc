@@ -2,7 +2,7 @@
 import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import Domains from 0x233eb012d34b0070
-
+import FNSConfig from 0x233eb012d34b0070
 
 // Flowns is the core contract of FNS, Flowns define Root domain and admin resource
 pub contract Flowns {
@@ -664,6 +664,14 @@ pub contract Flowns {
 
     pub fun setPause(_ flag: Bool)
 
+    pub fun updateFTWhitelist(key: String, flag: Bool)
+
+    pub fun updateNFTWhitelist(key: String, flag: Bool)
+
+    pub fun setFTWhitelist(_ val: {String: Bool})
+
+    pub fun setNFTWhitelist(_ val: {String: Bool})
+
   }
 
 
@@ -791,6 +799,23 @@ pub contract Flowns {
       
       emit FlownsForbidCharsUpdated(before: oldChars, after: chars)
     }
+
+    pub fun updateFTWhitelist(key: String, flag: Bool) {
+      FNSConfig.updateFTWhitelist(key: key, flag: flag)
+    }
+
+    pub fun updateNFTWhitelist(key: String, flag: Bool) {
+      FNSConfig.updateNFTWhitelist(key: key, flag: flag)
+    }
+
+    pub fun setFTWhitelist(_ val: {String: Bool}) {
+      FNSConfig.setFTWhitelist(val)
+    }
+
+    pub fun setNFTWhitelist(_ val: {String: Bool}) {
+      FNSConfig.setNFTWhitelist(val)
+    }
+
 
 
   }
@@ -922,7 +947,6 @@ pub contract Flowns {
     let rootCollectionCap = account.getCapability<&{Flowns.RootDomainCollectionPublic}>(self.CollectionPublicPath)
     let collection = rootCollectionCap.borrow() ?? panic("Could not borrow collection ")
     collection.renewDomainWithNameHash(nameHash: nameHash, duration: duration, feeTokens: <-feeTokens, refer: refer)
-
   }
   
   init() {
@@ -948,3 +972,4 @@ pub contract Flowns {
     account.link<&Flowns.Admin{Flowns.AdminPrivate}>(Flowns.FlownsAdminPrivatePath, target: Flowns.FlownsAdminStoragePath)
   }
 }
+ 

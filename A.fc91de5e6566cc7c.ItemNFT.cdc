@@ -235,17 +235,6 @@ pub contract ItemNFT: NonFungibleToken {
             self.material <-! material
             return materialRef
         }
-
-        // change name of item nft
-        access(contract) fun changeName(name: String) {
-            pre {
-                !self.isDead: 
-                "Cannot change garment name. Item is dead"
-            }
-            self.name = name;
-
-           emit ItemNameChanged(id: self.id, name: self.name)
-        }
     }
 
     //destroy item if it is considered dead
@@ -320,17 +309,6 @@ pub contract ItemNFT: NonFungibleToken {
 
         init() {
             self.ownedNFTs <- {}
-        }
-
-        // change name of item nft
-        pub fun changeName(id: UInt64, name: String) {
-            let token <- self.ownedNFTs.remove(key: id)
-                ?? panic("Cannot withdraw: Item does not exist in the collection")
-            
-            let item <- token as! @ItemNFT.NFT
-            item.changeName(name: name)
-
-            self.ownedNFTs[id] <-! item
         }
 
         pub fun split(id: UInt64, garmentCap: Capability<&{GarmentNFT.GarmentCollectionPublic}>, materialCap: Capability<&{MaterialNFT.MaterialCollectionPublic}>){

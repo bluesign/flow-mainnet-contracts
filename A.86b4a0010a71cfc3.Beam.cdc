@@ -1,4 +1,4 @@
-/* 
+/*
 Central Smart Contract for Beam x Niftory Culture Icons Collectibles
 
 Heavily based off the Dapper Labs NBA Top Shot contract, with the following modifications:
@@ -25,15 +25,15 @@ pub contract Beam: NonFungibleToken {
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
     pub let AdminStoragePath: StoragePath
-    
+
     // -----------------------------------------------------------------------
     // Contract Events
     // -----------------------------------------------------------------------
     pub event ContractInitialized()
-    
+
     // Emitted when a new CollectibleItem is created
     pub event CollectibleItemCreated(id: UInt32, metadata: {String:String})
-    
+
     // Emitted when a new series has been triggered by an admin
     pub event NewSeriesStarted(newCurrentSeries: UInt32)
 
@@ -64,11 +64,11 @@ pub contract Beam: NonFungibleToken {
     // Contract-level fields
     // These contain actual values that are stored in the smart contract.
     // -----------------------------------------------------------------------
-    
+
     // Series that this Set belongs to.
     // Series is a concept that indicates a group of Sets through time.
     // Many Sets can exist at a time, but only one Series.
-    
+
     // ID of the current active Series
     pub var currentSeriesID: UInt32
 
@@ -81,15 +81,15 @@ pub contract Beam: NonFungibleToken {
     // Variable size dictionary of Set resources
     access(self) var sets: @{UInt32: Set}
 
-    // The ID that is used to create CollectibleItems. 
-    // Every time a CollectibleItem is created, collectibleItemID is assigned 
+    // The ID that is used to create CollectibleItems.
+    // Every time a CollectibleItem is created, collectibleItemID is assigned
     // to the new CollectibleItem's ID and then is incremented by 1.
     pub var nextCollectibleItemID: UInt32
 
     // The ID that is used to create Sets. Every time a Set is created
     // setID is assigned to the new set's ID and then is incremented by 1.
     pub var nextSetID: UInt32
-    
+
     // totalSupply
     // The total number of Collectibles that have been minted
     pub var totalSupply: UInt64
@@ -102,7 +102,7 @@ pub contract Beam: NonFungibleToken {
     // actual stored values, but an instance (or object) of one of these Types
     // can be created by this contract that contains stored values.
     // -----------------------------------------------------------------------
-    
+
     pub struct Series {
         pub let seriesID: UInt32
 
@@ -131,13 +131,13 @@ pub contract Beam: NonFungibleToken {
             self.seriesIdentityURL = referencedSeries.seriesIdentityURL
         }
     }
-    
-    // CollectibleItem is a Struct that holds metadata associated 
+
+    // CollectibleItem is a Struct that holds metadata associated
     // with a moment, entity, or other representative collectible.
     // Collectible NFTs will all reference a single CollectibleItem as the owner of
     // its metadata. CllectibleItems are publicly accessible, so anyone can
     // read the metadata associated with a specific CollectibleItem ID
-    
+
     pub struct CollectibleItem {
 
         // The unique ID for the CollectibleItem
@@ -147,7 +147,7 @@ pub contract Beam: NonFungibleToken {
         pub let featuredArtists: [String]
 
         // Stores all the metadata about the CollectibleItem as a string mapping
-        
+
         pub let metadata: {String: String}
 
         init(metadata: {String: String}, featuredArtists: [String]) {
@@ -165,14 +165,14 @@ pub contract Beam: NonFungibleToken {
         }
     }
 
-    // A Set is a grouping of CollectibleItems that make up a related group of collectibles, 
+    // A Set is a grouping of CollectibleItems that make up a related group of collectibles,
     // like sets of baseball or Magic cards. A CollectibleItem can exist in multiple different sets.
     // SetData is a struct that is stored in a field of the contract.
     // Anyone can query the constant information
-    // about a set by calling various getters located 
-    // at the end of the contract. Only the admin has the ability 
+    // about a set by calling various getters located
+    // at the end of the contract. Only the admin has the ability
     // to modify any data in the private Set resource.
-    
+
     pub struct SetData {
 
         pub let setID: UInt32
@@ -222,14 +222,14 @@ pub contract Beam: NonFungibleToken {
     // that reference that playdata.
     // The Collectibles that are minted by a Set will be listed as belonging to
     // the Set that minted it, as well as the CollectibleItem it references.
-    // 
+    //
     // Admin can also retire CollectibleItems from the Set, meaning that the retired
     // CollectibleItem can no longer have Collectibles minted from it.
     //
-    // If the admin locks the Set, no more CollectibleItems can be added to it, but 
+    // If the admin locks the Set, no more CollectibleItems can be added to it, but
     // Collectibles can still be minted.
     //
-    // If retireAll() and lock() are called back-to-back, 
+    // If retireAll() and lock() are called back-to-back,
     // the Set is closed off forever and nothing more can be done with it.
     pub resource Set {
 
@@ -260,7 +260,7 @@ pub contract Beam: NonFungibleToken {
         access(contract) var retired: {UInt32: Bool}
 
         // Indicates if the Set is currently locked.
-        // When a Set is created, it is unlocked 
+        // When a Set is created, it is unlocked
         // and CollectibleItems are allowed to be added to it.
         // When a set is locked, CollectibleItems cannot be added.
         // A Set can never be changed from locked to unlocked,
@@ -270,7 +270,7 @@ pub contract Beam: NonFungibleToken {
         // that exist in the Set.
         pub var locked: Bool
 
-        // Mapping of CollectibleItem IDs that indicates the number of Collectibles 
+        // Mapping of CollectibleItem IDs that indicates the number of Collectibles
         // that have been minted for specific CollectibleItems in this Set.
         // When a Collectible is minted, this value is stored in the Collectible to
         // show its place in the Set, eg. 13 of 60.
@@ -304,7 +304,7 @@ pub contract Beam: NonFungibleToken {
         // The CollectibleItem needs to be an existing collectibleItem
         // The Set needs to be not locked
         // The CollectibleItem can't have already been added to the Set
-        
+
         pub fun addCollectibleItem(collectibleItemID: UInt32) {
             pre {
                 Beam.collectibleItemDatas[collectibleItemID] != nil: "Cannot add the CollectibleItem to Set: CollectibleItem doesn't exist."
@@ -328,7 +328,7 @@ pub contract Beam: NonFungibleToken {
         //
         // Parameters: collectibleItemIDs: The IDs of the CollectibleItems that are being added
         //                      as an array
-        
+
         pub fun addCollectibleItems(collectibleItemIDs: [UInt32]) {
             for collectibleItem in collectibleItemIDs {
                 self.addCollectibleItem(collectibleItemID: collectibleItem)
@@ -341,7 +341,7 @@ pub contract Beam: NonFungibleToken {
         //
         // Pre-Conditions:
         // The CollectibleItem is part of the Set and not retired (available for minting).
-        
+
         pub fun retireCollectibleItem(collectibleItemID: UInt32) {
             pre {
                 self.retired[collectibleItemID] != nil: "Cannot retire the CollectibleItem: CollectibleItem doesn't exist in this set!"
@@ -356,7 +356,7 @@ pub contract Beam: NonFungibleToken {
 
         // retireAll retires all the collectibleItems in the Set
         // Afterwards, none of the retired CollectibleItems will be able to mint new Collectibles
-        
+
         pub fun retireAll() {
             for collectibleItem in self.collectibleItems {
                 self.retireCollectibleItem(collectibleItemID: collectibleItem)
@@ -375,14 +375,14 @@ pub contract Beam: NonFungibleToken {
         }
 
         // mintCollectible mints a new Collectible and returns the newly minted Collectible
-        // 
+        //
         // Parameters: collectibleItemID: The ID of the CollectibleItem that the Collectible references
         //
         // Pre-Conditions:
         // The CollectibleItem must exist in the Set and be allowed to mint new Collectibles
         //
         // Returns: The NFT that was minted
-        
+
         pub fun mintCollectible(collectibleItemID: UInt32): @NFT {
             pre {
                 self.retired[collectibleItemID] != nil: "Cannot mint the collectibleItem: This collectibleItem doesn't exist."
@@ -404,14 +404,14 @@ pub contract Beam: NonFungibleToken {
             return <-newCollectible
         }
 
-        // batchMintCollectible mints an arbitrary quantity of Collectibles 
+        // batchMintCollectible mints an arbitrary quantity of Collectibles
         // and returns them as a Collection
         //
         // Parameters: collectibleItemID: the ID of the CollectibleItem that the Collectibles are minted for
         //             quantity: The quantity of Collectibles to be minted
         //
         // Returns: Collection object that contains all the Collectibles that were minted
-        
+
         pub fun batchMintCollectible(collectibleItemID: UInt32, quantity: UInt64): @Collection {
             let newCollection <- create Collection()
 
@@ -448,12 +448,12 @@ pub contract Beam: NonFungibleToken {
     }
 
 
-    // Admin is a special authorization resource that 
-    // allows the owner to perform important functions to modify the 
-    // various aspects of the CollectibleItems, Sets, and Collectibles  
+    // Admin is a special authorization resource that
+    // allows the owner to perform important functions to modify the
+    // various aspects of the CollectibleItems, Sets, and Collectibles
     pub resource Admin {
 
-        // createCollectibleItem creates a new CollectibleItem struct 
+        // createCollectibleItem creates a new CollectibleItem struct
         // and stores it in the CollectibleItems dictionary in the Beam smart contract
         //
         // Parameters: metadata: A dictionary mapping metadata titles to their data
@@ -477,7 +477,7 @@ pub contract Beam: NonFungibleToken {
         // in the sets mapping in the Beam contract
         //
         // Parameters: name: The name of the Set
-        
+
         pub fun createSet(name: String, setIdentityURL: String?, description: String?) {
             // Create the new Set
             var newSet <- create Set(name: name, setIdentityURL: setIdentityURL, description: description)
@@ -494,28 +494,28 @@ pub contract Beam: NonFungibleToken {
         //
         // Returns: A reference to the Set with all of the fields
         // and methods exposed
-        
+
         pub fun borrowSet(setID: UInt32): &Set {
             pre {
                 Beam.sets[setID] != nil: "Cannot borrow Set: The Set doesn't exist"
             }
-            
+
             // Get a reference to the Set and return it
             // use `&` to indicate the reference to the object and type
             return (&Beam.sets[setID] as &Set?)!
         }
 
-        // startNewSeries ends the current series by creating a new Series, 
+        // startNewSeries ends the current series by creating a new Series,
         // meaning that Collectibles minted after this
-        // will belong to the new Series and reference it's metadata.  It also closes 
+        // will belong to the new Series and reference it's metadata.  It also closes
         // all sets and editions in the current series.
         //
         // Returns: The new series ID
-        
+
         pub fun startNewSeries(name: String?, identityURL: String?): UInt32 {
             // End the current series and start a new one
             // by incrementing the Beam series number
-            let setIDs = Beam.sets.keys 
+            let setIDs = Beam.sets.keys
 
             var i: Int = 0
             while (i < setIDs.length) {
@@ -525,7 +525,7 @@ pub contract Beam: NonFungibleToken {
                     self.borrowSet(setID: setIDs[i]).lock()
                 }
                 i = i + 1;
-            }      
+            }
 
             var newSeries = Series(seriesID: Beam.currentSeriesID + UInt32(1), name: name, seriesIdentityURL: identityURL)
 
@@ -534,7 +534,7 @@ pub contract Beam: NonFungibleToken {
             //put it in storage
             Beam.seriesDatas[Beam.currentSeriesID] = newSeries
 
-            
+
 
 
             emit NewSeriesStarted(newCurrentSeries: Beam.currentSeriesID)
@@ -553,7 +553,7 @@ pub contract Beam: NonFungibleToken {
 
         // Global unique collectibleItem ID
         pub let id: UInt64
-        
+
         // Struct of Collectible metadata
         pub let data: CollectibleData
 
@@ -561,7 +561,9 @@ pub contract Beam: NonFungibleToken {
             return [
                 Type<MetadataViews.Display>(),
                 Type<MetadataViews.Royalties>(),
-                Type<MetadataViews.NFTCollectionData>()
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.ExternalURL>()
             ]
         }
 
@@ -570,12 +572,20 @@ pub contract Beam: NonFungibleToken {
                 case Type<MetadataViews.Display>():
                     let collectibleItemID = self.data.collectibleItemID
                     let metadata = Beam.getCollectibleItemMetaData(collectibleItemID: collectibleItemID)!
+
+                    // The metadata URL may or may not have a prefix. If it doesn't, then
+                    // assume `ipfs://`
+                    var url = metadata["posterUrl"]
+                                ?? "ipfs://bafybeichtxzrocxo7ec5qybfxxlyod5bbymblitjwb2aalv2iyhe42pk4e/Frightclub.jpg"
+                    let prefixes = ["ipfs://", "http://", "https:/"]
+                    if !prefixes.contains(url.slice(from: 0, upTo: 7)) {
+                        url = prefixes[0].concat(url)
+                    }
                     return MetadataViews.Display(
                         name: metadata["title"] ?? "Frightclub NFT",
                         description: metadata["description"] ?? "Official Frightclub NFT",
                         thumbnail: MetadataViews.HTTPFile(
-                            url: metadata["posterUrl"] 
-                                ?? "ipfs://bafybeichtxzrocxo7ec5qybfxxlyod5bbymblitjwb2aalv2iyhe42pk4e/Frightclub.jpg",
+                            url: url,
                         )
                     )
                 case Type<MetadataViews.Royalties>():
@@ -602,6 +612,31 @@ pub contract Beam: NonFungibleToken {
                             return <-Beam.createEmptyCollection()
                         })
                     )
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    return MetadataViews.NFTCollectionDisplay(
+                        name: "Frightclub",
+                        description: "Frightclub collection",
+                        externalURL: MetadataViews.ExternalURL(
+                            url: "https://frightclub.io"
+                        ),
+                        squareImage: MetadataViews.Media(
+                            file: MetadataViews.HTTPFile(
+                                url: "https://frightclub.niftory.com/fc_black_logo_round.svg",
+                            ),
+                            mediaType: "image/svg+xml"
+                        ),
+                        bannerImage: MetadataViews.Media(
+                            file: MetadataViews.HTTPFile(
+                                url: "https://frightclub.niftory.com/fc_black_logo_round.svg",
+                            ),
+                            mediaType: "image/svg+xml"
+                        ),
+                        socials: {}
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL(
+                        url: "https://frightclub.io"
+                    )
             }
             return nil
         }
@@ -618,7 +653,7 @@ pub contract Beam: NonFungibleToken {
             emit CollectibleMinted(collectibleID: self.id, collectibleItemID: collectibleItemID, setID: self.data.setID, serialNumber: self.data.serialNumber)
         }
 
-        // If the Collectible is destroyed, emit an event to indicate 
+        // If the Collectible is destroyed, emit an event to indicate
         // to outside observers that it has been destroyed
         destroy() {
             emit CollectibleDestroyed(id: self.id)
@@ -638,14 +673,14 @@ pub contract Beam: NonFungibleToken {
             // If the result isn't nil, the id of the returned reference
             // should be the same as the argument to the function
             post {
-                (result == nil) || (result?.id == id): 
+                (result == nil) || (result?.id == id):
                     "Cannot borrow Collectible reference: The ID of the returned reference is incorrect"
             }
         }
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver}
     }
 
-    // Collection is a resource that every user who owns NFTs 
+    // Collection is a resource that every user who owns NFTs
     // will store in their account to manage their NFTS
     pub resource Collection:
         BeamCollectionPublic,
@@ -653,7 +688,7 @@ pub contract Beam: NonFungibleToken {
         NonFungibleToken.Receiver,
         NonFungibleToken.CollectionPublic,
         MetadataViews.ResolverCollection
-    { 
+    {
         // Dictionary of Collectible conforming tokens
         // NFT is a resource type with a UInt64 ID field
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
@@ -664,18 +699,18 @@ pub contract Beam: NonFungibleToken {
 
         // withdraw removes an Collectible from the Collection and moves it to the caller
         //
-        // Parameters: withdrawID: The ID of the NFT 
+        // Parameters: withdrawID: The ID of the NFT
         // that is to be removed from the Collection
         //
         // returns: @NonFungibleToken.NFT the token that was withdrawn
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
 
             // Remove the nft from the Collection
-            let token <- self.ownedNFTs.remove(key: withdrawID) 
+            let token <- self.ownedNFTs.remove(key: withdrawID)
                 ?? panic("Cannot withdraw: Collectible does not exist in the collection")
 
             emit Withdraw(id: token.id, from: self.owner?.address)
-            
+
             // Return the withdrawn token
             return <-token
         }
@@ -689,12 +724,12 @@ pub contract Beam: NonFungibleToken {
         pub fun batchWithdraw(ids: [UInt64]): @NonFungibleToken.Collection {
             // Create a new empty Collection
             var batchCollection <- create Collection()
-            
+
             // Iterate through the ids and withdraw them from the Collection
             for id in ids {
                 batchCollection.deposit(token: <-self.withdraw(withdrawID: id))
             }
-            
+
             // Return the withdrawn tokens
             return <-batchCollection
         }
@@ -703,7 +738,7 @@ pub contract Beam: NonFungibleToken {
         //
         // Paramters: token: the NFT to be deposited in the collection
         pub fun deposit(token: @NonFungibleToken.NFT) {
-            
+
             // Cast the deposited token as a Beam NFT to make sure
             // it is the correct type
             let token <- token as! @Beam.NFT
@@ -714,7 +749,7 @@ pub contract Beam: NonFungibleToken {
             // Add the new token to the dictionary
             let oldToken <- self.ownedNFTs[id] <- token
 
-            // Only emit a deposit event if the Collection 
+            // Only emit a deposit event if the Collection
             // is in an account's storage
             if self.owner?.address != nil {
                 emit Deposit(id: id, to: self.owner?.address)
@@ -753,7 +788,7 @@ pub contract Beam: NonFungibleToken {
         // Returns: A reference to the NFT
         //
         // Note: This only allows the caller to read the ID of the NFT,
-        // not any Beam specific data. Please use borrowCollectible to 
+        // not any Beam specific data. Please use borrowCollectible to
         // read Collectible data.
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
             return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
@@ -794,7 +829,7 @@ pub contract Beam: NonFungibleToken {
     // -----------------------------------------------------------------------
     // Contract-level function definitions
     // -----------------------------------------------------------------------
-    
+
     // createEmptyCollection creates a new, empty Collection object so that
     // a user can store it in their account storage.
     // Once they have a Collection in their storage, they are able to receive
@@ -811,7 +846,7 @@ pub contract Beam: NonFungibleToken {
     }
 
     // getCollectibleItemMetaData returns all the metadata associated with a specific CollectibleItem
-    // 
+    //
     // Parameters: collectibleItemID: The id of the CollectibleItem that is being searched
     //
     // Returns: The metadata as a String to String mapping optional
@@ -820,7 +855,7 @@ pub contract Beam: NonFungibleToken {
     }
 
     // getCollectibleItemMetaData returns all the metadata associated with a specific CollectibleItem
-    // 
+    //
     // Parameters: collectibleItemID: The id of the CollectibleItem that is being searched
     //
     // Returns: The metadata as a String to String mapping optional
@@ -828,11 +863,11 @@ pub contract Beam: NonFungibleToken {
         return self.collectibleItemDatas[collectibleItemID]?.featuredArtists
     }
 
-    // getCollectibleItemMetaDataByField returns the metadata associated with a 
+    // getCollectibleItemMetaDataByField returns the metadata associated with a
     //                        specific field of the metadata
     //                        Ex: field: "name" will return something
     //                        like "Saynt LA"
-    // 
+    //
     // Parameters: collectibleItemID: The id of the CollectibleItem that is being searched
     //             field: The field to search for
     //
@@ -847,7 +882,7 @@ pub contract Beam: NonFungibleToken {
     }
 
     // getCollectibleItemsInSet returns the list of CollectibleItem IDs that are in the Set
-    // 
+    //
     // Parameters: setID: The id of the Set that is being searched
     //
     // Returns: An array of CollectibleItem IDs
@@ -860,7 +895,7 @@ pub contract Beam: NonFungibleToken {
     //                  (otherwise known as an edition) is retired.
     //                  If an edition is retired, it still remains in the Set,
     //                  but Collectibles can no longer be minted from it.
-    // 
+    //
     // Parameters: setID: The id of the Set that is being searched
     //             collectibleItemID: The id of the CollectibleItem that is being searched
     //
@@ -886,10 +921,10 @@ pub contract Beam: NonFungibleToken {
     }
 
     // isSetLocked returns a boolean that indicates if a Set
-    //             is locked. If it's locked, 
+    //             is locked. If it's locked,
     //             new CollectibleItems can no longer be added to it,
     //             but Collectibles can still be minted from CollectibleItems the set contains.
-    // 
+    //
     // Parameters: setID: The id of the Set that is being searched
     //
     // Returns: Boolean indicating if the Set is locked or not
@@ -898,13 +933,13 @@ pub contract Beam: NonFungibleToken {
         return Beam.sets[setID]?.locked
     }
 
-    // getNumCollectiblesInEdition return the number of Collectibles that have been 
+    // getNumCollectiblesInEdition return the number of Collectibles that have been
     //                        minted from a certain edition.
     //
     // Parameters: setID: The id of the Set that is being searched
     //             collectibleItemID: The id of the CollectibleItem that is being searched
     //
-    // Returns: The total number of Collectibles 
+    // Returns: The total number of Collectibles
     //          that have been minted from an edition
     pub fun getNumCollectiblesInEdition(setID: UInt32, collectibleItemID: UInt32): UInt32? {
         // Don't force a revert if the Set or collectibleItem ID is invalid
@@ -927,7 +962,7 @@ pub contract Beam: NonFungibleToken {
     // -----------------------------------------------------------------------
     // Contract initialization function
     // -----------------------------------------------------------------------
-    
+
     init() {
         // Initialize contract fields
         self.currentSeriesID = 0
@@ -945,7 +980,7 @@ pub contract Beam: NonFungibleToken {
         self.CollectionPublicPath = /public/BeamCollection001
         self.AdminStoragePath = /storage/BeamAdmin005
 
-        // Put a new Collection in storage 
+        // Put a new Collection in storage
         self.account.save<@Collection>(<- create Collection(), to: self.CollectionStoragePath)
 
         // Create a public capability for the Collection

@@ -1,6 +1,6 @@
 /*
     Description: Administrative Contract for SportsIcon NFT Collectibles
-    
+
     Exposes all functionality for an administrator of SportsIcon to
     make creations and modifications pertaining to SportsIcon Collectibles
 */
@@ -15,6 +15,7 @@ import SportsIconBeneficiaries from 0x8de96244f54db422
 import SportsIconCollectible from 0x8de96244f54db422
 import SportsIconPrimarySalePrices from 0x8de96244f54db422
 import TokenForwarding from 0xe544175ee0461c4b
+import SportsIconNFTStorefront from 0x03c8261a06cb1b42
 
 pub contract SportsIconManager {
     pub let ManagerStoragePath: StoragePath
@@ -27,6 +28,13 @@ pub contract SportsIconManager {
     pub event EditionMetadataUpdated(setID: UInt64, editionNumber: UInt64)
     pub event PublicSalePriceUpdated(setID: UInt64, fungibleTokenType: String, price: UFix64?)
     pub event PublicSaleTimeUpdated(setID: UInt64, startTime: UFix64?, endTime: UFix64?)
+    pub event PublicSaleUpdated(
+        setID: UInt64,
+        fungibleTokenType: String,
+        price: UFix64,
+        startTime: UFix64,
+        endTime: UFix64
+    )
 
     // Allows for access to where SportsIcon FUSD funds should head towards.
     // Mapping of `FungibleToken Identifier` -> `Receiver Capability`
@@ -50,6 +58,16 @@ pub contract SportsIconManager {
             let setID = SportsIconCollectible.addNFTSet(mediaURL: mediaURL, maxNumberOfEditions: maxNumberOfEditions, data: data,
                     mintBeneficiaries: mintBeneficiaries, marketBeneficiaries: marketBeneficiaries)
             return setID
+        }
+        /*
+            Set deletion
+        */
+        pub fun removeNFTSet(setID: UInt64) {
+            SportsIconCollectible.removeNFTSet(setID: setID)
+        }
+
+        pub fun updateMaxNumberOfEditions(setID: UInt64, maxNumberOfEditions: UInt64) {
+            SportsIconCollectible.updateMaxNumberOfEditions(setID: setID, maxNumberOfEditions: maxNumberOfEditions)
         }
 
         /*
@@ -97,7 +115,7 @@ pub contract SportsIconManager {
             SportsIconCollectible.updateEditionMetadata(setID: setID, editionNumber: editionNumber, metadata: metadata)
             emit EditionMetadataUpdated(setID: setID, editionNumber: editionNumber)
         }
-        
+
         /*
             Modification of a set's public sale settings
         */
@@ -126,10 +144,66 @@ pub contract SportsIconManager {
             )
         }
 
+        pub fun updatePublicSaleTime(setID: UInt64, startTime: UFix64?, endTime: UFix64?) {
+            SportsIconCollectible.updatePublicSaleStartTime(setID: setID, startTime: startTime)
+            SportsIconCollectible.updatePublicSaleEndTime(setID: setID, endTime: endTime)
+            let setMetadata = SportsIconCollectible.getMetadataForSetID(setID: setID)!
+
+            emit PublicSaleTimeUpdated(
+                setID: setID,
+                startTime: setMetadata.getPublicSaleStartTime(),
+                endTime: setMetadata.getPublicSaleEndTime()
+            )
+        }
+
+        pub fun updateDucPublicSale(
+            setID: UInt64,
+            creatorReceiverCap: Capability<&{FungibleToken.Receiver}>,
+            creatorAmount: UFix64,
+            sportsIconReceiverCap: Capability<&{FungibleToken.Receiver}>,
+            sportsIconAmount: UFix64,
+            totalPrice: UFix64,
+            startTime: UFix64,
+            endTime: UFix64,
+            maxNumberOfEditions: UInt64
+        ) {
+            let creatorCut = SportsIconNFTStorefront.SaleCut(
+                receiver: creatorReceiverCap,
+                amount: creatorAmount
+            )
+            let sportsIconCut = SportsIconNFTStorefront.SaleCut(
+                receiver: sportsIconReceiverCap,
+                amount: sportsIconAmount
+            )
+
+            let primarySaleListing = SportsIconPrimarySalePrices.PrimarySaleListing(
+                totalPrice: totalPrice,
+                saleCuts: [ sportsIconCut, creatorCut ]
+            )
+
+            // Unset public sale price for other currencies that are supported
+            // to ensure we don't have multiple set at once.
+            self.updateICONSPublicSalePrice(setID: setID, primarySaleListing: nil)
+            self.updateFLOWPublicSalePrice(setID: setID, price: nil)
+            self.updateFUSDPublicSalePrice(setID: setID, price: nil)
+
+            self.updateDUCPublicSalePrice(setID: setID, primarySaleListing: primarySaleListing)
+            self.updatePublicSaleTime(setID: setID, startTime: startTime, endTime: endTime)
+            self.updateMaxNumberOfEditions(setID: setID, maxNumberOfEditions: maxNumberOfEditions)
+
+            emit PublicSaleUpdated(
+                setID: setID,
+                fungibleTokenType: "DUC",
+                price: totalPrice,
+                startTime: startTime,
+                endTime: endTime
+            )
+        }
+
         /* Minting functions */
         // Mint a single next edition NFT
         access(self) fun mintSequentialEditionNFT(setID: UInt64): @SportsIconCollectible.NFT {
-            return <-SportsIconCollectible.mintSequentialEditionNFT(setID: setID) 
+            return <-SportsIconCollectible.mintSequentialEditionNFT(setID: setID)
         }
 
         // Mint many editions of NFTs
@@ -263,6 +337,7 @@ pub contract SportsIconManager {
             pre {
                 SportsIconPrimarySalePrices.getListing(setID: setID, currency: "ICONS") != nil :
                     "Public sale price not set for this set"
+                SportsIconPrimarySalePrices.getListing(setID: setID, currency: "ICONS")!.totalPrice > 0.0 : "Public sale price should be higher than 0"
             }
             let iconsVault <- vault as! @IconsToken.Vault
             let primarySaleListing = SportsIconPrimarySalePrices.getListing(setID: setID, currency: "ICONS")!
@@ -276,12 +351,25 @@ pub contract SportsIconManager {
             pre {
                 SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC") != nil :
                     "Public sale price not set for this set"
+                SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC")!.totalPrice > 0.0 : "Public sale price should be higher than 0"
             }
-            let ducVault <- vault as! @DapperUtilityCoin.Vault
-            let primarySaleListing = SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC")!
-            let paymentReceiver = SportsIconManager.adminPaymentReceivers["DUC"]!
-            return <-self.mintNftForPrimarySale(setID: setID, quantity: quantity, paymentVault: <-ducVault, primarySaleListing: primarySaleListing,
-                            paymentReceiver: paymentReceiver)
+            return <- self.mintNftForPrimarySale(
+                setID: setID,
+                quantity: quantity,
+                paymentVault: <- (vault as! @DapperUtilityCoin.Vault),
+                primarySaleListing: SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC")!,
+                paymentReceiver: SportsIconManager.adminPaymentReceivers["DUC"]!
+            )
+        }
+
+        pub fun mintNftForGiveawayWithDUC(setID: UInt64): @SportsIconCollectible.NFT {
+            pre {
+                SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC") != nil :
+                    "Public sale price not set for this set"
+                SportsIconPrimarySalePrices.getListing(setID: setID, currency: "DUC")!.totalPrice == 0.0 : "Public sale price should equal 0"
+            }
+
+            return <- self.mintSequentialEditionNFT(setID: setID)
         }
     }
 

@@ -338,7 +338,8 @@ pub contract DayNFT: NonFungibleToken {
                 Type<MetadataViews.ExternalURL>(),
                 Type<MetadataViews.NFTCollectionData>(),
                 Type<MetadataViews.NFTCollectionDisplay>(),
-                Type<MetadataViews.Serial>()
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>()
             ]
         }
 
@@ -366,7 +367,7 @@ pub contract DayNFT: NonFungibleToken {
                     )
 
                 case Type<MetadataViews.Royalties>():
-                    let royalty = MetadataViews.Royalty(recepient: DayNFT.account.getCapability<&AnyResource{FungibleToken.Receiver}>(/public/flowTokenReceiver), cut: 0.05, description: "Default royalty")
+                    let royalty = MetadataViews.Royalty(recepient: DayNFT.account.getCapability<&AnyResource{FungibleToken.Receiver}>(DayNFT.AdminPublicPath), cut: 0.1, description: "Default royalty")
                     return MetadataViews.Royalties([royalty])
 
                 case Type<MetadataViews.ExternalURL>():
@@ -404,6 +405,29 @@ pub contract DayNFT: NonFungibleToken {
                             "twitter": MetadataViews.ExternalURL("https://twitter.com/day_nft_io")
                         }
                     )
+
+                case Type<MetadataViews.Traits>():
+                    let rarityScore = (1.0 - UFix64(self.id + 1) / UFix64(DayNFT.totalSupply)) * 100.0
+                    var rarityDesc = "Common"
+                    if rarityScore > 80.0 {
+                        rarityDesc = "Historic"
+                    } else if rarityScore > 50.0 {
+                        rarityDesc = "Vintage"
+                    } else if rarityScore > 30.0 {
+                        rarityDesc = "Classical"
+                    }
+                    if self.id < 20 {
+                        rarityDesc = "OG"
+                    }
+                    let ageRarity = MetadataViews.Rarity(score: rarityScore, max: 100.0, description: rarityDesc)
+
+                    let mintedDayTrait = MetadataViews.Trait(name: "Mint Day", value: self.dateStr, displayType: "String", rarity: ageRarity)
+
+                    let mintedMonthTrait = MetadataViews.Trait(name: "Mint Month", value: self.dateStr.slice(from: 3, upTo: 10), displayType: "String", rarity: nil)
+
+                    let traits = MetadataViews.Traits([mintedDayTrait, mintedMonthTrait])
+
+                    return traits
             }
 
             return nil

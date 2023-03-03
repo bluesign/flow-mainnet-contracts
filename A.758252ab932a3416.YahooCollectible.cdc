@@ -1,3 +1,4 @@
+import FungibleToken from 0xf233dcee88fe0abe
 import NonFungibleToken from 0x1d7e57aa55817448
 import MetadataViews from 0x1d7e57aa55817448
 
@@ -94,10 +95,111 @@ pub contract YahooCollectible: NonFungibleToken {
             return YahooCollectible.itemMetadata[self.itemID]
         }
 
+        pub fun getRoyalties(): MetadataViews.Royalties {
+            var royalties: [MetadataViews.Royalty] = []
+            let receiver = getAccount(0xfcf3a236f4cd7dbc).getCapability<&FungibleToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+
+            royalties.append(
+                MetadataViews.Royalty(
+                    receiver: receiver,
+                    cut: 0.1,
+                    description: "Royalty receiver for Yahoo"
+                )
+            )
+
+            return MetadataViews.Royalties(
+                royalties
+            )
+        }
+
+        pub fun getEditions(): MetadataViews.Editions {
+            let metadata = self.getMetadata() ?? panic("missing metadata")
+
+            let editionInfo = MetadataViews.Edition(name: metadata.name, number: self.editionNumber, max: metadata.itemCount)
+            let editionList: [MetadataViews.Edition] = [editionInfo]
+
+            return MetadataViews.Editions(
+                editionList
+            )
+        }
+
+        pub fun getExternalURL(): MetadataViews.ExternalURL {
+            return MetadataViews.ExternalURL("https://bay.blocto.app/flow/yahoo/".concat(self.id.toString()))
+        }
+
+        pub fun getCollectionData(): MetadataViews.NFTCollectionData {
+            return MetadataViews.NFTCollectionData(
+                storagePath: YahooCollectible.CollectionStoragePath,
+                publicPath: YahooCollectible.CollectionPublicPath,
+                providerPath: /private/yahooCollectibleCollection,
+                publicCollection: Type<&YahooCollectible.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, YahooCollectible.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                publicLinkedType: Type<&YahooCollectible.Collection{NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, YahooCollectible.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                providerLinkedType: Type<&YahooCollectible.Collection>(),
+                createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                    return <-YahooCollectible.createEmptyCollection()
+                })
+            )
+        }
+
+        pub fun getCollectionDisplay(): MetadataViews.NFTCollectionDisplay {
+            let squareImage = MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                    url: "https://raw.githubusercontent.com/portto/assets/main/nft/flow/yahoo/logo.png"
+                ),
+                mediaType: "image/png"
+            )
+
+            let bannerImager = MetadataViews.Media(
+                file: MetadataViews.HTTPFile(
+                    url: "https://raw.githubusercontent.com/portto/assets/main/nft/flow/yahoo/banner.png"
+                ),
+                mediaType: "image/png"
+            )
+
+            return MetadataViews.NFTCollectionDisplay(
+                name: "Yahoo",
+                description: "NFT collection of Yahoo Taiwan",
+                externalURL: MetadataViews.ExternalURL("https://bay.blocto.app/market?collections=yahoo"),
+                squareImage: squareImage,
+                bannerImage: bannerImager,
+                socials: {
+                    "twitter": MetadataViews.ExternalURL("https://twitter.com/Yahoo")
+                }
+            )
+        }
+
+        pub fun getTraits(): MetadataViews.Traits {
+            let metadata = self.getMetadata() ?? panic("missing metadata")
+
+            return MetadataViews.dictToTraits(dict: metadata.getAdditional(), excludedNames: [])
+        }
+
+        pub fun getMedias(): MetadataViews.Medias {
+            let metadata = self.getMetadata() ?? panic("missing metadata")
+
+            let file = MetadataViews.IPFSFile(
+                cid: metadata.mediaHash,
+                path: nil
+            )
+            let mediaInfo = MetadataViews.Media(file: file, mediaType: metadata.mediaType)
+            let mediaList: [MetadataViews.Media] = [mediaInfo]
+
+            return MetadataViews.Medias(
+                mediaList
+            )
+        }
+
         pub fun getViews(): [Type] {
             return [
                 Type<MetadataViews.Display>(),
-                Type<MetadataViews.IPFSFile>()
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.IPFSFile>(),
+                Type<MetadataViews.Traits>(),
+                Type<MetadataViews.Medias>()
             ]
         }
 
@@ -114,12 +216,33 @@ pub contract YahooCollectible: NonFungibleToken {
                             path: nil
                         )
                     )
+
+                case Type<MetadataViews.Royalties>():
+                    return self.getRoyalties()
+
+                case Type<MetadataViews.Editions>():
+                    return self.getEditions()
+                
+                case Type<MetadataViews.ExternalURL>():
+                    return self.getExternalURL()
+
+                case Type<MetadataViews.NFTCollectionData>():
+                    return self.getCollectionData()
+    
+                case Type<MetadataViews.NFTCollectionDisplay>():
+                    return self.getCollectionDisplay()
             
                 case Type<MetadataViews.IPFSFile>():
                     return MetadataViews.IPFSFile(
                         cid: self.getMetadata()!.mediaHash,
                         path: nil
                     )
+
+                case Type<MetadataViews.Traits>():
+                    return self.getTraits()
+
+                case Type<MetadataViews.Medias>():
+                    return self.getMedias()
             }
 
             return nil
@@ -143,7 +266,7 @@ pub contract YahooCollectible: NonFungibleToken {
     // Collection
     // A collection of YahooCollectible NFTs owned by an account
     //
-    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectionPublic {
+    pub resource Collection: NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, CollectionPublic, MetadataViews.ResolverCollection {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
         //
@@ -204,6 +327,16 @@ pub contract YahooCollectible: NonFungibleToken {
             } else {
                 return nil
             }
+        }
+
+        // borrowViewResolver
+        // Gets a reference to an MetadataView.Resolver in the collection as a YahooCollectible.
+        // This is safe as there are no functions that can be called on the YahooCollectible.
+        //
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let exampleNFT = nft as! &YahooCollectible.NFT
+            return exampleNFT as &AnyResource{MetadataViews.Resolver}
         }
 
         // destructor

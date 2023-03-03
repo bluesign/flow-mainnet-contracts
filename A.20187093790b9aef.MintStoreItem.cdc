@@ -24,18 +24,23 @@
 */
 
 // import NonFungibleToken from "./NonFungibleToken.cdc"
+// import FungibleToken from "./FungibleToken.cdc"
 // import MetadataViews from "./MetadataViews.cdc"
 
 // for tests
-// import NonFungibleToken from NonFungibleToken
-// import MetadataViews from MetadataViews
+// import NonFungibleToken from "0xNonFungibleToken"
+// import FungibleToken from "0xFungibleToken"
+// import MetadataViews from "0xMetadataViews"
 
 // for testnet
+
 // import NonFungibleToken from 0x631e88ae7f1d7c20
+// import FungibleToken from 0x9a0766d93b6608b7
 // import MetadataViews from 0x631e88ae7f1d7c20
 
 // for mainnet
 import NonFungibleToken from 0x1d7e57aa55817448
+// import FungibleToken from 0xf233dcee88fe0abe
 import MetadataViews from 0x1d7e57aa55817448
 
 
@@ -378,7 +383,14 @@ pub contract MintStoreItem: NonFungibleToken {
 
         pub fun getViews(): [Type] {
             return [
-                Type<MetadataViews.Display>()
+                Type<MetadataViews.Display>(),
+                Type<MetadataViews.Royalties>(),
+                Type<MetadataViews.Editions>(),
+                Type<MetadataViews.ExternalURL>(),
+                Type<MetadataViews.NFTCollectionData>(),
+                Type<MetadataViews.NFTCollectionDisplay>(),
+                Type<MetadataViews.Serial>(),
+                Type<MetadataViews.Traits>()
             ]
         }
 
@@ -394,6 +406,81 @@ pub contract MintStoreItem: NonFungibleToken {
                             url: edition.metadata["thumbnail"] ?? ""
                         )
                     )
+                case Type<MetadataViews.Editions>():
+                    // There is no max number of NFTs that can be minted from this contract
+                    // so the max edition field value is set to nil
+                    let edition = EditionData(editionID: self.data.editionID);
+                    let maxNumber = edition.printingLimit ?? nil
+                    var max: UInt64? = nil;
+                    if maxNumber != nil {
+                     max = UInt64(maxNumber!)
+                    }
+                      
+
+                    let editionInfo = MetadataViews.Edition(name: edition.name, number: UInt64(self.data.editionNumber), max:max)
+                    let editionList: [MetadataViews.Edition] = [editionInfo]
+                    return MetadataViews.Editions(
+                        editionList
+                    )
+                
+                case Type<MetadataViews.Royalties>():
+                
+                  // TODO: add Royalties to editionData.
+                  // For now, we have royalty address and royalty percentage in the metadata
+                  // However, we have issues converting the String to Address and to UFix64
+                  return MetadataViews.Royalties([])
+
+                case Type<MetadataViews.ExternalURL>():
+                    let edition = EditionData(editionID: self.data.editionID);
+                    let url = edition.metadata["externalUrl"] ?? "";
+                    return MetadataViews.ExternalURL(url)
+
+                case Type<MetadataViews.NFTCollectionData>():
+                    return  MetadataViews.NFTCollectionData(
+                        storagePath: MintStoreItem.CollectionStoragePath,
+                        publicPath: MintStoreItem.CollectionPublicPath,
+                        providerPath: /private/MintStoreItemCollection,
+                        publicCollection: Type<&MintStoreItem.Collection{MintStoreItem.MintStoreItemCollectionPublic}>(),
+                        publicLinkedType: Type<&MintStoreItem.Collection{MintStoreItemCollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&MintStoreItem.Collection{MintStoreItemCollectionPublic,NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-MintStoreItem.createEmptyCollection()
+                        })
+                    )
+                
+                case Type<MetadataViews.NFTCollectionDisplay>():
+
+                    let edition = EditionData(editionID: self.data.editionID);
+                    let merchantName = MintStoreItem.merchants[self.data.merchantID]!
+                    let thumbnail = edition.metadata["thumbnail"] ?? "";
+                    let media = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: thumbnail
+                        ),
+                        mediaType: "image/png"
+                    )
+                    let url = edition.metadata["externalUrl"] ?? "";
+                    let description = edition.metadata["description"] ?? "";
+
+                    
+                return MetadataViews.NFTCollectionDisplay(
+                    name: merchantName,
+                    description: description,
+                    externalURL: MetadataViews.ExternalURL(url),
+                    squareImage: media,
+                    bannerImage: media,
+                    socials: {}
+                )
+
+                case Type<MetadataViews.Traits>():
+                    // exclude mintedTime and foo to show other uses of Traits
+                    let excludedTraits = ["name", "description", "thumbnail", "externalUrl"]
+                    let edition = EditionData(editionID: self.data.editionID);
+                    let traitsView = MetadataViews.dictToTraits(dict: edition.metadata, excludedNames: excludedTraits)
+                    
+                    return traitsView
+
+
             }
 
             return nil
@@ -564,7 +651,7 @@ pub contract MintStoreItem: NonFungibleToken {
     // Collection is a resource that every user who owns NFTs 
     // will store in their account to manage their NFTS
     //
-    pub resource Collection: MintStoreItemCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic { 
+    pub resource Collection: MintStoreItemCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection { 
         // Dictionary of MintStore conforming tokens
         // NFT is a resource type with a UInt64 ID field
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
@@ -698,6 +785,14 @@ pub contract MintStoreItem: NonFungibleToken {
                 return nil
             }
         }
+
+
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            let MintStoreItemNFT = nft as! &MintStoreItem.NFT
+            return MintStoreItemNFT as &AnyResource{MetadataViews.Resolver}
+        }
+
 
         // If a transaction destroys the Collection object,
         // All the NFTs contained within are also destroyed

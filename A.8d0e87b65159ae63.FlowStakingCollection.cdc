@@ -366,7 +366,7 @@ pub contract FlowStakingCollection {
             }
             
             if self.nodeDelegators[nodeID] != nil {
-                let delegatorRef = &self.nodeDelegators[nodeID] as? &FlowIDTableStaking.NodeDelegator
+                let delegatorRef = (&self.nodeDelegators[nodeID] as &FlowIDTableStaking.NodeDelegator?)!
                 if delegatorRef.id == delegatorID { 
                     let stakingInfo = FlowIDTableStaking.DelegatorInfo(nodeID: nodeID, delegatorID: delegatorID)
                     let totalStaked = stakingInfo.totalTokensInRecord() - stakingInfo.tokensRewarded
@@ -477,7 +477,7 @@ pub contract FlowStakingCollection {
                 self.doesStakeExist(nodeID: nodeID, delegatorID: nil): "Cannot add a machine account record for a node that you do not own"
             }
 
-            let nodeInfo = FlowIDTableStaking.NodeInfo(nodeID)
+            let nodeInfo = FlowIDTableStaking.NodeInfo(nodeID: nodeID)
 
             // Make sure that the QC or DKG object in the machine account is correct for this node ID
 
@@ -580,7 +580,7 @@ pub contract FlowStakingCollection {
         /// Borrows a reference to a node in the collection
         access(self) fun borrowNode(_ nodeID: String): &FlowIDTableStaking.NodeStaker? {
             if self.nodeStakers[nodeID] != nil {
-                return &self.nodeStakers[nodeID] as? &FlowIDTableStaking.NodeStaker
+                return &self.nodeStakers[nodeID] as &FlowIDTableStaking.NodeStaker?
             } else {
                 return nil
             }
@@ -589,7 +589,7 @@ pub contract FlowStakingCollection {
         /// Borrows a reference to a delegator in the collection
         access(self) fun borrowDelegator(nodeID: String, delegatorID: UInt32): &FlowIDTableStaking.NodeDelegator? {
             if self.nodeDelegators[nodeID] != nil {
-                let delegatorRef = &self.nodeDelegators[nodeID] as? &FlowIDTableStaking.NodeDelegator
+                let delegatorRef = (&self.nodeDelegators[nodeID] as &FlowIDTableStaking.NodeDelegator?)!
                 if delegatorRef.id == delegatorID { return delegatorRef } else { return nil }
             } else {
                 return nil

@@ -24,7 +24,7 @@ pub contract FlovatarComponent: NonFungibleToken {
     pub event ContractInitialized()
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
-    pub event Created(id: UInt64, templateId: UInt64)
+    pub event Created(id: UInt64, templateId: UInt64, mint: UInt64)
     pub event Destroyed(id: UInt64, templateId: UInt64)
 
     // The public interface provides all the basic informations about
@@ -47,7 +47,7 @@ pub contract FlovatarComponent: NonFungibleToken {
         pub let schema: String?
     }
 
-    
+
     // The NFT resource that implements the Public interface as well
     pub resource NFT: NonFungibleToken.INFT, Public, MetadataViews.Resolver {
         pub let id: UInt64
@@ -133,9 +133,10 @@ pub contract FlovatarComponent: NonFungibleToken {
             views.append(Type<MetadataViews.Edition>())
             views.append(Type<MetadataViews.ExternalURL>())
             views.append(Type<MetadataViews.Serial>())
+            views.append(Type<MetadataViews.Traits>())
             return views
         }
-        
+
         pub fun resolveView(_ type: Type): AnyStruct? {
 
             if type == Type<MetadataViews.ExternalURL>() {
@@ -146,7 +147,7 @@ pub contract FlovatarComponent: NonFungibleToken {
 
             if type == Type<MetadataViews.Royalties>() {
                 let royalties : [MetadataViews.Royalty] = []
-                royalties.append(MetadataViews.Royalty(recepient: FlovatarComponent.account.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver), cut: 0.05, description: "Flovatar Royalty"))
+                royalties.append(MetadataViews.Royalty(receiver: FlovatarComponent.account.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver), cut: 0.05, description: "Flovatar Royalty"))
                 return MetadataViews.Royalties(cutInfos: royalties)
             }
 
@@ -178,7 +179,7 @@ pub contract FlovatarComponent: NonFungibleToken {
                     mediaType: "image/svg+xml"
                 )
                 return MetadataViews.NFTCollectionDisplay(
-                    name: "Flovatar",
+                    name: "Flovatar Component",
                     description: "Flovatar is pioneering a new way to unleash community creativity in Web3 by allowing users to be co-creators of their prized NFTs, instead of just being passive collectors.",
                     externalURL: MetadataViews.ExternalURL("https://flovatar.com"),
                     squareImage: mediaSquare,
@@ -212,6 +213,21 @@ pub contract FlovatarComponent: NonFungibleToken {
                         url: "https://flovatar.com/api/image/template/".concat(self.templateId.toString())
                     )
                 )
+            }
+
+            if type == Type<MetadataViews.Traits>() {
+                let traits: [MetadataViews.Trait] = []
+
+                let template = self.getTemplate()
+                let trait = MetadataViews.Trait(name: template.category, value: template.name, displayType:"String", rarity: MetadataViews.Rarity(score:nil, max:nil, description: template.rarity))
+                traits.append(trait)
+
+                return MetadataViews.Traits(traits)
+            }
+
+            if type == Type<MetadataViews.Rarity>() {
+                let template = self.getTemplate()
+                return MetadataViews.Rarity(score: nil, max: nil, description: template.rarity)
             }
 
             return nil
@@ -309,7 +325,7 @@ pub contract FlovatarComponent: NonFungibleToken {
         return <- create Collection()
     }
 
-    // This struct is used to send a data representation of the Components 
+    // This struct is used to send a data representation of the Components
     // when retrieved using the contract helper methods outside the collection.
     pub struct ComponentData {
         pub let id: UInt64
@@ -377,8 +393,8 @@ pub contract FlovatarComponent: NonFungibleToken {
         return componentData
     }
 
-    // This method can only be called from another contract in the same account. 
-    // In FlovatarComponent case it is called from the Flovatar Admin that is used 
+    // This method can only be called from another contract in the same account.
+    // In FlovatarComponent case it is called from the Flovatar Admin that is used
     // to administer the components.
     // The only parameter is the parent Template ID and it will return a Component NFT resource
     access(account) fun createComponent(templateId: UInt64) : @FlovatarComponent.NFT {
@@ -390,9 +406,9 @@ pub contract FlovatarComponent: NonFungibleToken {
         if(totalMintedComponents >= componentTemplate.maxMintableComponents) {
             panic("Reached maximum mintable components for this type")
         }
-        
+
         var newNFT <- create NFT(templateId: templateId)
-        emit Created(id: newNFT.id, templateId: templateId)
+        emit Created(id: newNFT.id, templateId: templateId, mint: newNFT.mint)
 
         return <- newNFT
     }

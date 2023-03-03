@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Unlicense
 
-import NonFungibleToken, MetadataViews from 0x1d7e57aa55817448
-import ARTIFACTV2, ARTIFACTPackV2, Interfaces from 0x24de869c5e40b2eb
+import ARTIFACTPackV3 from 0x24de869c5e40b2eb
+import ARTIFACTV2 from 0x24de869c5e40b2eb
+import Interfaces from 0x24de869c5e40b2eb
+import NonFungibleToken from 0x1d7e57aa55817448
+import MetadataViews from 0x1d7e57aa55817448
 
 pub contract ARTIFACTAdminV2: Interfaces {
 
@@ -52,10 +55,10 @@ pub contract ARTIFACTAdminV2: Interfaces {
     pub fun openPack(userPack: &{Interfaces.IPack}, packID: UInt64, owner: Address, royalties: [MetadataViews.Royalty], packOption: {Interfaces.IPackOption}?): @[NonFungibleToken.NFT] {
       pre {
           !userPack.isOpen : "User Pack must be closed"    
-          !ARTIFACTPackV2.checkPackTemplateLockStatus(packTemplateId: userPack.templateId): "pack template is locked"
+          !ARTIFACTPackV3.checkPackTemplateLockStatus(packTemplateId: userPack.templateId): "pack template is locked"
       }
 
-      let packTemplate = ARTIFACTPackV2.getPackTemplate(templateId: userPack.templateId)! 
+      let packTemplate = ARTIFACTPackV3.getPackTemplate(templateId: userPack.templateId)! 
       var nfts: @[NonFungibleToken.NFT] <- []
 
       if packOption!.options.length > 19 {
@@ -69,7 +72,7 @@ pub contract ARTIFACTAdminV2: Interfaces {
         i = i + 1
       } 
 
-      ARTIFACTPackV2.updatePackTemplate(packTemplate: packTemplate)
+      ARTIFACTPackV3.updatePackTemplate(packTemplate: packTemplate)
 
       return <- nfts
     }
@@ -80,9 +83,18 @@ pub contract ARTIFACTAdminV2: Interfaces {
     // Parameters: lockStatus: The lock status of pack template
     //
     pub fun updateLockStatus(packTemplateId: UInt64, lockStatus: Bool) {
-      ARTIFACTPackV2.updateLockStatus(packTemplateId: packTemplateId, lockStatus: lockStatus)
+      ARTIFACTPackV3.updateLockStatus(packTemplateId: packTemplateId, lockStatus: lockStatus)
     }
 
+    // addPackOptions to add pack options to a pack template
+    //
+    // Parameters: packTemplateId: The pack template ID
+    // Parameters: packsAvailable: The pack options
+    //
+    pub fun addPackOptions(packTemplateId: UInt64, packsAvailable: [ARTIFACTPackV3.PackOption]) {
+      ARTIFACTPackV3.addPackOptions(packTemplateId: packTemplateId, packsAvailable: packsAvailable)
+    }
+    
     // createPack create a new Pack NFT 
     //
     // Parameters: packTemplate: The pack template with all information
@@ -92,7 +104,7 @@ pub contract ARTIFACTAdminV2: Interfaces {
     //
     // returns: @NonFungibleToken.NFT the pack that was created
     pub fun createPack(packTemplate: {Interfaces.IPackTemplate}, adminRef: Capability<&{Interfaces.ARTIFACTAdminOpener}>, owner: Address, listingID: UInt64, royalties: [MetadataViews.Royalty]) : @NonFungibleToken.NFT {
-      return <- ARTIFACTPackV2.createPack(packTemplate: packTemplate, adminRef: adminRef, owner: owner, listingID: listingID, royalties: royalties)
+      return <- ARTIFACTPackV3.createPack(packTemplate: packTemplate, adminRef: adminRef, owner: owner, listingID: listingID, royalties: royalties)
     }
 
     // createPackTemplate create a new PackTemplate
@@ -103,8 +115,8 @@ pub contract ARTIFACTAdminV2: Interfaces {
     // Parameters: packsAvailable: The available pack options 
     //
     // returns: UInt64 the new pack template ID 
-    pub fun createPackTemplate(metadata: {String: String}, totalSupply: UInt64, maxQuantityPerTransaction: UInt64, packsAvailable: [ARTIFACTPackV2.PackOption]) : UInt64 {
-      var newPackTemplate = ARTIFACTPackV2.createPackTemplate(metadata: metadata, totalSupply: totalSupply, maxQuantityPerTransaction: maxQuantityPerTransaction, packsAvailable: packsAvailable)
+    pub fun createPackTemplate(metadata: {String: String}, totalSupply: UInt64, maxQuantityPerTransaction: UInt64) : UInt64 {
+      var newPackTemplate = ARTIFACTPackV3.createPackTemplate(metadata: metadata, totalSupply: totalSupply, maxQuantityPerTransaction: maxQuantityPerTransaction)
 
       return newPackTemplate.templateId
     }
@@ -123,6 +135,10 @@ pub contract ARTIFACTAdminV2: Interfaces {
       artifactCollection.revealNFT(id: nftId, metadata: metadata, edition: edition, rarity: rarity)
     }
 
+    pub fun removeOnePackOption(templateId: UInt64) : ARTIFACTPackV3.PackOption {
+      let packTemplate = ARTIFACTPackV3.getPackTemplate(templateId: templateId)! 
+      return ARTIFACTPackV3.getTemplateIdsFromPacksAvailable(packTemplate: packTemplate)
+    }
   }
 
   pub resource SuperAdmin {

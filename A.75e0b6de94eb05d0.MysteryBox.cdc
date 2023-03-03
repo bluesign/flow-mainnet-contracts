@@ -1,9 +1,6 @@
 import NonFungibleToken from 0x1d7e57aa55817448
 import NyatheesOVO from 0x75e0b6de94eb05d0
 
-// import NonFungibleToken from 0xacf3dfa413e00f9f
-// import NyatheesOVO from 0xacf3dfa413e00f9f
-
 import FungibleToken from 0xf233dcee88fe0abe
 import FUSD from 0x3c5959b568896393
 

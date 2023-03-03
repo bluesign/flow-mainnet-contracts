@@ -4,7 +4,7 @@ import NonFungibleToken from 0x1d7e57aa55817448
 // NFTStorefront
 //
 // A general purpose sale support contract for Flow NonFungibleTokens.
-// 
+//
 // Each account that wants to list NFTs for sale installs a Storefront,
 // and lists individual sales within that Storefront as Listings.
 // There is one Storefront per account, it handles sales of all NFT types
@@ -15,7 +15,7 @@ import NonFungibleToken from 0x1d7e57aa55817448
 // or other considerations.
 // Each NFT may be listed in one or more Listings, the validity of each
 // Listing can easily be checked.
-// 
+//
 // Purchasers can watch for Listing events and check the NFT type and
 // ID to see if they wish to buy the listed item.
 // Marketplaces and other aggregators can watch for Listing events
@@ -37,7 +37,7 @@ pub contract SportsIconNFTStorefront {
     // ListingAvailable events can be used to determine the address
     // of the owner of the Storefront (...its location) at the time of
     // the listing but only at that precise moment in that precise transaction.
-    // If the seller moves the Storefront while the listing is valid, 
+    // If the seller moves the Storefront while the listing is valid,
     // that is on them.
     //
     pub event StorefrontInitialized(storefrontResourceID: UInt64)
@@ -215,7 +215,7 @@ pub contract SportsIconNFTStorefront {
     // Listing
     // A resource that allows an NFT to be sold for an amount of a given FungibleToken,
     // and for the proceeds of that sale to be split between several recipients.
-    // 
+    //
     pub resource Listing: ListingPublic {
         // The simple (non-Capability, non-complex) details of the sale
         access(self) let details: ListingDetails
@@ -465,7 +465,7 @@ pub contract SportsIconNFTStorefront {
         pub fun removeListing(listingResourceID: UInt64) {
             let listing <- self.listings.remove(key: listingResourceID)
                 ?? panic("missing Listing")
-    
+
             // This will emit a ListingCompleted event.
             destroy listing
         }
